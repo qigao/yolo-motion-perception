@@ -86,6 +86,36 @@ Expected scenario classes include:
 - monotonic bbox shrink → `stationary / receding`
 - one-frame bbox scale spike → `stationary / stable`
 
+## Capture the first fixed-camera benchmark clips
+
+Use the optional OpenCV runtime to record the four highest-value V1 scenes with consistent names and metadata:
+
+```bash
+python scripts/capture_scenario.py --scenario stationary
+python scripts/capture_scenario.py --scenario lateral_crossing
+python scripts/capture_scenario.py --scenario approaching
+python scripts/capture_scenario.py --scenario pose_change
+```
+
+Each command performs a visible 3-second countdown, records 8 seconds from camera `0`, and writes:
+
+```text
+benchmarks/videos/<scenario>.mp4
+benchmarks/videos/<scenario>.json
+```
+
+The JSON sidecar records the camera index, requested/actual duration, FPS, frame size, frame count, and UTC start time. Existing outputs are refused by default; use `--overwrite` deliberately when replacing a take. Override capture parameters when needed, for example:
+
+```bash
+python scripts/capture_scenario.py \
+  --scenario approaching \
+  --camera 1 \
+  --duration 10 \
+  --countdown 3
+```
+
+Video files remain ignored by git. Keep the sidecar metadata when comparing capture conditions across scenes. Follow `benchmarks/PROTOCOL.md` before recording.
+
 ## Run on a video or camera
 
 ```bash

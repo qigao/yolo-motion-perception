@@ -12,6 +12,21 @@ This protocol exists to measure the bbox-temporal baseline before adding depth o
 - Do not stage unsafe near-collisions; “approaching” only needs a clear monotonic scale increase.
 - Do not use digital stabilization, digital zoom, or post-capture cropping that changes scale over time.
 
+## Recommended capture command
+
+For the first four discriminative scenes, the repository provides a fixed-camera recorder:
+
+```bash
+python scripts/capture_scenario.py --scenario stationary
+python scripts/capture_scenario.py --scenario lateral_crossing
+python scripts/capture_scenario.py --scenario approaching
+python scripts/capture_scenario.py --scenario pose_change
+```
+
+Defaults are camera `0`, a visible 3-second countdown, and 8 seconds of recording. Use the same camera and capture setup across the first batch. Each take writes an MP4 plus a JSON sidecar under `benchmarks/videos/`. The sidecar records FPS, dimensions, frame count, timing, and camera index so capture conditions can be audited later. Existing takes are protected unless `--overwrite` is explicitly supplied.
+
+The four-scene batch is intentionally first: `stationary` and `lateral_crossing` establish non-radial controls, `approaching` is the positive radial case, and `pose_change` is the key negative control for bbox-scale false positives. Record the remaining four scenarios only after this first batch has produced a baseline.
+
 ## Scenario definitions
 
 | Scenario | Required behavior | Expected state |
