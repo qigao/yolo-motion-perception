@@ -15,6 +15,9 @@ from neural_state_machine.reward_learning import (
     _build_fixtures,
     _decision_hidden,
     _evaluate,
+    _run_once,
+    _train_normal,
+    _train_shuffled,
 )
 from neural_state_machine.reward_readout import RewardModulatedReadout
 
@@ -307,3 +310,249 @@ def test_evaluation_preserves_frozen_policy_and_readout() -> None:
     assert len(reset.choice_digest) == 64
     with pytest.raises(FrozenInstanceError):
         recurrent.overall = AccuracyCount(1, 1)
+
+
+
+class _TrainingReadout:
+    def __init__(self, actions: tuple[int, ...]) -> None:
+        self._actions = iter(actions)
+        self.selection_calls: list[tuple[np.ndarray, tuple[int, int], object]] = []
+        self.rewards: list[float] = []
+        self._pending = False
+
+    @property
+    def has_pending_feedback(self) -> bool:
+        return self._pending
+
+    def select_for_training(
+        self,
+        hidden: np.ndarray,
+        legal: tuple[int, int],
+        rng: np.random.Generator,
+    ) -> SimpleNamespace:
+        self.selection_calls.append((hidden, legal, rng))
+        self._pending = True
+        return SimpleNamespace(action_index=next(self._actions))
+
+    def learn(self, reward: float) -> None:
+        assert self._pending is True
+        self.rewards.append(reward)
+        self._pending = False
+
+    def parameter_digest(self) -> str:
+        return "training-digest"
+
+
+def test_training_fixture_tuple_is_balanced_and_rng_isolated() -> None:
+    config = RewardLearningConfig(training_episodes=20, evaluation_blocks=2)
+    seed = 131
+    left_rng = np.random.default_rng(
+        np.random.SeedSequence([seed, 0x54524149])
+    )
+    right_rng = np.random.default_rng(
+        np.random.SeedSequence([seed, 0x54524149])
+    )
+    evaluation_rng = np.random.default_rng(
+        np.random.SeedSequence([seed, 0x4556414C])
+    )
+    evaluation_rng.normal(size=10_000)
+
+    left = _build_fixtures(
+        DelayedCueTask(),
+        left_rng,
+        config.training_episodes // 10,
+    )
+    right = _build_fixtures(
+        DelayedCueTask(),
+        right_rng,
+        config.training_episodes // 10,
+    )
+
+    assert left == right
+    assert len(left) == 20
+    expected = {(cue, delay) for cue in Cue for delay in range(1, 6)}
+    for offset in range(0, len(left), 10):
+        assert {
+            (episode.cue, episode.delay_steps)
+            for episode in left[offset : offset + 10]
+        } == expected
+    distractors = [
+        stimulus for episode in left for stimulus in episode.delay_stimuli
+    ]
+    assert len({id(value) for value in distractors}) == len(distractors)
+
+
+def test_normal_training_boundary_passes_only_hidden_rng_and_scalar_reward() -> None:
+    task = DelayedCueTask()
+    fixtures = _build_fixtures(task, np.random.default_rng(137), 1)
+    policy = _RecordingPolicy()
+    actions = tuple(index % 2 for index in range(10))
+    readout = _TrainingReadout(actions)
+    action_rng = np.random.default_rng(139)
+
+    result = _train_normal(policy, readout, task, fixtures, action_rng)
+
+    assert len(readout.selection_calls) == 10
+    assert all(legal == (0, 1) for _, legal, _ in readout.selection_calls)
+    assert all(rng is action_rng for _, _, rng in readout.selection_calls)
+    assert all(hidden.shape == (3,) for hidden, _, _ in readout.selection_calls)
+    assert all(type(reward) is float for reward in readout.rewards)
+    assert tuple(readout.rewards) == result.rewards
+    assert result.actions == actions
+    assert result.total_reward == sum(result.rewards)
+    assert readout.has_pending_feedback is False
+
+
+def test_normal_training_matches_an_independent_reference_loop() -> None:
+    config = RewardLearningConfig(
+        hidden_size=8,
+        training_episodes=20,
+        evaluation_blocks=1,
+    )
+    task = DelayedCueTask()
+    fixtures = _build_fixtures(
+        task,
+        np.random.default_rng(np.random.SeedSequence([149, 0x54524149])),
+        2,
+    )
+    implementation_policy = RecurrentPolicy(
+        4,
+        2,
+        hidden_size=config.hidden_size,
+        seed=149,
+        recurrent_radius=config.recurrent_radius,
+    )
+    reference_policy = RecurrentPolicy(
+        4,
+        2,
+        hidden_size=config.hidden_size,
+        seed=149,
+        recurrent_radius=config.recurrent_radius,
+    )
+    implementation_readout = RewardModulatedReadout(
+        config.hidden_size,
+        2,
+        config.learning_rate,
+        config.temperature,
+    )
+    reference_readout = RewardModulatedReadout(
+        config.hidden_size,
+        2,
+        config.learning_rate,
+        config.temperature,
+    )
+    implementation_rng = np.random.default_rng(
+        np.random.SeedSequence([149, 0x4143544E])
+    )
+    reference_rng = np.random.default_rng(
+        np.random.SeedSequence([149, 0x4143544E])
+    )
+
+    actual = _train_normal(
+        implementation_policy,
+        implementation_readout,
+        task,
+        fixtures,
+        implementation_rng,
+    )
+    actions = []
+    rewards = []
+    for episode in fixtures:
+        hidden = _decision_hidden(
+            reference_policy,
+            episode,
+            reset_before_decision=False,
+        )
+        action = reference_readout.select_for_training(
+            hidden,
+            (0, 1),
+            reference_rng,
+        ).action_index
+        reward = task.reward(episode, action)
+        reference_readout.learn(reward)
+        actions.append(action)
+        rewards.append(reward)
+
+    assert actual.actions == tuple(actions)
+    assert actual.rewards == tuple(rewards)
+    assert actual.total_reward == sum(rewards)
+    assert actual.final_block == AccuracyCount(
+        sum(reward > 0 for reward in rewards[-10:]),
+        10,
+    )
+    assert actual.parameter_digest == reference_readout.parameter_digest()
+
+
+class _RewardMustNotBeCalled:
+    def reward(self, *args: object) -> float:
+        raise AssertionError("shuffled control must not call task.reward")
+
+
+def test_shuffled_training_uses_only_balanced_independent_rewards() -> None:
+    fixtures = _build_fixtures(
+        DelayedCueTask(),
+        np.random.default_rng(151),
+        3,
+    )
+    policy = _RecordingPolicy()
+    readout = _TrainingReadout(tuple(index % 2 for index in range(30)))
+    action_rng = np.random.default_rng(
+        np.random.SeedSequence([151, 0x53414354])
+    )
+    reward_rng = np.random.default_rng(
+        np.random.SeedSequence([151, 0x53485546])
+    )
+
+    result = _train_shuffled(
+        policy,
+        readout,
+        _RewardMustNotBeCalled(),
+        fixtures,
+        action_rng,
+        reward_rng,
+    )
+
+    assert tuple(readout.rewards) == result.rewards
+    for offset in range(0, 30, 10):
+        block = result.rewards[offset : offset + 10]
+        assert block.count(1.0) == 5
+        assert block.count(-1.0) == 5
+    assert all(rng is action_rng for _, _, rng in readout.selection_calls)
+    assert result.total_reward == 0
+    assert readout.has_pending_feedback is False
+
+
+def test_run_once_preserves_frozen_matrices_and_separates_learners() -> None:
+    result = _run_once(
+        157,
+        RewardLearningConfig(
+            hidden_size=8,
+            training_episodes=20,
+            evaluation_blocks=2,
+        ),
+    )
+
+    assert result.normal_matrix_digests_before == (
+        result.normal_matrix_digests_after
+    )
+    assert result.shuffled_matrix_digests_before == (
+        result.shuffled_matrix_digests_after
+    )
+    assert result.normal_matrix_digests_before == (
+        result.shuffled_matrix_digests_before
+    )
+    assert result.normal_readout_digest_before != (
+        result.normal_readout_digest_after
+    )
+    assert result.shuffled_readout_digest_before != (
+        result.shuffled_readout_digest_after
+    )
+    assert result.normal_readout_digest_after != (
+        result.shuffled_readout_digest_after
+    )
+    assert result.normal_pending_feedback is False
+    assert result.shuffled_pending_feedback is False
+    assert result.pre_training.overall.total == 20
+    assert result.post_training.overall.total == 20
+    assert result.state_reset.overall == AccuracyCount(10, 20)
+    assert result.shuffled_control.overall.total == 20
