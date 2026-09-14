@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from collections import Counter
 from dataclasses import FrozenInstanceError
+from pathlib import Path
+from typing import Self
 
 import numpy as np
 import pytest
@@ -10,7 +13,8 @@ import pytest
 import neural_state_machine.learning_diagnostics as diagnostics
 from neural_state_machine import DelayedCueTask
 from neural_state_machine.memory_probe import FittedLinearProbe, fit_linear_probe
-from neural_state_machine.reward_learning import _build_fixtures
+from neural_state_machine.reward_learning import _build_fixtures, run_reward_learning_benchmark
+from neural_state_machine.reward_readout import RewardReadoutDecision
 
 
 def test_learning_diagnostics_config_defaults_are_the_frozen_protocol() -> None:
@@ -912,3 +916,497 @@ def test_supervised_gate_uses_exact_overall_and_per_delay_boundaries(
     assert result.overall == expected_overall
     assert result.per_delay == expected_per_delay
     assert result.supervised_passed is expected_passed
+
+
+def _trajectory_test_fixtures() -> tuple[
+    diagnostics._DiagnosticFixtures,
+    diagnostics.LearningDiagnosticsConfig,
+]:
+    task = DelayedCueTask()
+    training_episodes = _build_fixtures(task, np.random.default_rng(123), 2)
+    evaluation_episodes = _build_fixtures(task, np.random.default_rng(456), 2)
+    training_labels = np.asarray(
+        [episode.correct_action_index for episode in training_episodes], dtype=np.int64
+    )
+    training_delays = np.asarray(
+        [episode.delay_steps for episode in training_episodes], dtype=np.int64
+    )
+    evaluation_labels = np.asarray(
+        [episode.correct_action_index for episode in evaluation_episodes], dtype=np.int64
+    )
+    evaluation_delays = np.asarray(
+        [episode.delay_steps for episode in evaluation_episodes], dtype=np.int64
+    )
+    training_states = np.linspace(
+        -1.5, 1.5, num=40, dtype=np.float64
+    ).reshape(20, 2)
+    evaluation_states = np.linspace(
+        -2.0, 2.0, num=40, dtype=np.float64
+    ).reshape(20, 2)
+    return (
+        diagnostics._DiagnosticFixtures(
+            training_episodes=training_episodes,
+            evaluation_episodes=evaluation_episodes,
+            training=_hidden_dataset(training_states, training_labels, training_delays),
+            evaluation=_hidden_dataset(
+                evaluation_states, evaluation_labels, evaluation_delays
+            ),
+        ),
+        diagnostics.LearningDiagnosticsConfig(
+            hidden_size=2,
+            training_episodes=20,
+            evaluation_blocks=2,
+            checkpoint_interval=10,
+        ),
+    )
+
+
+def _patch_trajectory_hidden_states(
+    monkeypatch: pytest.MonkeyPatch,
+    fixtures: diagnostics._DiagnosticFixtures,
+) -> None:
+    state_by_episode = {
+        id(episode): state
+        for episodes, states in (
+            (fixtures.training_episodes, fixtures.training.states),
+            (fixtures.evaluation_episodes, fixtures.evaluation.states),
+        )
+        for episode, state in zip(episodes, states, strict=True)
+    }
+    class FrozenPolicy:
+        _input_weights = np.zeros((2, 4), dtype=np.float64)
+        _recurrent_weights = np.zeros((2, 2), dtype=np.float64)
+        _output_weights = np.zeros((2, 2), dtype=np.float64)
+
+    monkeypatch.setattr(diagnostics, "_new_frozen_policy", lambda *_args: FrozenPolicy())
+    monkeypatch.setattr(
+        diagnostics,
+        "_decision_hidden",
+        lambda _policy, episode, **_kwargs: np.array(
+            state_by_episode[id(episode)], dtype=np.float64, copy=True
+        ),
+    )
+
+
+def _trajectory_readout(
+    training_actions: tuple[int, ...],
+    probability_rows: tuple[tuple[float, float], ...],
+    *,
+    mutate_on_greedy: bool = False,
+    leave_pending: bool = False,
+):
+    class TrajectoryReadout:
+        def __init__(self, *_args: object) -> None:
+            self._actions = iter(training_actions)
+            self._probabilities = iter(probability_rows)
+            self._pending = False
+            self._updates = 0
+            self.received_rewards: list[float] = []
+
+        @property
+        def has_pending_feedback(self) -> bool:
+            return self._pending
+
+        def select_for_training(
+            self,
+            hidden: np.ndarray,
+            legal_actions: tuple[int, int],
+            rng: np.random.Generator,
+        ) -> RewardReadoutDecision:
+            assert hidden.dtype == np.dtype(np.float64)
+            assert legal_actions == (0, 1)
+            assert isinstance(rng, np.random.Generator)
+            self._pending = True
+            probabilities = np.asarray(next(self._probabilities), dtype=np.float64)
+            probabilities.flags.writeable = False
+            return RewardReadoutDecision(
+                action_index=next(self._actions),
+                logits=np.zeros(2, dtype=np.float64),
+                probabilities=probabilities,
+            )
+
+        def learn(self, reward: float) -> None:
+            assert self._pending
+            assert type(reward) is float
+            self.received_rewards.append(reward)
+            self._updates += 1
+            self._pending = leave_pending
+
+        def select_greedy(
+            self, hidden: np.ndarray, legal_actions: tuple[int, int]
+        ) -> RewardReadoutDecision:
+            assert hidden.dtype == np.dtype(np.float64)
+            assert legal_actions == (0, 1)
+            if mutate_on_greedy:
+                self._updates += 1
+            probabilities = np.array([0.5, 0.5], dtype=np.float64)
+            probabilities.flags.writeable = False
+            return RewardReadoutDecision(
+                action_index=0,
+                logits=np.zeros(2, dtype=np.float64),
+                probabilities=probabilities,
+            )
+
+        def parameter_digest(self) -> str:
+            return f"{self._updates:064x}"
+
+    return TrajectoryReadout
+
+
+def test_reward_trajectory_uses_post_selection_correct_probability_statistics(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixtures, config = _trajectory_test_fixtures()
+    _patch_trajectory_hidden_states(monkeypatch, fixtures)
+    probabilities = tuple(
+        (0.2, 0.8) if index % 2 else (0.75, 0.25)
+        for index in range(config.training_episodes)
+    )
+    readout_type = _trajectory_readout(
+        tuple(index % 2 for index in range(config.training_episodes)), probabilities
+    )
+    monkeypatch.setattr(diagnostics, "RewardModulatedReadout", readout_type)
+
+    trajectory = diagnostics._run_reward_trajectory(91, fixtures, config)
+
+    labels = fixtures.training.labels
+    correct_probabilities = np.asarray(
+        [row[int(label)] for row, label in zip(probabilities, labels, strict=True)],
+        dtype=np.float64,
+    )
+    assert tuple(checkpoint.episode for checkpoint in trajectory.checkpoints) == (10, 20)
+    assert tuple(checkpoint.parameter_digest for checkpoint in trajectory.checkpoints) == (
+        f"{10:064x}",
+        f"{20:064x}",
+    )
+    final_checkpoint = trajectory.checkpoints[-1]
+    assert final_checkpoint.mean_correct_action_probability == pytest.approx(
+        float(np.mean(correct_probabilities)), abs=1e-12
+    )
+    assert final_checkpoint.percentile_10_correct_action_probability == pytest.approx(
+        float(np.percentile(correct_probabilities, 10, method="linear")), abs=1e-12
+    )
+    assert final_checkpoint.correct_action_probabilities == tuple(
+        correct_probabilities.tolist()
+    )
+
+
+def test_reward_trajectory_independently_records_gradients_and_block_cosines(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixtures, config = _trajectory_test_fixtures()
+    _patch_trajectory_hidden_states(monkeypatch, fixtures)
+    probabilities = tuple(
+        (0.2, 0.8) if index % 3 else (0.65, 0.35)
+        for index in range(config.training_episodes)
+    )
+    actions = tuple((index + 1) % 2 for index in range(config.training_episodes))
+    readout_type = _trajectory_readout(actions, probabilities)
+    monkeypatch.setattr(diagnostics, "RewardModulatedReadout", readout_type)
+
+    trajectory = diagnostics._run_reward_trajectory(92, fixtures, config)
+
+    expected_supervised = []
+    expected_sampled = []
+    expected_ratios = []
+    task = DelayedCueTask()
+    for hidden, label, action, probabilities_row, episode in zip(
+        fixtures.training.states,
+        fixtures.training.labels,
+        actions,
+        probabilities,
+        fixtures.training_episodes,
+        strict=True,
+    ):
+        probability = np.asarray(probabilities_row, dtype=np.float64)
+        augmented = np.concatenate((hidden, [1.0]))
+        supervised = np.outer(np.eye(2, dtype=np.float64)[label] - probability, augmented)
+        reward = task.reward(episode, action)
+        sampled = reward * np.outer(
+            np.eye(2, dtype=np.float64)[action] - probability, augmented
+        )
+        expected_supervised.append(tuple(supervised.ravel().tolist()))
+        expected_sampled.append(tuple(sampled.ravel().tolist()))
+        expected_bandit = sum(
+            probability[candidate]
+            * (1.0 if candidate == label else -1.0)
+            * np.outer(
+                np.eye(2, dtype=np.float64)[candidate] - probability,
+                augmented,
+            )
+            for candidate in (0, 1)
+        )
+        expected_ratios.append(
+            float(np.linalg.norm(expected_bandit) / np.linalg.norm(supervised))
+        )
+
+    first_block = trajectory.gradient_blocks[0]
+    assert first_block.sampled_episode_gradients == tuple(expected_sampled[:10])
+    assert first_block.supervised_episode_gradients == tuple(expected_supervised[:10])
+    assert first_block.expected_bandit_to_supervised_norm_ratios == pytest.approx(
+        expected_ratios[:10], abs=1e-12
+    )
+    summed_sampled = np.sum(np.asarray(expected_sampled[:10]), axis=0)
+    summed_supervised = np.sum(np.asarray(expected_supervised[:10]), axis=0)
+    expected_cosine = float(
+        np.dot(summed_sampled, summed_supervised)
+        / (np.linalg.norm(summed_sampled) * np.linalg.norm(summed_supervised))
+    )
+    assert first_block.sampled_gradient == pytest.approx(
+        tuple(summed_sampled.tolist()), abs=1e-12
+    )
+    assert first_block.supervised_gradient == pytest.approx(
+        tuple(summed_supervised.tolist()), abs=1e-12
+    )
+    assert first_block.cosine == pytest.approx(expected_cosine, abs=1e-12)
+    assert first_block.mean_expected_bandit_to_supervised_norm_ratio == pytest.approx(
+        float(np.mean(expected_ratios[:10])), abs=1e-12
+    )
+
+
+def test_reward_trajectory_reports_null_cosine_for_zero_norm_gradient_block(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixtures, config = _trajectory_test_fixtures()
+    zero_states = np.zeros_like(fixtures.training.states)
+    labels = np.tile(np.array([0, 1], dtype=np.int64), 10)
+    delays = np.tile(np.arange(1, 6, dtype=np.int64), 4)
+    fixtures = diagnostics._DiagnosticFixtures(
+        training_episodes=fixtures.training_episodes,
+        evaluation_episodes=fixtures.evaluation_episodes,
+        training=_hidden_dataset(zero_states, labels, delays),
+        evaluation=fixtures.evaluation,
+    )
+    _patch_trajectory_hidden_states(monkeypatch, fixtures)
+    readout_type = _trajectory_readout(
+        tuple(labels.tolist()), tuple((0.5, 0.5) for _ in labels)
+    )
+    monkeypatch.setattr(diagnostics, "RewardModulatedReadout", readout_type)
+
+    trajectory = diagnostics._run_reward_trajectory(93, fixtures, config)
+
+    assert tuple(block.cosine for block in trajectory.gradient_blocks) == (None, None)
+    assert trajectory.zero_norm_block_count == 2
+    assert trajectory.checkpoints[-1].zero_norm_block_count == 2
+
+
+class _BoundaryEpisode:
+    def __init__(self, label: int, delay: int, events: list[tuple[str, object]]) -> None:
+        self._label = label
+        self._delay = delay
+        self._events = events
+
+    @property
+    def correct_action_index(self) -> int:
+        assert any(kind == "select" for kind, _ in self._events)
+        self._events.append(("label", self._label))
+        return self._label
+
+    @property
+    def delay_steps(self) -> int:
+        assert any(kind == "select" for kind, _ in self._events)
+        self._events.append(("delay", self._delay))
+        return self._delay
+
+
+class _SelectionLockedVector(np.ndarray):
+    def __new__(
+        cls,
+        values: np.ndarray,
+        name: str,
+        events: list[tuple[str, object]],
+    ) -> Self:
+        result = np.asarray(values).view(cls)
+        result._name = name
+        result._events = events
+        return result
+
+    def __array_finalize__(self, source: object) -> None:
+        if source is not None:
+            self._name = getattr(source, "_name", "metadata")
+            self._events = getattr(source, "_events", [])
+
+    def __getitem__(self, key: object):
+        assert any(kind in {"select", "greedy"} for kind, _ in self._events)
+        self._events.append((self._name, key))
+        return super().__getitem__(key)
+
+
+def test_reward_trajectory_preserves_reward_learner_boundary_order(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    original_fixtures, config = _trajectory_test_fixtures()
+    events: list[tuple[str, object]] = []
+    training_episodes = tuple(
+        _BoundaryEpisode(int(label), int(delay), events)
+        for label, delay in zip(
+            original_fixtures.training.labels,
+            original_fixtures.training.delays,
+            strict=True,
+        )
+    )
+    evaluation_episodes = tuple(
+        _BoundaryEpisode(int(label), int(delay), events)
+        for label, delay in zip(
+            original_fixtures.evaluation.labels,
+            original_fixtures.evaluation.delays,
+            strict=True,
+        )
+    )
+    fixtures = diagnostics._DiagnosticFixtures(
+        training_episodes=training_episodes,
+        evaluation_episodes=evaluation_episodes,
+        training=original_fixtures.training,
+        evaluation=original_fixtures.evaluation,
+    )
+    object.__setattr__(
+        fixtures.training,
+        "labels",
+        _SelectionLockedVector(fixtures.training.labels, "label", events),
+    )
+    object.__setattr__(
+        fixtures.evaluation,
+        "labels",
+        _SelectionLockedVector(fixtures.evaluation.labels, "label", events),
+    )
+    object.__setattr__(
+        fixtures.evaluation,
+        "delays",
+        _SelectionLockedVector(fixtures.evaluation.delays, "delay", events),
+    )
+    _patch_trajectory_hidden_states(monkeypatch, fixtures)
+
+    class BoundaryTask:
+        def reward(self, episode: _BoundaryEpisode, action: int) -> float:
+            events.append(("reward", action))
+            assert action == 1
+            assert episode._label in (0, 1)
+            return -1.0
+
+    class BoundaryReadout:
+        def __init__(self, *_args: object) -> None:
+            self.pending = False
+            self.learned: list[float] = []
+            self.updates = 0
+
+        @property
+        def has_pending_feedback(self) -> bool:
+            return self.pending
+
+        def select_for_training(
+            self, hidden: np.ndarray, legal_actions: tuple[int, int], rng: np.random.Generator
+        ) -> RewardReadoutDecision:
+            assert legal_actions == (0, 1)
+            assert isinstance(rng, np.random.Generator)
+            self.pending = True
+            events.append(("select", 1))
+            probabilities = np.array([0.4, 0.6], dtype=np.float64)
+            probabilities.flags.writeable = False
+            return RewardReadoutDecision(1, np.zeros(2), probabilities)
+
+        def learn(self, reward: float) -> None:
+            events.append(("learn", reward))
+            assert reward == -1.0
+            self.learned.append(reward)
+            self.pending = False
+            self.updates += 1
+
+        def select_greedy(
+            self, hidden: np.ndarray, legal_actions: tuple[int, int]
+        ) -> RewardReadoutDecision:
+            events.append(("greedy", 0))
+            probabilities = np.array([0.5, 0.5], dtype=np.float64)
+            probabilities.flags.writeable = False
+            return RewardReadoutDecision(0, np.zeros(2), probabilities)
+
+        def parameter_digest(self) -> str:
+            return f"{self.updates:064x}"
+
+    monkeypatch.setattr(diagnostics, "DelayedCueTask", BoundaryTask)
+    monkeypatch.setattr(diagnostics, "RewardModulatedReadout", BoundaryReadout)
+
+    diagnostics._run_reward_trajectory(94, fixtures, config)
+
+    learner_events = [
+        (kind, value) for kind, value in events if kind in {"select", "reward", "learn"}
+    ]
+    assert learner_events == [
+        item
+        for _ in range(config.training_episodes)
+        for item in (("select", 1), ("reward", 1), ("learn", -1.0))
+    ]
+    first_select = next(index for index, item in enumerate(events) if item[0] == "select")
+    assert all(
+        index > first_select
+        for index, (kind, _value) in enumerate(events)
+        if kind in {"label", "delay"}
+    )
+    assert sum(kind == "label" for kind, _ in events) == 60
+    assert sum(kind == "delay" for kind, _ in events) == 40
+
+
+@pytest.mark.parametrize(
+    ("mutate_on_greedy", "leave_pending", "error"),
+    [
+        (True, False, "checkpoint evaluation mutated parameters"),
+        (False, True, "pending feedback"),
+    ],
+)
+def test_reward_trajectory_rejects_checkpoint_mutation_and_pending_feedback(
+    monkeypatch: pytest.MonkeyPatch,
+    mutate_on_greedy: bool,
+    leave_pending: bool,
+    error: str,
+) -> None:
+    fixtures, config = _trajectory_test_fixtures()
+    _patch_trajectory_hidden_states(monkeypatch, fixtures)
+    readout_type = _trajectory_readout(
+        tuple(0 for _ in range(config.training_episodes)),
+        tuple((0.5, 0.5) for _ in range(config.training_episodes)),
+        mutate_on_greedy=mutate_on_greedy,
+        leave_pending=leave_pending,
+    )
+    monkeypatch.setattr(diagnostics, "RewardModulatedReadout", readout_type)
+
+    with pytest.raises(RuntimeError, match=error):
+        diagnostics._run_reward_trajectory(95, fixtures, config)
+
+
+_PHASE_2B_EVIDENCE = (
+    Path(__file__).resolve().parents[1]
+    / "docs"
+    / "experiments"
+    / "phase-2b-failure.json"
+)
+
+
+@pytest.mark.parametrize("seed", [7, 17, 29])
+def test_reward_trajectory_matches_portable_phase_two_b_evidence_locally(seed: int) -> None:
+    evidence = json.loads(_PHASE_2B_EVIDENCE.read_text(encoding="utf-8"))
+    runtime = run_reward_learning_benchmark()
+    expected_entry = next(item for item in evidence["results"] if item["seed"] == seed)
+    runtime_entry = next(item for item in runtime["results"] if item["seed"] == seed)
+    config = diagnostics.LearningDiagnosticsConfig()
+    fixtures = diagnostics._build_diagnostic_fixtures(seed, config)
+
+    first = diagnostics._run_reward_trajectory(seed, fixtures, config)
+    second = diagnostics._run_reward_trajectory(seed, fixtures, config)
+
+    assert diagnostics._match_phase_2b_evidence(seed, runtime_entry)
+    assert first.overall == diagnostics.AccuracyCount(
+        expected_entry["post_training"]["correct"], 200
+    )
+    assert first.per_delay == tuple(
+        (item["delay"], diagnostics.AccuracyCount(item["correct"], item["total"]))
+        for item in expected_entry["per_delay"]
+    )
+    assert first.total_training_reward == expected_entry["total_training_reward"]
+    assert first.training_choice_digest == expected_entry["normal_training_choice_digest"]
+    assert first.training_reward_digest == expected_entry["normal_training_reward_digest"]
+    assert first.parameter_digest_before != first.parameter_digest_after
+    assert first.matrix_digests_before == first.matrix_digests_after
+    assert first.parameter_digest_before == second.parameter_digest_before
+    assert first.parameter_digest_after == second.parameter_digest_after
+    assert first.matrix_digests_before == second.matrix_digests_before
+    assert first.matrix_digests_after == second.matrix_digests_after
+    assert first == second

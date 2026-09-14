@@ -8,8 +8,10 @@ stimuli; labels and delays are associated after every hidden row is copied.
 from __future__ import annotations
 
 import hashlib
+import json
 import math
 from dataclasses import dataclass
+from pathlib import Path
 
 import numpy as np
 
@@ -17,7 +19,11 @@ from .memory_benchmark import AccuracyCount
 from .memory_probe import FittedLinearProbe, fit_linear_probe
 from .memory_task import DelayedCueEpisode, DelayedCueTask
 from .policy import RecurrentPolicy
-from .reward_learning import _build_fixtures, _decision_hidden
+from .reward_learning import (
+    _build_fixtures,
+    _decision_hidden,
+)
+from .reward_readout import RewardModulatedReadout
 
 
 @dataclass(frozen=True)
@@ -131,6 +137,56 @@ class SupervisedDiagnostic:
     checkpoints: tuple[DiagnosticCheckpoint, ...]
     parameter_digest: str
     supervised_passed: bool
+
+
+@dataclass(frozen=True)
+class GradientBlockDiagnostic:
+    """Read-only sampled and supervised gradients for one ten-case block."""
+
+    episode: int
+    sampled_episode_gradients: tuple[tuple[float, ...], ...]
+    supervised_episode_gradients: tuple[tuple[float, ...], ...]
+    expected_bandit_to_supervised_norm_ratios: tuple[float, ...]
+    sampled_gradient: tuple[float, ...]
+    supervised_gradient: tuple[float, ...]
+    mean_expected_bandit_to_supervised_norm_ratio: float
+    cosine: float | None
+
+
+@dataclass(frozen=True)
+class RewardCheckpoint:
+    """A mutation-free reward-readout evaluation after scheduled training."""
+
+    episode: int
+    overall: AccuracyCount
+    per_delay: tuple[tuple[int, AccuracyCount], ...]
+    correct_action_probabilities: tuple[float, ...]
+    mean_correct_action_probability: float
+    percentile_10_correct_action_probability: float
+    mean_expected_bandit_to_supervised_norm_ratio: float
+    gradient_blocks: tuple[GradientBlockDiagnostic, ...]
+    zero_norm_block_count: int
+    parameter_digest: str
+
+
+@dataclass(frozen=True)
+class RewardTrajectoryDiagnostic:
+    """Instrumentation of an otherwise unchanged Phase 2B reward run."""
+
+    overall: AccuracyCount
+    per_delay: tuple[tuple[int, AccuracyCount], ...]
+    checkpoints: tuple[RewardCheckpoint, ...]
+    gradient_blocks: tuple[GradientBlockDiagnostic, ...]
+    zero_norm_block_count: int
+    total_training_reward: int
+    final_block: AccuracyCount
+    parameter_digest_before: str
+    parameter_digest_after: str
+    matrix_digests_before: tuple[str, str, str]
+    matrix_digests_after: tuple[str, str, str]
+    training_choice_digest: str
+    training_reward_digest: str
+    reward_passed: bool
 
 
 @dataclass(frozen=True)
@@ -497,6 +553,370 @@ def _run_geometry(
         ),
         probe_digest=probe.digest(),
         geometry_passed=geometry_passed,
+    )
+
+
+def _run_reward_trajectory(
+    seed: int,
+    fixtures: _DiagnosticFixtures,
+    config: LearningDiagnosticsConfig,
+) -> RewardTrajectoryDiagnostic:
+    """Replay Phase 2B action/reward learning while observing outside it."""
+    if type(seed) is not int or seed < 0:
+        raise ValueError("seed must be a non-negative Python integer")
+    if not isinstance(fixtures, _DiagnosticFixtures):
+        raise ValueError("fixtures must be _DiagnosticFixtures")  # noqa: TRY004
+    if not isinstance(config, LearningDiagnosticsConfig):
+        raise ValueError("config must be a LearningDiagnosticsConfig")  # noqa: TRY004
+    _validate_reward_trajectory_fixtures(fixtures, config)
+
+    task = DelayedCueTask()
+    policy = _new_frozen_policy(seed, config)
+    readout = RewardModulatedReadout(
+        config.hidden_size,
+        2,
+        config.learning_rate,
+        config.temperature,
+    )
+    action_rng = np.random.default_rng(
+        np.random.SeedSequence([seed, 0x4143544E])
+    )
+    matrix_digests_before = _frozen_matrix_digests(policy)
+    parameter_digest_before = readout.parameter_digest()
+
+    actions: list[int] = []
+    rewards: list[float] = []
+    correct_action_probabilities: list[float] = []
+    expected_bandit_to_supervised_norm_ratios: list[float] = []
+    sampled_block_vectors: list[tuple[float, ...]] = []
+    supervised_block_vectors: list[tuple[float, ...]] = []
+    ratio_block_values: list[float] = []
+    gradient_blocks: list[GradientBlockDiagnostic] = []
+    checkpoints: list[RewardCheckpoint] = []
+    zero_norm_block_count = 0
+    final_block_correct = 0
+    final_block_start = config.training_episodes - 10
+
+    for episode_index, episode in enumerate(fixtures.training_episodes, start=1):
+        hidden = _readonly_copy(
+            _decision_hidden(
+                policy,
+                episode,
+                reset_before_decision=False,
+            ),
+            np.float64,
+        )
+        decision = readout.select_for_training(hidden, (0, 1), action_rng)
+        selected_action = _validated_action_index(decision.action_index)
+        probabilities = _probability_snapshot(decision.probabilities)
+        float_reward = float(task.reward(episode, selected_action))
+
+        # Metadata is intentionally observed only after action and reward are fixed.
+        label = int(fixtures.training.labels[episode_index - 1])
+        correct_action_probabilities.append(float(probabilities[label]))
+        supervised, sampled, ratio = _reward_gradient_measurements(
+            hidden,
+            probabilities,
+            selected_action,
+            label,
+            float_reward,
+        )
+        supervised_block_vectors.append(tuple(supervised.tolist()))
+        sampled_block_vectors.append(tuple(sampled.tolist()))
+        ratio_block_values.append(ratio)
+        expected_bandit_to_supervised_norm_ratios.append(ratio)
+
+        readout.learn(float_reward)
+        if readout.has_pending_feedback:
+            raise RuntimeError("reward readout has pending feedback after learning")
+
+        actions.append(selected_action)
+        rewards.append(float_reward)
+        if episode_index - 1 >= final_block_start:
+            final_block_correct += int(selected_action == label)
+
+        if len(sampled_block_vectors) == 10:
+            gradient_block, has_zero_norm = _gradient_block_diagnostic(
+                episode_index,
+                sampled_block_vectors,
+                supervised_block_vectors,
+                ratio_block_values,
+            )
+            gradient_blocks.append(gradient_block)
+            zero_norm_block_count += int(has_zero_norm)
+            sampled_block_vectors = []
+            supervised_block_vectors = []
+            ratio_block_values = []
+
+        if episode_index % config.checkpoint_interval == 0:
+            parameter_digest = readout.parameter_digest()
+            overall, per_delay = _evaluate_reward_readout(
+                policy,
+                readout,
+                fixtures.evaluation_episodes,
+                fixtures.evaluation,
+            )
+            if readout.parameter_digest() != parameter_digest:
+                raise RuntimeError("reward checkpoint evaluation mutated parameters")
+            checkpoints.append(
+                RewardCheckpoint(
+                    episode=episode_index,
+                    overall=overall,
+                    per_delay=per_delay,
+                    correct_action_probabilities=tuple(correct_action_probabilities),
+                    mean_correct_action_probability=float(
+                        np.mean(correct_action_probabilities)
+                    ),
+                    percentile_10_correct_action_probability=float(
+                        np.percentile(
+                            correct_action_probabilities,
+                            10,
+                            method="linear",
+                        )
+                    ),
+                    mean_expected_bandit_to_supervised_norm_ratio=float(
+                        np.mean(expected_bandit_to_supervised_norm_ratios)
+                    ),
+                    gradient_blocks=tuple(gradient_blocks),
+                    zero_norm_block_count=zero_norm_block_count,
+                    parameter_digest=parameter_digest,
+                )
+            )
+
+    if sampled_block_vectors or supervised_block_vectors or ratio_block_values:
+        raise RuntimeError("reward trajectory must finish complete ten-case blocks")
+    if not checkpoints or checkpoints[-1].episode != config.training_episodes:
+        raise RuntimeError("reward trajectory is missing its final checkpoint")
+
+    overall = checkpoints[-1].overall
+    per_delay = checkpoints[-1].per_delay
+    parameter_digest_after = readout.parameter_digest()
+    matrix_digests_after = _frozen_matrix_digests(policy)
+    return RewardTrajectoryDiagnostic(
+        overall=overall,
+        per_delay=per_delay,
+        checkpoints=tuple(checkpoints),
+        gradient_blocks=tuple(gradient_blocks),
+        zero_norm_block_count=zero_norm_block_count,
+        total_training_reward=int(sum(rewards)),
+        final_block=AccuracyCount(final_block_correct, 10),
+        parameter_digest_before=parameter_digest_before,
+        parameter_digest_after=parameter_digest_after,
+        matrix_digests_before=matrix_digests_before,
+        matrix_digests_after=matrix_digests_after,
+        training_choice_digest=hashlib.sha256(bytes(actions)).hexdigest(),
+        training_reward_digest=_reward_digest(rewards),
+        reward_passed=(
+            overall == AccuracyCount(overall.correct, 200)
+            and overall.correct >= 180
+            and all(score == AccuracyCount(score.correct, 40) and score.correct >= 34 for _, score in per_delay)
+        ),
+    )
+
+
+def _validate_reward_trajectory_fixtures(
+    fixtures: _DiagnosticFixtures,
+    config: LearningDiagnosticsConfig,
+) -> None:
+    if len(fixtures.training_episodes) != config.training_episodes:
+        raise ValueError("training fixtures must match the configured episode count")
+    expected_evaluation_rows = config.evaluation_blocks * 10
+    if len(fixtures.evaluation_episodes) != expected_evaluation_rows:
+        raise ValueError("evaluation fixtures must match the configured block count")
+    if fixtures.training.states.shape != (
+        config.training_episodes,
+        config.hidden_size,
+    ):
+        raise ValueError("training states must match the configured episode count")
+    if fixtures.evaluation.states.shape != (
+        expected_evaluation_rows,
+        config.hidden_size,
+    ):
+        raise ValueError("evaluation states must match the configured block count")
+
+
+def _evaluate_reward_readout(
+    policy: RecurrentPolicy,
+    readout: RewardModulatedReadout,
+    episodes: tuple[DelayedCueEpisode, ...],
+    evaluation: _HiddenDataset,
+) -> tuple[AccuracyCount, tuple[tuple[int, AccuracyCount], ...]]:
+    """Score the readout without exposing fixture metadata until after choice."""
+    correct = 0
+    per_delay_correct = {delay: 0 for delay in range(1, 6)}
+    per_delay_total = {delay: 0 for delay in range(1, 6)}
+    for index, episode in enumerate(episodes):
+        hidden = _readonly_copy(
+            _decision_hidden(policy, episode, reset_before_decision=False),
+            np.float64,
+        )
+        action = _validated_action_index(
+            readout.select_greedy(hidden, (0, 1)).action_index
+        )
+        label = int(evaluation.labels[index])
+        delay = int(evaluation.delays[index])
+        matched = int(action == label)
+        correct += matched
+        per_delay_correct[delay] += matched
+        per_delay_total[delay] += 1
+    per_delay = tuple(
+        (delay, AccuracyCount(per_delay_correct[delay], per_delay_total[delay]))
+        for delay in range(1, 6)
+    )
+    return AccuracyCount(correct, len(episodes)), per_delay
+
+
+def _reward_gradient_measurements(
+    hidden: np.ndarray,
+    probabilities: np.ndarray,
+    action: int,
+    label: int,
+    reward: float,
+) -> tuple[np.ndarray, np.ndarray, float]:
+    """Reconstruct gradients from decision snapshots, never learner state."""
+    augmented_hidden = np.concatenate((hidden, [1.0]))
+    one_hot = np.eye(2, dtype=np.float64)
+    supervised = np.outer(one_hot[label] - probabilities, augmented_hidden).ravel()
+    sampled = (
+        reward * np.outer(one_hot[action] - probabilities, augmented_hidden)
+    ).ravel()
+    expected_bandit = sum(
+        probabilities[candidate]
+        * (1.0 if candidate == label else -1.0)
+        * np.outer(one_hot[candidate] - probabilities, augmented_hidden)
+        for candidate in (0, 1)
+    ).ravel()
+    supervised_norm = float(np.linalg.norm(supervised))
+    if supervised_norm == 0.0:
+        ratio = 0.0
+    else:
+        ratio = float(np.linalg.norm(expected_bandit) / supervised_norm)
+    return supervised, sampled, ratio
+
+
+def _gradient_block_diagnostic(
+    episode: int,
+    sampled_episode_gradients: list[tuple[float, ...]],
+    supervised_episode_gradients: list[tuple[float, ...]],
+    expected_bandit_to_supervised_norm_ratios: list[float],
+) -> tuple[GradientBlockDiagnostic, bool]:
+    sampled = np.asarray(sampled_episode_gradients, dtype=np.float64)
+    supervised = np.asarray(supervised_episode_gradients, dtype=np.float64)
+    sampled_sum = np.sum(sampled, axis=0)
+    supervised_sum = np.sum(supervised, axis=0)
+    sampled_norm = float(np.linalg.norm(sampled_sum))
+    supervised_norm = float(np.linalg.norm(supervised_sum))
+    has_zero_norm = sampled_norm == 0.0 or supervised_norm == 0.0
+    cosine = (
+        None
+        if has_zero_norm
+        else float(np.dot(sampled_sum, supervised_sum) / (sampled_norm * supervised_norm))
+    )
+    return (
+        GradientBlockDiagnostic(
+            episode=episode,
+            sampled_episode_gradients=tuple(sampled_episode_gradients),
+            supervised_episode_gradients=tuple(supervised_episode_gradients),
+            expected_bandit_to_supervised_norm_ratios=tuple(
+                expected_bandit_to_supervised_norm_ratios
+            ),
+            sampled_gradient=tuple(sampled_sum.tolist()),
+            supervised_gradient=tuple(supervised_sum.tolist()),
+            mean_expected_bandit_to_supervised_norm_ratio=float(
+                np.mean(expected_bandit_to_supervised_norm_ratios)
+            ),
+            cosine=cosine,
+        ),
+        has_zero_norm,
+    )
+
+
+def _validated_action_index(value: object) -> int:
+    if type(value) is not int or value not in (0, 1):
+        raise ValueError("reward readout must choose action zero or one")
+    return value
+
+
+def _probability_snapshot(values: object) -> np.ndarray:
+    try:
+        probabilities = np.asarray(values, dtype=np.float64)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("reward readout probabilities must be float64-compatible") from exc
+    if (
+        probabilities.shape != (2,)
+        or not np.all(np.isfinite(probabilities))
+        or np.any(probabilities < 0.0)
+        or not np.isclose(float(np.sum(probabilities)), 1.0, rtol=0.0, atol=1e-12)
+    ):
+        raise ValueError("reward readout probabilities must be a finite distribution")
+    return _readonly_copy(probabilities, np.float64)
+
+
+def _frozen_matrix_digests(policy: object) -> tuple[str, str, str]:
+    try:
+        matrices = (
+            policy._input_weights,
+            policy._recurrent_weights,
+            policy._output_weights,
+        )
+    except AttributeError as exc:
+        raise ValueError("policy must provide frozen recurrent matrices") from exc
+    return tuple(_array_digest(matrix) for matrix in matrices)
+
+
+def _reward_digest(rewards: list[float]) -> str:
+    values = np.ascontiguousarray(rewards, dtype=np.float64)
+    return hashlib.sha256(values.tobytes(order="C")).hexdigest()
+
+
+_PHASE_2B_EVIDENCE = (
+    Path(__file__).resolve().parents[2]
+    / "docs"
+    / "experiments"
+    / "phase-2b-failure.json"
+)
+_PHASE_2B_PORTABLE_RESULT_KEYS = (
+    "all_reset_hidden_equal",
+    "final_block",
+    "normal_training_choice_digest",
+    "normal_training_reward_digest",
+    "passed",
+    "per_delay",
+    "post_training",
+    "pre_training",
+    "recurrent_choice_digest",
+    "repeatable",
+    "reset_choice_digest",
+    "reset_per_delay",
+    "seed",
+    "shuffled_choice_digest",
+    "shuffled_control",
+    "shuffled_final_block",
+    "shuffled_per_delay",
+    "shuffled_total_training_reward",
+    "shuffled_training_choice_digest",
+    "shuffled_training_reward_digest",
+    "state_reset",
+    "total_training_reward",
+)
+
+
+def _match_phase_2b_evidence(seed: int, runtime_entry: object) -> bool:
+    """Match one public Phase 2B result on its cross-platform stable fields."""
+    if type(seed) is not int or seed < 0 or not isinstance(runtime_entry, dict):
+        return False
+    try:
+        expected_payload = json.loads(_PHASE_2B_EVIDENCE.read_text(encoding="utf-8"))
+        expected_entry = next(
+            entry
+            for entry in expected_payload["results"]
+            if isinstance(entry, dict) and entry.get("seed") == seed
+        )
+    except (OSError, StopIteration, TypeError, json.JSONDecodeError, KeyError):
+        return False
+    return all(
+        runtime_entry.get(key) == expected_entry.get(key)
+        for key in _PHASE_2B_PORTABLE_RESULT_KEYS
     )
 
 
