@@ -1,4 +1,4 @@
-from scripts.benchmark_synthetic import run_benchmark
+from yolo_motion.benchmark import run_benchmark
 
 
 def test_synthetic_benchmark_recovers_expected_states():
