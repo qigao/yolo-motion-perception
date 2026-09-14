@@ -12,7 +12,9 @@ on:
       - scripts/fetch_benchmark_sources.py
       - scripts/materialize_benchmark_clips.py
       - scripts/summarize_tracks.py
+      - scripts/evaluate_caviar_coverage.py
       - src/yolo_motion/cli.py
+      - src/yolo_motion/coverage.py
       - src/yolo_motion/source_probe.py
       - src/yolo_motion/track_summary.py
 
@@ -22,7 +24,7 @@ permissions:
 jobs:
   baseline:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
 
@@ -62,39 +64,138 @@ jobs:
             --output-dir runs/caviar-baseline/clips
           sha256sum runs/caviar-baseline/clips/*.mp4 > runs/caviar-baseline/clip-sha256.txt
 
-      - name: Run YOLO motion baseline
+      - name: Run detection coverage ablation
         run: |
           set -euo pipefail
-          for scenario in stationary lateral_crossing approaching pose_change; do
-            mkdir -p "runs/caviar-baseline/results/${scenario}"
-            python -m yolo_motion.cli \
-              --source "runs/caviar-baseline/clips/${scenario}.mp4" \
-              --model yolo11n.pt \
-              --tracker botsort.yaml \
-              --config configs/baseline.yaml \
-              --jsonl "runs/caviar-baseline/results/${scenario}/motion.jsonl"
-            python scripts/summarize_tracks.py \
-              --predictions "runs/caviar-baseline/results/${scenario}/motion.jsonl" \
-              --annotation-draft "runs/caviar-baseline/results/${scenario}/${scenario}.yaml" \
-              > "runs/caviar-baseline/results/${scenario}/track-summary.txt"
-          done
+          while read -r model conf label; do
+            for scenario in stationary lateral_crossing approaching pose_change; do
+              result_dir="runs/caviar-baseline/results/${label}/${scenario}"
+              mkdir -p "${result_dir}"
+              python -m yolo_motion.cli \
+                --source "runs/caviar-baseline/clips/${scenario}.mp4" \
+                --model "${model}" \
+                --tracker botsort.yaml \
+                --conf "${conf}" \
+                --config configs/baseline.yaml \
+                --observations-jsonl "${result_dir}/observations.jsonl" \
+                --jsonl "${result_dir}/motion.jsonl"
+              python scripts/summarize_tracks.py \
+                --predictions "${result_dir}/motion.jsonl" \
+                > "${result_dir}/track-summary.txt"
+            done
+          done <<'EOF'
+          yolo11n.pt 0.25 yolo11n_conf025
+          yolo11n.pt 0.10 yolo11n_conf010
+          yolo11s.pt 0.25 yolo11s_conf025
+          yolo11s.pt 0.10 yolo11s_conf010
+          EOF
 
-      - name: Capture model hash
+      - name: Evaluate CAVIAR GT coverage
         run: |
-          if [ -f yolo11n.pt ]; then
-            sha256sum yolo11n.pt > runs/caviar-baseline/model-sha256.txt
-          fi
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from urllib.parse import urlparse
+
+          from yolo_motion.coverage import (
+              evaluate_caviar_coverage,
+              load_caviar_ground_truth,
+              load_observations,
+          )
+          from yolo_motion.source_probe import load_clip_manifest, load_source_manifest
+
+          root = Path("runs/caviar-baseline")
+          sources = load_source_manifest("benchmarks/sources/caviar.yaml")
+          clips = load_clip_manifest("benchmarks/clips/caviar.yaml")
+          source_by_name = {source.name: source for source in sources.sources}
+          labels = [
+              "yolo11n_conf025",
+              "yolo11n_conf010",
+              "yolo11s_conf025",
+              "yolo11s_conf010",
+          ]
+          summary = {}
+          for label in labels:
+              summary[label] = {}
+              for clip in clips.clips:
+                  source = source_by_name[clip.source]
+                  if not source.ground_truth_url:
+                      raise RuntimeError(f"missing GT URL for {clip.source}")
+                  gt_name = Path(urlparse(source.ground_truth_url).path).name
+                  gt_path = root / "source-probe" / "ground-truth" / gt_name
+                  observations_path = root / "results" / label / clip.name / "observations.jsonl"
+                  gt = load_caviar_ground_truth(
+                      gt_path,
+                      start_frame=clip.start_frame,
+                      end_frame=clip.end_frame,
+                      object_ids=set(clip.gt_object_ids),
+                  )
+                  report = evaluate_caviar_coverage(
+                      gt,
+                      load_observations(observations_path),
+                      source_width=384,
+                      source_height=288,
+                      start_frame=clip.start_frame,
+                      iou_threshold=0.3,
+                  )
+                  report["scenario"] = clip.name
+                  report["gt_object_ids"] = list(clip.gt_object_ids)
+                  report["start_frame"] = clip.start_frame
+                  report["end_frame"] = clip.end_frame
+                  out = root / "results" / label / clip.name / "coverage.json"
+                  out.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
+                  summary[label][clip.name] = report
+
+          (root / "coverage-summary.json").write_text(
+              json.dumps(summary, indent=2, sort_keys=True) + "\n"
+          )
+          lines = [
+              "# CAVIAR person coverage ablation",
+              "",
+              "| config | stationary | lateral crossing | approaching | pose change | mean |",
+              "| --- | ---: | ---: | ---: | ---: | ---: |",
+          ]
+          for label in labels:
+              values = [
+                  summary[label][scenario]["coverage"]
+                  for scenario in [
+                      "stationary",
+                      "lateral_crossing",
+                      "approaching",
+                      "pose_change",
+                  ]
+              ]
+              mean = sum(values) / len(values)
+              lines.append(
+                  f"| {label} | "
+                  + " | ".join(f"{value:.1%}" for value in values)
+                  + f" | {mean:.1%} |"
+              )
+          (root / "coverage-summary.md").write_text("\n".join(lines) + "\n")
+          print((root / "coverage-summary.md").read_text())
+          PY
+
+      - name: Capture model hashes
+        run: |
+          : > runs/caviar-baseline/model-sha256.txt
+          for model in yolo11n.pt yolo11s.pt; do
+            if [ -f "${model}" ]; then
+              sha256sum "${model}" >> runs/caviar-baseline/model-sha256.txt
+            fi
+          done
 
       - name: Upload baseline artifact
         uses: actions/upload-artifact@v4
         with:
-          name: caviar-real-video-baseline
+          name: caviar-real-video-coverage
           path: |
             runs/caviar-baseline/clips
             runs/caviar-baseline/results
             runs/caviar-baseline/source-probe/ground-truth
             runs/caviar-baseline/source-probe/metadata.json
             runs/caviar-baseline/source-probe/sha256.txt
+            runs/caviar-baseline/coverage-summary.json
+            runs/caviar-baseline/coverage-summary.md
             runs/caviar-baseline/clip-sha256.txt
             runs/caviar-baseline/environment.txt
             runs/caviar-baseline/pip-freeze.txt
