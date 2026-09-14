@@ -4,9 +4,10 @@ import argparse
 import hashlib
 import json
 import subprocess
+from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, BinaryIO, Callable
+from typing import Any, BinaryIO
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
