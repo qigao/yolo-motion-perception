@@ -6,6 +6,105 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from .memory_task import Cue, DelayedCueEpisode, DelayedCueTask
+from .policy import RecurrentPolicy
+
+
+@dataclass(frozen=True)
+class MemoryProbeConfig:
+    hidden_size: int = 64
+    recurrent_radius: float = 0.9
+    training_blocks: int = 200
+    evaluation_blocks: int = 20
+    regularization: float = 1e-6
+
+    def __post_init__(self) -> None:
+        for name in ("hidden_size", "training_blocks", "evaluation_blocks"):
+            value = getattr(self, name)
+            if type(value) is not int or value <= 0:
+                raise ValueError(f"{name} must be a positive integer")
+        if isinstance(self.recurrent_radius, bool):
+            raise ValueError(  # noqa: TRY004 - bool is invalid for numeric protocol
+                "recurrent_radius must be finite and in [0.0, 1.0)"
+            )
+        try:
+            radius = float(self.recurrent_radius)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("recurrent_radius must be finite and in [0.0, 1.0)") from exc
+        if not math.isfinite(radius) or not 0.0 <= radius < 1.0:
+            raise ValueError("recurrent_radius must be finite and in [0.0, 1.0)")
+        object.__setattr__(self, "recurrent_radius", radius)
+        object.__setattr__(self, "regularization", _validated_regularization(self.regularization))
+
+
+def _balanced_cases(rng: np.random.Generator) -> list[tuple[Cue, int]]:
+    cases = [(cue, delay) for cue in (Cue.LEFT, Cue.RIGHT) for delay in range(1, 6)]
+    rng.shuffle(cases)
+    return cases
+
+
+def _build_fixtures(
+    task: DelayedCueTask,
+    rng: np.random.Generator,
+    blocks: int,
+) -> tuple[DelayedCueEpisode, ...]:
+    return tuple(
+        task.build_episode(cue, delay, rng)
+        for _ in range(blocks)
+        for cue, delay in _balanced_cases(rng)
+    )
+
+
+@dataclass(frozen=True)
+class _StateDataset:
+    states: np.ndarray
+    labels: np.ndarray
+    delays: np.ndarray
+
+    def __post_init__(self) -> None:
+        states = _validated_state_matrix(self.states, require_samples=True)
+        labels = np.asarray(self.labels, dtype=np.int64)
+        delays = np.asarray(self.delays, dtype=np.int64)
+        if labels.ndim != 1 or delays.ndim != 1:
+            raise ValueError("dataset labels and delays must be rank one")
+        if labels.shape[0] != states.shape[0] or delays.shape[0] != states.shape[0]:
+            raise ValueError("dataset arrays must have matching sample counts")
+        object.__setattr__(self, "states", _readonly_copy(states, dtype=np.float64))
+        object.__setattr__(self, "labels", _readonly_copy(labels, dtype=np.int64))
+        object.__setattr__(self, "delays", _readonly_copy(delays, dtype=np.int64))
+
+
+def _collect_hidden(
+    policy: RecurrentPolicy,
+    episode: DelayedCueEpisode,
+    *,
+    reset_before_decision: bool,
+) -> np.ndarray:
+    policy.reset_state()
+    policy.advance(episode.cue_stimulus)
+    for stimulus in episode.delay_stimuli:
+        policy.advance(stimulus)
+    if reset_before_decision:
+        policy.reset_state()
+    return policy.advance(episode.decision_stimulus)
+
+
+def _collect_dataset(
+    policy: RecurrentPolicy,
+    fixtures: tuple[DelayedCueEpisode, ...],
+    *,
+    reset_before_decision: bool,
+) -> _StateDataset:
+    states = np.vstack([
+        _collect_hidden(policy, episode, reset_before_decision=reset_before_decision)
+        for episode in fixtures
+    ])
+    return _StateDataset(
+        states=states,
+        labels=np.asarray([episode.correct_action_index for episode in fixtures], dtype=np.int64),
+        delays=np.asarray([episode.delay_steps for episode in fixtures], dtype=np.int64),
+    )
+
 
 def _readonly_copy(values: np.ndarray, *, dtype: np.dtype) -> np.ndarray:
     copied = np.array(values, dtype=dtype, copy=True, order="C")

@@ -1,9 +1,119 @@
 import hashlib
+from collections import Counter
 
 import numpy as np
 import pytest
 
-from neural_state_machine.memory_probe import FittedLinearProbe, fit_linear_probe
+from neural_state_machine import Cue, DelayedCueTask, RecurrentPolicy
+from neural_state_machine import memory_probe as probe_module
+from neural_state_machine.memory_probe import (
+    FittedLinearProbe,
+    MemoryProbeConfig,
+    fit_linear_probe,
+)
+
+
+@pytest.mark.parametrize(
+    ("name", "value"),
+    [("hidden_size", 0), ("hidden_size", True), ("training_blocks", -1),
+     ("training_blocks", 1.5), ("evaluation_blocks", 0), ("evaluation_blocks", False)],
+)
+def test_memory_probe_config_rejects_invalid_counts(name: str, value: object) -> None:
+    values = {
+        "hidden_size": 64,
+        "recurrent_radius": 0.9,
+        "training_blocks": 200,
+        "evaluation_blocks": 20,
+        "regularization": 1e-6,
+    }
+    values[name] = value
+    with pytest.raises(ValueError):
+        MemoryProbeConfig(**values)
+
+
+@pytest.mark.parametrize("radius", [-0.1, 1.0, np.inf, np.nan, True])
+def test_memory_probe_config_rejects_invalid_radius(radius: object) -> None:
+    with pytest.raises(ValueError):
+        MemoryProbeConfig(recurrent_radius=radius)
+
+
+@pytest.mark.parametrize("strength", [0.0, -1.0, np.inf, np.nan, True])
+def test_memory_probe_config_rejects_invalid_regularization(strength: object) -> None:
+    with pytest.raises(ValueError):
+        MemoryProbeConfig(regularization=strength)
+
+
+def test_memory_probe_config_defaults_are_the_locked_protocol() -> None:
+    assert MemoryProbeConfig() == MemoryProbeConfig(hidden_size=64, recurrent_radius=0.9,
+                                                     training_blocks=200, evaluation_blocks=20,
+                                                     regularization=1e-6)
+
+
+def test_probe_fixtures_are_shuffled_balanced_fresh_blocks() -> None:
+    fixtures = probe_module._build_fixtures(DelayedCueTask(), np.random.default_rng(21), 3)
+    assert type(fixtures) is tuple
+    assert len(fixtures) == 30
+    for start in range(0, 30, 10):
+        block = fixtures[start : start + 10]
+        assert Counter(episode.correct_action_index for episode in block) == {0: 5, 1: 5}
+        assert Counter(episode.delay_steps for episode in block) == {1: 2, 2: 2, 3: 2, 4: 2, 5: 2}
+        assert len({(episode.cue, episode.delay_steps) for episode in block}) == 10
+    assert len({episode.delay_stimuli[0][2] for episode in fixtures}) == 30
+
+
+def _manual_hidden(policy: RecurrentPolicy, episode, *, reset_before_decision: bool) -> np.ndarray:
+    policy.reset_state()
+    policy.advance(episode.cue_stimulus)
+    for stimulus in episode.delay_stimuli:
+        policy.advance(stimulus)
+    if reset_before_decision:
+        policy.reset_state()
+    return policy.advance(episode.decision_stimulus)
+
+
+@pytest.mark.parametrize("reset", [False, True])
+def test_collect_hidden_matches_the_literal_advance_only_protocol(reset: bool) -> None:
+    episode = DelayedCueTask().build_episode(Cue.RIGHT, 4, np.random.default_rng(4))
+    actual_policy = RecurrentPolicy(4, 2, hidden_size=8, seed=7)
+    reference_policy = RecurrentPolicy(4, 2, hidden_size=8, seed=7)
+    actual = probe_module._collect_hidden(actual_policy, episode, reset_before_decision=reset)
+    expected = _manual_hidden(reference_policy, episode, reset_before_decision=reset)
+    np.testing.assert_array_equal(actual, expected)
+    assert not actual.flags.writeable
+    with pytest.raises(RuntimeError, match="preceding decision"):
+        actual_policy.learn(1.0)
+
+
+def test_reset_dataset_has_identical_states_and_literal_side_labels() -> None:
+    fixtures = probe_module._build_fixtures(DelayedCueTask(), np.random.default_rng(3), 2)
+    policy = RecurrentPolicy(4, 2, hidden_size=8, seed=9)
+    dataset = probe_module._collect_dataset(policy, fixtures, reset_before_decision=True)
+    assert dataset.states.shape == (20, 8)
+    assert dataset.labels.shape == (20,)
+    assert dataset.delays.shape == (20,)
+    assert not dataset.states.flags.writeable
+    assert not dataset.labels.flags.writeable
+    assert not dataset.delays.flags.writeable
+    assert np.array_equal(dataset.states, np.repeat(dataset.states[:1], 20, axis=0))
+    np.testing.assert_array_equal(dataset.labels, [episode.correct_action_index for episode in fixtures])
+    np.testing.assert_array_equal(dataset.delays, [episode.delay_steps for episode in fixtures])
+
+
+def test_dataset_collection_never_changes_policy_parameters_or_creates_eligibility() -> None:
+    policy = RecurrentPolicy(4, 2, hidden_size=8, seed=12)
+    fixtures = probe_module._build_fixtures(DelayedCueTask(), np.random.default_rng(8), 2)
+    input_before, recurrent_before, output_before = (policy._input_weights.copy(),
+                                                      policy._recurrent_weights.copy(),
+                                                      policy._output_weights.copy())
+    digest_before = policy.output_weight_digest()
+    probe_module._collect_dataset(policy, fixtures, reset_before_decision=False)
+    probe_module._collect_dataset(policy, fixtures, reset_before_decision=True)
+    np.testing.assert_array_equal(policy._input_weights, input_before)
+    np.testing.assert_array_equal(policy._recurrent_weights, recurrent_before)
+    np.testing.assert_array_equal(policy._output_weights, output_before)
+    assert policy.output_weight_digest() == digest_before
+    with pytest.raises(RuntimeError, match="preceding decision"):
+        policy.learn(1.0)
 
 
 def test_fitted_probe_defensively_copies_readonly_float64_weights() -> None:
