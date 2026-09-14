@@ -1,5 +1,10 @@
 import hashlib
+import json
+import runpy
+import subprocess
+import sys
 from collections import Counter
+from dataclasses import replace
 
 import numpy as np
 import pytest
@@ -11,6 +16,270 @@ from neural_state_machine.memory_probe import (
     MemoryProbeConfig,
     fit_linear_probe,
 )
+
+
+@pytest.mark.parametrize("seed", [-1, True, 1.5, "7", None, np.int64(7)])
+def test_run_memory_probe_rejects_invalid_seed_before_running(
+    seed: object, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def unexpected_run(*args):
+        pytest.fail("invalid input reached the probe protocol")
+
+    monkeypatch.setattr(probe_module, "_run_probe_once", unexpected_run)
+    with pytest.raises(ValueError, match="non-negative Python integer"):
+        probe_module.run_memory_probe(seed, MemoryProbeConfig(training_blocks=1, evaluation_blocks=1))
+
+
+def test_run_memory_probe_rejects_invalid_config_before_running(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def unexpected_run(*args):
+        pytest.fail("invalid config reached the probe protocol")
+
+    monkeypatch.setattr(probe_module, "_run_probe_once", unexpected_run)
+    with pytest.raises(ValueError, match="config must be a MemoryProbeConfig"):
+        probe_module.run_memory_probe(7, {})
+
+
+@pytest.mark.parametrize(
+    "changed",
+    [None, "seed", "config", "training", "recurrent", "per_delay", "state_reset",
+     "all_reset_hidden_equal", "output_weight_digest_before", "output_weight_digest_after",
+     "probe_digest", "recurrent_choice_digest", "reset_choice_digest"],
+)
+def test_run_memory_probe_compares_two_complete_independent_runs(
+    monkeypatch: pytest.MonkeyPatch, changed: str | None,
+) -> None:
+    config = MemoryProbeConfig(training_blocks=1, evaluation_blocks=1)
+    first = probe_module._ProbeRun(
+        seed=7,
+        config=config,
+        training=probe_module.ProbeAccuracy(10, 10),
+        recurrent=probe_module.ProbeAccuracy(10, 10),
+        per_delay=tuple((delay, probe_module.ProbeAccuracy(2, 2)) for delay in range(1, 6)),
+        state_reset=probe_module.ProbeAccuracy(5, 10),
+        all_reset_hidden_equal=True,
+        output_weight_digest_before="output",
+        output_weight_digest_after="output",
+        probe_digest="probe",
+        recurrent_choice_digest="recurrent",
+        reset_choice_digest="reset",
+    )
+    mutations = {
+        "seed": 17,
+        "config": replace(config, hidden_size=8),
+        "training": probe_module.ProbeAccuracy(9, 10),
+        "recurrent": probe_module.ProbeAccuracy(9, 10),
+        "per_delay": ((1, probe_module.ProbeAccuracy(1, 2)), *first.per_delay[1:]),
+        "state_reset": probe_module.ProbeAccuracy(6, 10),
+        "all_reset_hidden_equal": False,
+        "output_weight_digest_before": "changed",
+        "output_weight_digest_after": "changed",
+        "probe_digest": "changed",
+        "recurrent_choice_digest": "changed",
+        "reset_choice_digest": "changed",
+    }
+    second = replace(first) if changed is None else replace(first, **{changed: mutations[changed]})
+    runs = iter((first, second))
+
+    def fake_run(seed: int, received: MemoryProbeConfig):
+        if seed != 7 or received is not config:
+            pytest.fail("wrapper changed the requested seed or config")
+        return next(runs)
+
+    monkeypatch.setattr(probe_module, "_run_probe_once", fake_run)
+    result = probe_module.run_memory_probe(7, config)
+
+    assert result.repeatable is (changed is None)
+    for field in first.__dataclass_fields__:
+        assert getattr(result, field) == getattr(first, field)
+
+
+def test_real_small_probe_run_is_exactly_repeatable() -> None:
+    config = MemoryProbeConfig(
+        hidden_size=8, recurrent_radius=0.7, training_blocks=2,
+        evaluation_blocks=2, regularization=1e-4,
+    )
+
+    first = probe_module.run_memory_probe(11, config)
+    second = probe_module.run_memory_probe(11, config)
+
+    assert first == second
+    assert first.repeatable is True
+
+
+def _passing_result(seed: int = 7) -> probe_module.MemoryProbeResult:
+    return probe_module.MemoryProbeResult(
+        seed=seed,
+        config=MemoryProbeConfig(),
+        training=probe_module.ProbeAccuracy(2000, 2000),
+        recurrent=probe_module.ProbeAccuracy(180, 200),
+        per_delay=tuple(
+            (delay, probe_module.ProbeAccuracy(correct, 40))
+            for delay, correct in enumerate((34, 36, 36, 37, 37), start=1)
+        ),
+        state_reset=probe_module.ProbeAccuracy(100, 200),
+        all_reset_hidden_equal=True,
+        output_weight_digest_before="same",
+        output_weight_digest_after="same",
+        probe_digest="probe",
+        recurrent_choice_digest="recurrent",
+        reset_choice_digest="reset",
+        repeatable=True,
+    )
+
+
+@pytest.mark.parametrize(
+    ("counts", "passed"),
+    [((34, 36, 36, 37, 37), True), ((35, 36, 36, 36, 36), False),
+     ((33, 36, 37, 37, 37), False)],
+    ids=["exact-overall-and-delay-boundary", "overall-below-boundary", "delay-below-boundary"],
+)
+def test_acceptance_accuracy_boundaries_with_coherent_counts(counts, passed: bool) -> None:
+    result = replace(
+        _passing_result(),
+        recurrent=probe_module.ProbeAccuracy(sum(counts), 200),
+        per_delay=tuple(
+            (delay, probe_module.ProbeAccuracy(correct, 40))
+            for delay, correct in enumerate(counts, start=1)
+        ),
+    )
+
+    assert probe_module._passes_acceptance(result) is passed
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [("training", probe_module.ProbeAccuracy(1999, 1999)),
+     ("state_reset", probe_module.ProbeAccuracy(99, 200)),
+     ("state_reset", probe_module.ProbeAccuracy(101, 200)),
+     ("all_reset_hidden_equal", False), ("output_weight_digest_after", "changed"),
+     ("repeatable", False)],
+)
+def test_acceptance_requires_each_locked_control(field: str, value: object) -> None:
+    assert not probe_module._passes_acceptance(replace(_passing_result(), **{field: value}))
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [("hidden_size", 8), ("recurrent_radius", 0.7), ("training_blocks", 1),
+     ("evaluation_blocks", 1), ("regularization", 1e-4)],
+)
+def test_acceptance_rejects_non_protocol_config(field: str, value: object) -> None:
+    result = _passing_result()
+    assert not probe_module._passes_acceptance(
+        replace(result, config=replace(result.config, **{field: value}))
+    )
+
+
+@pytest.mark.parametrize("malformation", ["missing", "duplicate", "order", "total", "correct"])
+def test_acceptance_rejects_malformed_delay_accounting(malformation: str) -> None:
+    result = _passing_result()
+    malformed = {
+        "missing": result.per_delay[:-1],
+        "duplicate": ((2, result.per_delay[0][1]), *result.per_delay[1:]),
+        "order": tuple(reversed(result.per_delay)),
+        "total": ((1, probe_module.ProbeAccuracy(35, 41)), *result.per_delay[1:]),
+        "correct": ((1, probe_module.ProbeAccuracy(35, 40)), *result.per_delay[1:]),
+    }
+    assert not probe_module._passes_acceptance(replace(result, per_delay=malformed[malformation]))
+
+
+@pytest.mark.parametrize(
+    "seeds", [None, 7, [], [7, 7], [True], [-1], [1.5], ["7"], "7", [7, False]],
+)
+def test_benchmark_rejects_invalid_seeds_before_running(
+    seeds: object, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def unexpected_run(*args):
+        pytest.fail("invalid seed sequence reached the probe protocol")
+
+    monkeypatch.setattr(probe_module, "_run_probe_once", unexpected_run)
+    with pytest.raises(ValueError):
+        probe_module.run_memory_probe_benchmark(seeds)
+
+
+@pytest.mark.parametrize("failing_seed", [None, 7, 17, 29])
+def test_benchmark_payload_is_stable_json_data(
+    monkeypatch: pytest.MonkeyPatch, failing_seed: int | None,
+) -> None:
+    results = {seed: _passing_result(seed) for seed in (7, 17, 29)}
+    if failing_seed is not None:
+        results[failing_seed] = replace(results[failing_seed], repeatable=False)
+    monkeypatch.setattr(probe_module, "run_memory_probe", lambda seed, config=None: results[seed])
+
+    payload = probe_module.run_memory_probe_benchmark()
+
+    assert payload["phase"] == "2A"
+    assert payload["all_passed"] is (failing_seed is None)
+    assert payload["reward_baseline_gates_phase_2a"] is False
+    assert [entry["seed"] for entry in payload["results"]] == [7, 17, 29]
+    assert payload["results"][0] == {
+        "seed": 7,
+        "config": {"hidden_size": 64, "recurrent_radius": 0.9, "training_blocks": 200,
+                   "evaluation_blocks": 20, "regularization": 1e-6},
+        "passed": failing_seed != 7,
+        "training": {"correct": 2000, "total": 2000, "accuracy": 1.0},
+        "recurrent": {"correct": 180, "total": 200, "accuracy": 0.9},
+        "per_delay": {
+            "1": {"correct": 34, "total": 40, "accuracy": 0.85},
+            "2": {"correct": 36, "total": 40, "accuracy": 0.9},
+            "3": {"correct": 36, "total": 40, "accuracy": 0.9},
+            "4": {"correct": 37, "total": 40, "accuracy": 0.925},
+            "5": {"correct": 37, "total": 40, "accuracy": 0.925},
+        },
+        "state_reset": {"correct": 100, "total": 200, "accuracy": 0.5},
+        "all_reset_hidden_equal": True,
+        "output_weight_digest_before": "same", "output_weight_digest_after": "same",
+        "probe_digest": "probe", "recurrent_choice_digest": "recurrent",
+        "reset_choice_digest": "reset", "repeatable": failing_seed != 7,
+    }
+    assert [entry["passed"] for entry in payload["results"]] == [
+        seed != failing_seed for seed in (7, 17, 29)
+    ]
+    assert json.loads(json.dumps(payload, allow_nan=False)) == payload
+
+
+def test_phase_2a_public_api_is_exported() -> None:
+    import neural_state_machine as package
+
+    for name in (
+        "FittedLinearProbe", "MemoryProbeConfig", "MemoryProbeResult", "ProbeAccuracy",
+        "fit_linear_probe", "run_memory_probe", "run_memory_probe_benchmark",
+    ):
+        assert name in package.__all__
+        assert getattr(package, name) is getattr(probe_module, name)
+
+
+@pytest.mark.parametrize("passed", [False, True])
+def test_probe_benchmark_cli_exit_status_tracks_acceptance(
+    passed: bool, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str],
+) -> None:
+    payload = {"phase": "2A", "all_passed": passed, "results": []}
+    monkeypatch.setattr(probe_module, "run_memory_probe_benchmark", lambda: payload)
+
+    with pytest.raises(SystemExit) as caught:
+        runpy.run_path("scripts/benchmark_memory_probe.py", run_name="__main__")
+
+    assert caught.value.code == (0 if passed else 1)
+    captured = capsys.readouterr()
+    assert captured.err == ""
+    assert captured.out == json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n"
+
+
+def test_probe_benchmark_cli_emits_one_compact_sorted_json_object() -> None:
+    completed = subprocess.run(
+        [sys.executable, "scripts/benchmark_memory_probe.py"],
+        check=False, capture_output=True, text=True,
+    )
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    payload = json.loads(completed.stdout)
+
+    assert completed.stderr == ""
+    assert completed.stdout.count("\n") == 1
+    assert completed.stdout.rstrip() == json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    assert payload["all_passed"] is True
+    assert [entry["seed"] for entry in payload["results"]] == [7, 17, 29]
 
 
 @pytest.mark.parametrize(

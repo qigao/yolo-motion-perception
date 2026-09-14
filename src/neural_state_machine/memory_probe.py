@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import math
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 import numpy as np
@@ -67,6 +68,140 @@ class _ProbeRun:
     probe_digest: str
     recurrent_choice_digest: str
     reset_choice_digest: str
+
+
+@dataclass(frozen=True)
+class MemoryProbeResult:
+    seed: int
+    config: MemoryProbeConfig
+    training: ProbeAccuracy
+    recurrent: ProbeAccuracy
+    per_delay: tuple[tuple[int, ProbeAccuracy], ...]
+    state_reset: ProbeAccuracy
+    all_reset_hidden_equal: bool
+    output_weight_digest_before: str
+    output_weight_digest_after: str
+    probe_digest: str
+    recurrent_choice_digest: str
+    reset_choice_digest: str
+    repeatable: bool
+
+
+def _validated_seed(seed: object) -> int:
+    if type(seed) is not int or seed < 0:
+        raise ValueError("seed must be a non-negative Python integer")
+    return seed
+
+
+def _public_result(run: _ProbeRun, *, repeatable: bool) -> MemoryProbeResult:
+    return MemoryProbeResult(
+        seed=run.seed,
+        config=run.config,
+        training=run.training,
+        recurrent=run.recurrent,
+        per_delay=run.per_delay,
+        state_reset=run.state_reset,
+        all_reset_hidden_equal=run.all_reset_hidden_equal,
+        output_weight_digest_before=run.output_weight_digest_before,
+        output_weight_digest_after=run.output_weight_digest_after,
+        probe_digest=run.probe_digest,
+        recurrent_choice_digest=run.recurrent_choice_digest,
+        reset_choice_digest=run.reset_choice_digest,
+        repeatable=repeatable,
+    )
+
+
+def run_memory_probe(
+    seed: int = 7,
+    config: MemoryProbeConfig | None = None,
+) -> MemoryProbeResult:
+    validated_seed = _validated_seed(seed)
+    if config is None:
+        resolved = MemoryProbeConfig()
+    elif isinstance(config, MemoryProbeConfig):
+        resolved = config
+    else:
+        raise ValueError("config must be a MemoryProbeConfig")
+    first = _run_probe_once(validated_seed, resolved)
+    second = _run_probe_once(validated_seed, resolved)
+    return _public_result(first, repeatable=first == second)
+
+
+def _accuracy_payload(score: ProbeAccuracy) -> dict[str, object]:
+    return {"correct": score.correct, "total": score.total, "accuracy": score.accuracy}
+
+
+def _passes_acceptance(result: MemoryProbeResult) -> bool:
+    expected_delays = tuple(range(1, 6))
+    observed_delays = tuple(delay for delay, _ in result.per_delay)
+    per_delay_total = sum(score.total for _, score in result.per_delay)
+    per_delay_correct = sum(score.correct for _, score in result.per_delay)
+    return (
+        result.config == MemoryProbeConfig()
+        and result.training.total == 2_000
+        and result.recurrent.total == 200
+        and result.recurrent.accuracy >= 0.90
+        and observed_delays == expected_delays
+        and all(
+            score.total == 40 and score.accuracy >= 0.85
+            for _, score in result.per_delay
+        )
+        and per_delay_total == result.recurrent.total
+        and per_delay_correct == result.recurrent.correct
+        and result.state_reset == ProbeAccuracy(100, 200)
+        and result.all_reset_hidden_equal
+        and result.output_weight_digest_before == result.output_weight_digest_after
+        and result.repeatable
+    )
+
+
+def _result_payload(result: MemoryProbeResult) -> dict[str, object]:
+    return {
+        "seed": result.seed,
+        "config": {
+            "hidden_size": result.config.hidden_size,
+            "recurrent_radius": result.config.recurrent_radius,
+            "training_blocks": result.config.training_blocks,
+            "evaluation_blocks": result.config.evaluation_blocks,
+            "regularization": result.config.regularization,
+        },
+        "passed": _passes_acceptance(result),
+        "training": _accuracy_payload(result.training),
+        "recurrent": _accuracy_payload(result.recurrent),
+        "per_delay": {
+            str(delay): _accuracy_payload(score) for delay, score in result.per_delay
+        },
+        "state_reset": _accuracy_payload(result.state_reset),
+        "all_reset_hidden_equal": result.all_reset_hidden_equal,
+        "output_weight_digest_before": result.output_weight_digest_before,
+        "output_weight_digest_after": result.output_weight_digest_after,
+        "probe_digest": result.probe_digest,
+        "recurrent_choice_digest": result.recurrent_choice_digest,
+        "reset_choice_digest": result.reset_choice_digest,
+        "repeatable": result.repeatable,
+    }
+
+
+def run_memory_probe_benchmark(
+    seeds: Sequence[int] = (7, 17, 29),
+    config: MemoryProbeConfig | None = None,
+) -> dict[str, object]:
+    try:
+        seed_values = tuple(seeds)
+    except TypeError as exc:
+        raise ValueError("seeds must be a non-empty sequence") from exc
+    if not seed_values:
+        raise ValueError("seeds must be a non-empty sequence")
+    validated = tuple(_validated_seed(seed) for seed in seed_values)
+    if len(set(validated)) != len(validated):
+        raise ValueError("seeds must not contain duplicates")
+    results = tuple(run_memory_probe(seed, config) for seed in validated)
+    return {
+        "phase": "2A",
+        "all_passed": all(_passes_acceptance(result) for result in results),
+        "reward_baseline_gates_phase_2a": False,
+        "results": [_result_payload(result) for result in results],
+    }
 
 
 def _balanced_cases(rng: np.random.Generator) -> list[tuple[Cue, int]]:
