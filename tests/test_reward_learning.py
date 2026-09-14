@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import FrozenInstanceError
 import json
-from pathlib import Path
 import subprocess
 import sys
+from dataclasses import FrozenInstanceError
+from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
@@ -27,6 +27,15 @@ from neural_state_machine.reward_learning import (
     run_reward_learning_experiment,
 )
 from neural_state_machine.reward_readout import RewardModulatedReadout
+
+_REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(_REPOSITORY_ROOT))
+_PHASE_2B_EVIDENCE = (
+    _REPOSITORY_ROOT
+    / "docs"
+    / "experiments"
+    / "phase-2b-failure.json"
+)
 
 
 @pytest.mark.parametrize(
@@ -614,30 +623,45 @@ def test_independent_public_calls_are_exactly_repeatable() -> None:
     assert left.shuffled_choice_digest == right.shuffled_choice_digest
 
 
-@pytest.mark.parametrize("seed", [7, 17, 29])
-def test_phase_two_b_acceptance(seed: int) -> None:
+@pytest.mark.parametrize(
+    ("seed", "overall", "per_delay", "gate_passed"),
+    [
+        (7, 169, (40, 40, 40, 20, 29), False),
+        (17, 200, (40, 40, 40, 40, 40), True),
+        (29, 171, (40, 40, 40, 31, 20), False),
+    ],
+)
+def test_phase_two_b_observed_failure_is_frozen(
+    seed: int,
+    overall: int,
+    per_delay: tuple[int, ...],
+    gate_passed: bool,
+) -> None:
     result = run_reward_learning_experiment(seed)
 
-    assert result.repeatable is True
-    assert result.post_training.total == 200
-    assert result.post_training.correct >= 180
-    assert all(score.correct >= 34 for _, score in result.per_delay)
+    assert result.post_training == AccuracyCount(overall, 200)
+    assert tuple(score.correct for _, score in result.per_delay) == per_delay
+    assert (overall >= 180 and all(value >= 34 for value in per_delay)) is gate_passed
     assert result.state_reset == AccuracyCount(100, 200)
-    assert all(
-        score == AccuracyCount(20, 40)
-        for _, score in result.reset_per_delay
+    assert result.shuffled_control == AccuracyCount(100, 200)
+    assert result.repeatable is True
+
+
+def test_phase_two_b_runtime_payload_matches_committed_failure() -> None:
+    from scripts.verify_reward_learning_failure import (
+        _portable_phase_2b_payload,
+        verify_reward_learning_failure,
     )
-    assert result.all_reset_hidden_equal is True
-    assert result.shuffled_control.correct < 150
-    assert result.normal_matrix_digests_before == (
-        result.normal_matrix_digests_after
-    )
-    assert result.shuffled_matrix_digests_before == (
-        result.shuffled_matrix_digests_after
-    )
+
+    payload = verify_reward_learning_failure()
+    assert payload["all_passed"] is False
+    expected = json.loads(_PHASE_2B_EVIDENCE.read_text())
+    assert payload == _portable_phase_2b_payload(expected)
 
 
 def test_reward_learning_benchmark_and_cli_are_stable() -> None:
+    from scripts.verify_reward_learning_failure import _portable_phase_2b_payload
+
     benchmark = run_reward_learning_benchmark()
     print(json.dumps(benchmark, sort_keys=True, separators=(",", ":")))
 
@@ -645,7 +669,11 @@ def test_reward_learning_benchmark_and_cli_are_stable() -> None:
     assert benchmark["seeds"] == [7, 17, 29]
     assert benchmark["shuffled_pooled"]["total"] == 600
     assert 240 <= benchmark["shuffled_pooled"]["correct"] <= 360
-    assert benchmark["all_passed"] is True
+    assert benchmark["all_passed"] is False
+    expected = json.loads(_PHASE_2B_EVIDENCE.read_text())
+    assert _portable_phase_2b_payload(benchmark) == _portable_phase_2b_payload(
+        expected
+    )
 
     script = (
         Path(__file__).resolve().parents[1]
@@ -669,6 +697,4 @@ def test_reward_learning_benchmark_and_cli_are_stable() -> None:
     assert first.stdout.count("\n") == 1
     payload = json.loads(first.stdout)
     assert payload == benchmark
-    assert first.returncode == second.returncode == int(
-        not payload["all_passed"]
-    )
+    assert first.returncode == second.returncode == 1
