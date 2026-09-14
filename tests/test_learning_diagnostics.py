@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections import Counter
+from copy import deepcopy
 from dataclasses import FrozenInstanceError
 from pathlib import Path
 from typing import Self
@@ -1190,45 +1191,29 @@ def test_reward_trajectory_reports_null_cosine_for_zero_norm_gradient_block(
     assert trajectory.checkpoints[-1].zero_norm_block_count == 2
 
 
-class _BoundaryEpisode:
-    def __init__(self, label: int, delay: int, events: list[tuple[str, object]]) -> None:
-        self._label = label
-        self._delay = delay
-        self._events = events
-
-    @property
-    def correct_action_index(self) -> int:
-        assert any(kind == "select" for kind, _ in self._events)
-        self._events.append(("label", self._label))
-        return self._label
-
-    @property
-    def delay_steps(self) -> int:
-        assert any(kind == "select" for kind, _ in self._events)
-        self._events.append(("delay", self._delay))
-        return self._delay
-
-
 class _SelectionLockedVector(np.ndarray):
     def __new__(
         cls,
         values: np.ndarray,
         name: str,
         events: list[tuple[str, object]],
+        selected_index: callable,
     ) -> Self:
         result = np.asarray(values).view(cls)
         result._name = name
         result._events = events
+        result._selected_index = selected_index
         return result
 
     def __array_finalize__(self, source: object) -> None:
         if source is not None:
             self._name = getattr(source, "_name", "metadata")
             self._events = getattr(source, "_events", [])
+            self._selected_index = getattr(source, "_selected_index", lambda: -1)
 
     def __getitem__(self, key: object):
-        assert any(kind in {"select", "greedy"} for kind, _ in self._events)
-        self._events.append((self._name, key))
+        assert int(key) == self._selected_index()
+        self._events.append((self._name, int(key)))
         return super().__getitem__(key)
 
 
@@ -1237,50 +1222,58 @@ def test_reward_trajectory_preserves_reward_learner_boundary_order(
 ) -> None:
     original_fixtures, config = _trajectory_test_fixtures()
     events: list[tuple[str, object]] = []
-    training_episodes = tuple(
-        _BoundaryEpisode(int(label), int(delay), events)
-        for label, delay in zip(
-            original_fixtures.training.labels,
-            original_fixtures.training.delays,
-            strict=True,
-        )
-    )
-    evaluation_episodes = tuple(
-        _BoundaryEpisode(int(label), int(delay), events)
-        for label, delay in zip(
-            original_fixtures.evaluation.labels,
-            original_fixtures.evaluation.delays,
-            strict=True,
-        )
-    )
+    training_selected_index = -1
+    evaluation_selected_index = -1
+
+    def selected_training_index() -> int:
+        return training_selected_index
+
+    def selected_evaluation_index() -> int:
+        return evaluation_selected_index
+
     fixtures = diagnostics._DiagnosticFixtures(
-        training_episodes=training_episodes,
-        evaluation_episodes=evaluation_episodes,
+        training_episodes=original_fixtures.training_episodes,
+        evaluation_episodes=original_fixtures.evaluation_episodes,
         training=original_fixtures.training,
         evaluation=original_fixtures.evaluation,
     )
     object.__setattr__(
         fixtures.training,
         "labels",
-        _SelectionLockedVector(fixtures.training.labels, "label", events),
+        _SelectionLockedVector(
+            fixtures.training.labels,
+            "training-label",
+            events,
+            selected_training_index,
+        ),
     )
     object.__setattr__(
         fixtures.evaluation,
         "labels",
-        _SelectionLockedVector(fixtures.evaluation.labels, "label", events),
+        _SelectionLockedVector(
+            fixtures.evaluation.labels,
+            "evaluation-label",
+            events,
+            selected_evaluation_index,
+        ),
     )
     object.__setattr__(
         fixtures.evaluation,
         "delays",
-        _SelectionLockedVector(fixtures.evaluation.delays, "delay", events),
+        _SelectionLockedVector(
+            fixtures.evaluation.delays,
+            "evaluation-delay",
+            events,
+            selected_evaluation_index,
+        ),
     )
     _patch_trajectory_hidden_states(monkeypatch, fixtures)
 
     class BoundaryTask:
-        def reward(self, episode: _BoundaryEpisode, action: int) -> float:
+        def reward(self, episode: object, action: int) -> float:
+            del episode
             events.append(("reward", action))
             assert action == 1
-            assert episode._label in (0, 1)
             return -1.0
 
     class BoundaryReadout:
@@ -1296,10 +1289,12 @@ def test_reward_trajectory_preserves_reward_learner_boundary_order(
         def select_for_training(
             self, hidden: np.ndarray, legal_actions: tuple[int, int], rng: np.random.Generator
         ) -> RewardReadoutDecision:
+            nonlocal training_selected_index
             assert legal_actions == (0, 1)
             assert isinstance(rng, np.random.Generator)
             self.pending = True
-            events.append(("select", 1))
+            training_selected_index += 1
+            events.append(("training-select", training_selected_index))
             probabilities = np.array([0.4, 0.6], dtype=np.float64)
             probabilities.flags.writeable = False
             return RewardReadoutDecision(1, np.zeros(2), probabilities)
@@ -1314,7 +1309,11 @@ def test_reward_trajectory_preserves_reward_learner_boundary_order(
         def select_greedy(
             self, hidden: np.ndarray, legal_actions: tuple[int, int]
         ) -> RewardReadoutDecision:
-            events.append(("greedy", 0))
+            nonlocal evaluation_selected_index
+            evaluation_selected_index = (evaluation_selected_index + 1) % len(
+                fixtures.evaluation_episodes
+            )
+            events.append(("evaluation-select", evaluation_selected_index))
             probabilities = np.array([0.5, 0.5], dtype=np.float64)
             probabilities.flags.writeable = False
             return RewardReadoutDecision(0, np.zeros(2), probabilities)
@@ -1327,22 +1326,26 @@ def test_reward_trajectory_preserves_reward_learner_boundary_order(
 
     diagnostics._run_reward_trajectory(94, fixtures, config)
 
-    learner_events = [
-        (kind, value) for kind, value in events if kind in {"select", "reward", "learn"}
-    ]
-    assert learner_events == [
-        item
-        for _ in range(config.training_episodes)
-        for item in (("select", 1), ("reward", 1), ("learn", -1.0))
-    ]
-    first_select = next(index for index, item in enumerate(events) if item[0] == "select")
-    assert all(
-        index > first_select
-        for index, (kind, _value) in enumerate(events)
-        if kind in {"label", "delay"}
-    )
-    assert sum(kind == "label" for kind, _ in events) == 60
-    assert sum(kind == "delay" for kind, _ in events) == 40
+    expected_events = []
+    for training_index in range(config.training_episodes):
+        expected_events.extend(
+            (
+                ("training-select", training_index),
+                ("reward", 1),
+                ("training-label", training_index),
+                ("learn", -1.0),
+            )
+        )
+        if training_index in (9, 19):
+            for evaluation_index in range(len(fixtures.evaluation_episodes)):
+                expected_events.extend(
+                    (
+                        ("evaluation-select", evaluation_index),
+                        ("evaluation-label", evaluation_index),
+                        ("evaluation-delay", evaluation_index),
+                    )
+                )
+    assert events == expected_events
 
 
 @pytest.mark.parametrize(
@@ -1378,6 +1381,49 @@ _PHASE_2B_EVIDENCE = (
     / "experiments"
     / "phase-2b-failure.json"
 )
+_INDEPENDENT_PORTABLE_PHASE_2B_RESULT_KEYS = (
+    "all_reset_hidden_equal",
+    "final_block",
+    "normal_training_choice_digest",
+    "normal_training_reward_digest",
+    "passed",
+    "per_delay",
+    "post_training",
+    "pre_training",
+    "recurrent_choice_digest",
+    "repeatable",
+    "reset_choice_digest",
+    "reset_per_delay",
+    "seed",
+    "shuffled_choice_digest",
+    "shuffled_control",
+    "shuffled_final_block",
+    "shuffled_per_delay",
+    "shuffled_total_training_reward",
+    "shuffled_training_choice_digest",
+    "shuffled_training_reward_digest",
+    "state_reset",
+    "total_training_reward",
+)
+
+
+def _independent_portable_phase_two_b_projection(
+    payload: dict[str, object],
+) -> dict[str, object]:
+    results = payload["results"]
+    assert isinstance(results, list)
+    assert all(isinstance(result, dict) for result in results)
+    return {
+        "all_passed": payload["all_passed"],
+        "config": payload["config"],
+        "phase": payload["phase"],
+        "results": [
+            {key: result[key] for key in _INDEPENDENT_PORTABLE_PHASE_2B_RESULT_KEYS}
+            for result in results
+        ],
+        "seeds": payload["seeds"],
+        "shuffled_pooled": payload["shuffled_pooled"],
+    }
 
 
 @pytest.mark.parametrize("seed", [7, 17, 29])
@@ -1392,7 +1438,19 @@ def test_reward_trajectory_matches_portable_phase_two_b_evidence_locally(seed: i
     first = diagnostics._run_reward_trajectory(seed, fixtures, config)
     second = diagnostics._run_reward_trajectory(seed, fixtures, config)
 
+    assert _independent_portable_phase_two_b_projection(
+        runtime
+    ) == _independent_portable_phase_two_b_projection(evidence)
     assert diagnostics._match_phase_2b_evidence(seed, runtime_entry)
+    changed_portable_entry = deepcopy(runtime_entry)
+    changed_portable_entry["total_training_reward"] = (
+        changed_portable_entry["total_training_reward"] + 1
+    )
+    assert diagnostics._match_phase_2b_evidence(seed, changed_portable_entry) is False
+    changed_float_entry = deepcopy(runtime_entry)
+    changed_float_entry["normal_parameter_digest"] = "0" * 64
+    changed_float_entry["matrix_controls"]["normal_after"][0] = "0" * 64
+    assert diagnostics._match_phase_2b_evidence(seed, changed_float_entry)
     assert first.overall == diagnostics.AccuracyCount(
         expected_entry["post_training"]["correct"], 200
     )
