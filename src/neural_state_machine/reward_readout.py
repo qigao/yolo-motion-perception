@@ -73,7 +73,9 @@ class RewardModulatedReadout:
         if self.has_pending_feedback:
             raise RuntimeError("training feedback is already pending")
         if not isinstance(rng, np.random.Generator):
-            raise ValueError("rng must be a numpy.random.Generator")
+            raise ValueError(  # noqa: TRY004 - protocol validation uses ValueError
+                "rng must be a numpy.random.Generator"
+            )
 
         hidden = self._validated_hidden_state(hidden_state)
         legal_indices = self._validated_legal_action_indices(legal_action_indices)
