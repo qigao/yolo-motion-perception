@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import subprocess
+import sys
 from collections import Counter
 from copy import deepcopy
 from dataclasses import FrozenInstanceError, fields, is_dataclass
@@ -1704,3 +1706,158 @@ def test_package_exports_only_the_approved_diagnostic_public_symbols() -> None:
         "_run_supervised_diagnostic",
         "_run_reward_trajectory",
     } & set(package.__all__)
+
+
+def test_diagnostics_benchmark_rejects_invalid_inputs_before_construction(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def unexpected_run(*args: object, **kwargs: object) -> None:
+        raise AssertionError("benchmark validation must precede policy construction")
+
+    monkeypatch.setattr(diagnostics, "run_learning_diagnostics", unexpected_run)
+
+    for seeds in ((), (7, 7), (True,), (False,), (-1,), (7.0,), 7, "7", None):
+        with pytest.raises(ValueError):
+            diagnostics.run_learning_diagnostics_benchmark(seeds)  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="LearningDiagnosticsConfig"):
+        diagnostics.run_learning_diagnostics_benchmark(config=object())
+
+
+def test_diagnostics_benchmark_reports_complete_primitive_measurements() -> None:
+    payload = diagnostics.run_learning_diagnostics_benchmark()
+
+    assert payload["phase"] == "2C"
+    assert payload["seeds"] == [7, 17, 29]
+    assert payload["all_valid"] is True
+    assert payload["classification_counts"] == {
+        "NO_FAILURE_REPRODUCED": 1,
+        "REWARD_CREDIT_FAILURE": 2,
+    }
+    assert payload["phase_2b_evidence_digest"] == hashlib.sha256(
+        (Path(__file__).parents[1] / "docs/experiments/phase-2b-failure.json").read_bytes()
+    ).hexdigest()
+    assert [result["seed"] for result in payload["results"]] == [7, 17, 29]
+    assert [result["classification"] for result in payload["results"]] == [
+        "REWARD_CREDIT_FAILURE",
+        "NO_FAILURE_REPRODUCED",
+        "REWARD_CREDIT_FAILURE",
+    ]
+    assert all(
+        result["diagnostic_valid"] and result["repeatable"]
+        for result in payload["results"]
+    )
+    result = payload["results"][0]
+    assert set(result["geometry"]) == {
+        "training",
+        "evaluation",
+        "per_delay",
+        "training_margins",
+        "evaluation_margins",
+        "per_delay_margins",
+        "delay_five_to_one_median_ratio",
+        "probe_digest",
+        "geometry_passed",
+    }
+    assert set(result["supervised"]["checkpoints"][0]) == {
+        "episode",
+        "overall",
+        "per_delay",
+        "parameter_digest",
+    }
+    reward = result["reward_trajectory"]
+    assert set(reward["checkpoints"][0]) == {
+        "episode",
+        "overall",
+        "per_delay",
+        "mean_correct_action_probability",
+        "percentile_10_correct_action_probability",
+        "mean_expected_bandit_to_supervised_norm_ratio",
+        "zero_norm_block_count",
+        "parameter_digest",
+    }
+    assert set(reward["gradient_blocks"][0]) == {
+        "episode",
+        "mean_expected_bandit_to_supervised_norm_ratio",
+        "cosine",
+    }
+    raw_gradient_keys = {
+        "sampled_episode_gradients",
+        "supervised_episode_gradients",
+        "sampled_gradient",
+        "supervised_gradient",
+        "expected_bandit_to_supervised_norm_ratios",
+    }
+    assert raw_gradient_keys.isdisjoint(reward["gradient_blocks"][0])
+    assert "correct_action_probabilities" not in reward["checkpoints"][0]
+    assert "gradient_blocks" not in reward["checkpoints"][0]
+    # Summary-only evidence stays small enough for routine CI and code review.
+    assert len(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()) < 1_000_000
+    _assert_json_primitives(payload)
+
+
+def _assert_json_primitives(value: object) -> None:
+    if value is None or type(value) in (bool, int, float, str):
+        return
+    if isinstance(value, list):
+        for item in value:
+            _assert_json_primitives(item)
+    elif isinstance(value, dict):
+        assert all(type(key) is str for key in value)
+        for item in value.values():
+            _assert_json_primitives(item)
+    else:
+        pytest.fail(f"not a JSON primitive: {type(value).__name__}")
+
+
+def _run_diagnostics_benchmark_cli(*arguments: Path) -> subprocess.CompletedProcess[str]:
+    root = Path(__file__).parents[1]
+    return subprocess.run(
+        [sys.executable, "scripts/benchmark_learning_diagnostics.py", *map(str, arguments)],
+        cwd=root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+
+def test_diagnostics_benchmark_cli_is_compact_and_byte_stable() -> None:
+    first = _run_diagnostics_benchmark_cli()
+    second = _run_diagnostics_benchmark_cli()
+
+    assert first.stdout == second.stdout
+    assert first.stderr == second.stderr == ""
+    assert first.stdout.endswith("\n")
+    assert first.stdout.count("\n") == 1
+    payload = json.loads(first.stdout)
+    assert first.stdout == json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n"
+    assert first.returncode == second.returncode == int(not payload["all_valid"])
+
+
+def test_diagnostics_benchmark_cli_writes_only_immutable_approved_evidence(
+    tmp_path: Path,
+) -> None:
+    root = Path(__file__).parents[1]
+    approved = root / "docs/experiments/phase-2c-diagnostics.json"
+    phase_2b = root / "docs/experiments/phase-2b-failure.json"
+    forbidden = tmp_path / "other-evidence.json"
+    forbidden.write_text("not approved\n", encoding="utf-8")
+    phase_2b_before = phase_2b.read_bytes()
+
+    rejected = _run_diagnostics_benchmark_cli(Path("--evidence"), forbidden)
+    assert rejected.returncode != 0
+    assert forbidden.read_text(encoding="utf-8") == "not approved\n"
+
+    phase_2b_rejected = _run_diagnostics_benchmark_cli(Path("--evidence"), phase_2b)
+    assert phase_2b_rejected.returncode != 0
+    assert phase_2b.read_bytes() == phase_2b_before
+
+    approved.parent.mkdir(parents=True, exist_ok=True)
+    approved.write_text("outdated measured output\n", encoding="utf-8")
+    written = _run_diagnostics_benchmark_cli(Path("--evidence"), approved)
+    payload = json.loads(written.stdout)
+    assert written.returncode == int(not payload["all_valid"])
+    assert written.stderr == ""
+    assert json.loads(approved.read_text(encoding="utf-8")) == payload
+    assert approved.read_text(encoding="utf-8") == (
+        json.dumps(payload, sort_keys=True, indent=2) + "\n"
+    )

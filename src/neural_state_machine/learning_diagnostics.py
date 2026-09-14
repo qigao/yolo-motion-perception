@@ -10,7 +10,9 @@ from __future__ import annotations
 import hashlib
 import json
 import math
-from dataclasses import dataclass
+from collections import Counter
+from collections.abc import Sequence
+from dataclasses import dataclass, fields, is_dataclass
 from pathlib import Path
 
 import numpy as np
@@ -1301,10 +1303,578 @@ def _classify(
     return "NO_FAILURE_REPRODUCED"
 
 
-def run_learning_diagnostics_benchmark(*args: object, **kwargs: object) -> object:
-    """Reserved public benchmark entry point implemented in the next task."""
-    del args, kwargs
-    raise NotImplementedError("run_learning_diagnostics_benchmark is not available yet")
+def run_learning_diagnostics_benchmark(
+    seeds: Sequence[int] = (7, 17, 29),
+    config: LearningDiagnosticsConfig | None = None,
+) -> dict[str, object]:
+    """Measure the complete deterministic Phase 2C diagnostic benchmark."""
+    resolved_seeds = _validated_benchmark_seeds(seeds)
+    resolved_config = _validated_benchmark_config(config)
+    results = [
+        _diagnostics_benchmark_result(run_learning_diagnostics(seed, resolved_config))
+        for seed in resolved_seeds
+    ]
+    classifications = [result["classification"] for result in results]
+    if not all(isinstance(classification, str) for classification in classifications):
+        raise ValueError("diagnostic result has an invalid classification")
+    counts = Counter(classifications)
+    payload: dict[str, object] = {
+        "all_valid": all(
+            result["diagnostic_valid"] is True and result["repeatable"] is True
+            for result in results
+        ),
+        "classification_counts": dict(sorted(counts.items())),
+        "config": _diagnostic_json_value(resolved_config),
+        "phase": "2C",
+        "phase_2b_evidence_digest": hashlib.sha256(
+            _PHASE_2B_EVIDENCE.read_bytes()
+        ).hexdigest(),
+        "results": results,
+        "seeds": list(resolved_seeds),
+    }
+    _validate_diagnostics_benchmark_payload(payload)
+    return payload
+
+
+def _validated_benchmark_seeds(seeds: object) -> tuple[int, ...]:
+    """Validate ordered benchmark seeds before any policy can be constructed."""
+    if isinstance(seeds, (str, bytes)) or not isinstance(seeds, Sequence):
+        raise ValueError(  # noqa: TRY004
+            "seeds must be a non-empty sequence of unique non-negative integers"
+        )
+    resolved = tuple(seeds)
+    if not resolved:
+        raise ValueError("seeds must be a non-empty sequence of unique non-negative integers")
+    if any(type(seed) is not int or seed < 0 for seed in resolved):
+        raise ValueError("seeds must be a non-empty sequence of unique non-negative integers")
+    if len(set(resolved)) != len(resolved):
+        raise ValueError("seeds must not contain duplicates")
+    return resolved
+
+
+def _validated_benchmark_config(
+    config: LearningDiagnosticsConfig | None,
+) -> LearningDiagnosticsConfig:
+    """Resolve the only configuration accepted by the public benchmark."""
+    if config is None:
+        return LearningDiagnosticsConfig()
+    if not isinstance(config, LearningDiagnosticsConfig):
+        raise ValueError("config must be a LearningDiagnosticsConfig")  # noqa: TRY004
+    return config
+
+
+def _diagnostic_json_value(value: object) -> object:
+    """Recursively project immutable diagnostic records to JSON primitives."""
+    if is_dataclass(value):
+        return {
+            field.name: _diagnostic_json_value(getattr(value, field.name))
+            for field in fields(value)
+        }
+    if value is None or type(value) in (bool, int, str):
+        return value
+    if type(value) is float:
+        if not math.isfinite(value):
+            raise ValueError("diagnostic JSON values must be finite")
+        return value
+    if isinstance(value, np.integer):
+        return int(value)
+    if isinstance(value, np.floating):
+        resolved = float(value)
+        if not math.isfinite(resolved):
+            raise ValueError("diagnostic JSON values must be finite")
+        return resolved
+    if isinstance(value, tuple | list):
+        return [_diagnostic_json_value(item) for item in value]
+    if isinstance(value, dict):
+        if not all(type(key) is str for key in value):
+            raise ValueError("diagnostic JSON object keys must be strings")
+        return {key: _diagnostic_json_value(item) for key, item in value.items()}
+    raise ValueError(f"diagnostic value is not JSON serializable: {type(value).__name__}")
+
+
+def _diagnostics_benchmark_result(
+    result: LearningDiagnosticsResult,
+) -> dict[str, object]:
+    """Project a complete result to stable evidence without duplicate raw traces."""
+    return {
+        "seed": result.seed,
+        "config": _diagnostic_json_value(result.config),
+        "geometry": _geometry_benchmark_value(result.geometry),
+        "supervised": _supervised_benchmark_value(result.supervised),
+        "reward_trajectory": _reward_trajectory_benchmark_value(result.reward_trajectory),
+        "classification": result.classification,
+        "matrix_digests_before": list(result.matrix_digests_before),
+        "matrix_digests_after": list(result.matrix_digests_after),
+        "phase_2b_portable_evidence_match": result.phase_2b_portable_evidence_match,
+        "diagnostic_valid": result.diagnostic_valid,
+        "repeatable": result.repeatable,
+        "training_fixture_digest": result.training_fixture_digest,
+        "training_state_digest": result.training_state_digest,
+        "evaluation_fixture_digest": result.evaluation_fixture_digest,
+        "evaluation_state_digest": result.evaluation_state_digest,
+    }
+
+
+def _geometry_benchmark_value(geometry: GeometryDiagnostic) -> dict[str, object]:
+    """Serialize all geometry counts, margins, and its fitted-probe digest."""
+    return {
+        "training": _accuracy_benchmark_value(geometry.training),
+        "evaluation": _accuracy_benchmark_value(geometry.evaluation),
+        "per_delay": _per_delay_benchmark_value(geometry.per_delay),
+        "training_margins": _margin_benchmark_value(geometry.training_margins),
+        "evaluation_margins": _margin_benchmark_value(geometry.evaluation_margins),
+        "per_delay_margins": [
+            [delay, _margin_benchmark_value(summary)]
+            for delay, summary in geometry.per_delay_margins
+        ],
+        "delay_five_to_one_median_ratio": geometry.delay_five_to_one_median_ratio,
+        "probe_digest": geometry.probe_digest,
+        "geometry_passed": geometry.geometry_passed,
+    }
+
+
+def _supervised_benchmark_value(supervised: SupervisedDiagnostic) -> dict[str, object]:
+    """Serialize supervised counts and every scheduled parameter checkpoint."""
+    return {
+        "overall": _accuracy_benchmark_value(supervised.overall),
+        "per_delay": _per_delay_benchmark_value(supervised.per_delay),
+        "checkpoints": [
+            {
+                "episode": checkpoint.episode,
+                "overall": _accuracy_benchmark_value(checkpoint.overall),
+                "per_delay": _per_delay_benchmark_value(checkpoint.per_delay),
+                "parameter_digest": checkpoint.parameter_digest,
+            }
+            for checkpoint in supervised.checkpoints
+        ],
+        "parameter_digest": supervised.parameter_digest,
+        "supervised_passed": supervised.supervised_passed,
+    }
+
+
+def _reward_trajectory_benchmark_value(
+    reward: RewardTrajectoryDiagnostic,
+) -> dict[str, object]:
+    """Serialize reward summaries while keeping raw gradient vectors private."""
+    return {
+        "overall": _accuracy_benchmark_value(reward.overall),
+        "per_delay": _per_delay_benchmark_value(reward.per_delay),
+        "checkpoints": [
+            {
+                "episode": checkpoint.episode,
+                "overall": _accuracy_benchmark_value(checkpoint.overall),
+                "per_delay": _per_delay_benchmark_value(checkpoint.per_delay),
+                "mean_correct_action_probability": (
+                    checkpoint.mean_correct_action_probability
+                ),
+                "percentile_10_correct_action_probability": (
+                    checkpoint.percentile_10_correct_action_probability
+                ),
+                "mean_expected_bandit_to_supervised_norm_ratio": (
+                    checkpoint.mean_expected_bandit_to_supervised_norm_ratio
+                ),
+                "zero_norm_block_count": checkpoint.zero_norm_block_count,
+                "parameter_digest": checkpoint.parameter_digest,
+            }
+            for checkpoint in reward.checkpoints
+        ],
+        "gradient_blocks": [
+            {
+                "episode": block.episode,
+                "mean_expected_bandit_to_supervised_norm_ratio": (
+                    block.mean_expected_bandit_to_supervised_norm_ratio
+                ),
+                "cosine": block.cosine,
+            }
+            for block in reward.gradient_blocks
+        ],
+        "zero_norm_block_count": reward.zero_norm_block_count,
+        "total_training_reward": reward.total_training_reward,
+        "final_block": _accuracy_benchmark_value(reward.final_block),
+        "parameter_digest_before": reward.parameter_digest_before,
+        "parameter_digest_after": reward.parameter_digest_after,
+        "matrix_digests_before": list(reward.matrix_digests_before),
+        "matrix_digests_after": list(reward.matrix_digests_after),
+        "training_choice_digest": reward.training_choice_digest,
+        "training_reward_digest": reward.training_reward_digest,
+        "reward_passed": reward.reward_passed,
+    }
+
+
+def _accuracy_benchmark_value(count: AccuracyCount) -> dict[str, int]:
+    """Serialize literal correctness counts without derived rounded accuracy."""
+    return {"correct": count.correct, "total": count.total}
+
+
+def _per_delay_benchmark_value(
+    per_delay: tuple[tuple[int, AccuracyCount], ...],
+) -> list[list[object]]:
+    """Serialize ordered delay/count pairs with their literal integer counts."""
+    return [[delay, _accuracy_benchmark_value(count)] for delay, count in per_delay]
+
+
+def _margin_benchmark_value(summary: MarginSummary) -> dict[str, float]:
+    """Serialize each unrounded measured margin statistic."""
+    return {
+        "minimum": summary.minimum,
+        "percentile_10": summary.percentile_10,
+        "median": summary.median,
+    }
+
+
+def _validate_diagnostics_benchmark_payload(payload: object) -> None:
+    """Reject malformed benchmark data before it becomes measured evidence."""
+    if not isinstance(payload, dict) or set(payload) != {
+        "all_valid",
+        "classification_counts",
+        "config",
+        "phase",
+        "phase_2b_evidence_digest",
+        "results",
+        "seeds",
+    }:
+        raise ValueError("diagnostics benchmark payload has an invalid top-level schema")
+    _validate_diagnostic_json_primitives(payload)
+
+    seeds = payload["seeds"]
+    results = payload["results"]
+    config = payload["config"]
+    counts = payload["classification_counts"]
+    if (
+        payload["phase"] != "2C"
+        or type(payload["all_valid"]) is not bool
+        or not isinstance(seeds, list)
+        or not isinstance(results, list)
+        or not isinstance(config, dict)
+        or not isinstance(counts, dict)
+    ):
+        raise ValueError("diagnostics benchmark payload has invalid required values")
+    if (
+        not seeds
+        or any(type(seed) is not int or seed < 0 for seed in seeds)
+        or len(set(seeds)) != len(seeds)
+        or len(results) != len(seeds)
+    ):
+        raise ValueError("diagnostics benchmark payload has invalid seeds")
+    expected_config_keys = {field.name for field in fields(LearningDiagnosticsConfig)}
+    if set(config) != expected_config_keys:
+        raise ValueError("diagnostics benchmark payload has an invalid configuration")
+    try:
+        resolved_config = LearningDiagnosticsConfig(**config)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("diagnostics benchmark payload has an invalid configuration") from exc
+
+    expected_result_keys = {field.name for field in fields(LearningDiagnosticsResult)}
+    classifications: list[str] = []
+    for seed, result in zip(seeds, results, strict=True):
+        if not isinstance(result, dict) or set(result) != expected_result_keys:
+            raise ValueError("diagnostics benchmark payload has an invalid result")
+        if result["seed"] != seed or result["config"] != config:
+            raise ValueError("diagnostics benchmark payload has mismatched result metadata")
+        _validate_benchmark_result_summary(result, resolved_config)
+        if (
+            type(result["diagnostic_valid"]) is not bool
+            or type(result["repeatable"]) is not bool
+            or type(result["phase_2b_portable_evidence_match"]) is not bool
+            or result["classification"]
+            not in {
+                "PROTOCOL_MISMATCH",
+                "REPRESENTATION_FAILURE",
+                "ONLINE_OPTIMIZATION_FAILURE",
+                "REWARD_CREDIT_FAILURE",
+                "NO_FAILURE_REPRODUCED",
+            }
+        ):
+            raise ValueError("diagnostics benchmark payload has invalid result status")
+        classifications.append(result["classification"])
+
+    expected_counts = dict(sorted(Counter(classifications).items()))
+    if counts != expected_counts or any(type(count) is not int for count in counts.values()):
+        raise ValueError("diagnostics benchmark payload has invalid classification counts")
+    if payload["all_valid"] is not all(
+        result["diagnostic_valid"] is True and result["repeatable"] is True
+        for result in results
+    ):
+        raise ValueError("diagnostics benchmark payload has an invalid validity gate")
+    digest = payload["phase_2b_evidence_digest"]
+    if (
+        type(digest) is not str
+        or len(digest) != 64
+        or any(character not in "0123456789abcdef" for character in digest)
+        or digest != hashlib.sha256(_PHASE_2B_EVIDENCE.read_bytes()).hexdigest()
+    ):
+        raise ValueError("diagnostics benchmark payload has an invalid Phase 2B digest")
+
+
+def _validate_benchmark_result_summary(
+    result: dict[str, object],
+    config: LearningDiagnosticsConfig,
+) -> None:
+    """Validate the explicit compact result schema before emitting evidence."""
+    for key in (
+        "training_fixture_digest",
+        "training_state_digest",
+        "evaluation_fixture_digest",
+        "evaluation_state_digest",
+    ):
+        _validate_digest(result[key], key)
+    _validate_benchmark_digest_list(result["matrix_digests_before"], "matrix_digests_before")
+    _validate_benchmark_digest_list(result["matrix_digests_after"], "matrix_digests_after")
+
+    geometry = _benchmark_schema_object(
+        result["geometry"],
+        {
+            "training",
+            "evaluation",
+            "per_delay",
+            "training_margins",
+            "evaluation_margins",
+            "per_delay_margins",
+            "delay_five_to_one_median_ratio",
+            "probe_digest",
+            "geometry_passed",
+        },
+        "geometry",
+    )
+    _validate_benchmark_accuracy(geometry["training"], "geometry.training")
+    _validate_benchmark_accuracy(geometry["evaluation"], "geometry.evaluation")
+    _validate_benchmark_per_delay(geometry["per_delay"], "geometry.per_delay")
+    _validate_benchmark_margin(geometry["training_margins"], "geometry.training_margins")
+    _validate_benchmark_margin(geometry["evaluation_margins"], "geometry.evaluation_margins")
+    _validate_benchmark_margin_per_delay(geometry["per_delay_margins"])
+    if (
+        type(geometry["delay_five_to_one_median_ratio"]) is not float
+        or type(geometry["geometry_passed"]) is not bool
+    ):
+        raise ValueError("diagnostics benchmark payload has invalid geometry summaries")
+    _validate_digest(geometry["probe_digest"], "geometry.probe_digest")
+
+    supervised = _benchmark_schema_object(
+        result["supervised"],
+        {
+            "overall",
+            "per_delay",
+            "checkpoints",
+            "parameter_digest",
+            "supervised_passed",
+        },
+        "supervised",
+    )
+    _validate_benchmark_accuracy(supervised["overall"], "supervised.overall")
+    _validate_benchmark_per_delay(supervised["per_delay"], "supervised.per_delay")
+    _validate_supervised_benchmark_checkpoints(supervised["checkpoints"], config)
+    _validate_digest(supervised["parameter_digest"], "supervised.parameter_digest")
+    if type(supervised["supervised_passed"]) is not bool:
+        raise ValueError("diagnostics benchmark payload has an invalid supervised gate")
+
+    reward = _benchmark_schema_object(
+        result["reward_trajectory"],
+        {
+            "overall",
+            "per_delay",
+            "checkpoints",
+            "gradient_blocks",
+            "zero_norm_block_count",
+            "total_training_reward",
+            "final_block",
+            "parameter_digest_before",
+            "parameter_digest_after",
+            "matrix_digests_before",
+            "matrix_digests_after",
+            "training_choice_digest",
+            "training_reward_digest",
+            "reward_passed",
+        },
+        "reward_trajectory",
+    )
+    _validate_benchmark_accuracy(reward["overall"], "reward.overall")
+    _validate_benchmark_per_delay(reward["per_delay"], "reward.per_delay")
+    _validate_reward_benchmark_checkpoints(reward["checkpoints"], config)
+    _validate_gradient_block_summaries(reward["gradient_blocks"], config)
+    _validate_benchmark_accuracy(reward["final_block"], "reward.final_block")
+    _validate_benchmark_digest_list(reward["matrix_digests_before"], "reward.matrix_before")
+    _validate_benchmark_digest_list(reward["matrix_digests_after"], "reward.matrix_after")
+    for key in (
+        "parameter_digest_before",
+        "parameter_digest_after",
+        "training_choice_digest",
+        "training_reward_digest",
+    ):
+        _validate_digest(reward[key], f"reward.{key}")
+    if (
+        type(reward["zero_norm_block_count"]) is not int
+        or reward["zero_norm_block_count"] < 0
+        or type(reward["total_training_reward"]) is not int
+        or type(reward["reward_passed"]) is not bool
+    ):
+        raise ValueError("diagnostics benchmark payload has invalid reward summaries")
+
+
+def _benchmark_schema_object(
+    value: object,
+    keys: set[str],
+    name: str,
+) -> dict[str, object]:
+    """Return a summary object only when its fields exactly match the schema."""
+    if not isinstance(value, dict) or set(value) != keys:
+        raise ValueError(f"diagnostics benchmark payload has an invalid {name} schema")
+    return value
+
+
+def _validate_benchmark_accuracy(value: object, name: str) -> None:
+    """Validate a compact literal correctness-count object."""
+    count = _benchmark_schema_object(value, {"correct", "total"}, name)
+    correct = count["correct"]
+    total = count["total"]
+    if (
+        type(correct) is not int
+        or type(total) is not int
+        or total <= 0
+        or not 0 <= correct <= total
+    ):
+        raise ValueError(f"diagnostics benchmark payload has an invalid {name} count")
+
+
+def _validate_benchmark_per_delay(value: object, name: str) -> None:
+    """Validate the complete ordered one-through-five delay-count series."""
+    if not isinstance(value, list) or len(value) != 5:
+        raise ValueError(f"diagnostics benchmark payload has an invalid {name}")
+    for delay, pair in enumerate(value, start=1):
+        if not isinstance(pair, list) or len(pair) != 2 or pair[0] != delay:
+            raise ValueError(f"diagnostics benchmark payload has an invalid {name}")
+        _validate_benchmark_accuracy(pair[1], f"{name}[{delay}]")
+
+
+def _validate_benchmark_margin(value: object, name: str) -> None:
+    """Validate one unrounded finite margin-summary object."""
+    summary = _benchmark_schema_object(value, {"minimum", "percentile_10", "median"}, name)
+    if any(type(summary[key]) is not float for key in summary):
+        raise ValueError(f"diagnostics benchmark payload has an invalid {name}")
+
+
+def _validate_benchmark_margin_per_delay(value: object) -> None:
+    """Validate one margin summary for every frozen delay."""
+    if not isinstance(value, list) or len(value) != 5:
+        raise ValueError("diagnostics benchmark payload has invalid per-delay margins")
+    for delay, pair in enumerate(value, start=1):
+        if not isinstance(pair, list) or len(pair) != 2 or pair[0] != delay:
+            raise ValueError("diagnostics benchmark payload has invalid per-delay margins")
+        _validate_benchmark_margin(pair[1], f"per_delay_margins[{delay}]")
+
+
+def _validate_supervised_benchmark_checkpoints(
+    value: object,
+    config: LearningDiagnosticsConfig,
+) -> None:
+    """Validate scheduled supervised count/digest checkpoint summaries."""
+    checkpoints = _validate_benchmark_checkpoint_episodes(value, config, "supervised")
+    for checkpoint in checkpoints:
+        summary = _benchmark_schema_object(
+            checkpoint,
+            {"episode", "overall", "per_delay", "parameter_digest"},
+            "supervised checkpoint",
+        )
+        _validate_benchmark_accuracy(summary["overall"], "supervised checkpoint overall")
+        _validate_benchmark_per_delay(summary["per_delay"], "supervised checkpoint per_delay")
+        _validate_digest(summary["parameter_digest"], "supervised checkpoint parameter_digest")
+
+
+def _validate_reward_benchmark_checkpoints(
+    value: object,
+    config: LearningDiagnosticsConfig,
+) -> None:
+    """Validate reward checkpoint summaries without cumulative raw vectors."""
+    checkpoints = _validate_benchmark_checkpoint_episodes(value, config, "reward")
+    for checkpoint in checkpoints:
+        summary = _benchmark_schema_object(
+            checkpoint,
+            {
+                "episode",
+                "overall",
+                "per_delay",
+                "mean_correct_action_probability",
+                "percentile_10_correct_action_probability",
+                "mean_expected_bandit_to_supervised_norm_ratio",
+                "zero_norm_block_count",
+                "parameter_digest",
+            },
+            "reward checkpoint",
+        )
+        _validate_benchmark_accuracy(summary["overall"], "reward checkpoint overall")
+        _validate_benchmark_per_delay(summary["per_delay"], "reward checkpoint per_delay")
+        if (
+            type(summary["mean_correct_action_probability"]) is not float
+            or type(summary["percentile_10_correct_action_probability"]) is not float
+            or type(summary["mean_expected_bandit_to_supervised_norm_ratio"]) is not float
+            or type(summary["zero_norm_block_count"]) is not int
+            or summary["zero_norm_block_count"] < 0
+        ):
+            raise ValueError("diagnostics benchmark payload has invalid reward checkpoints")
+        _validate_digest(summary["parameter_digest"], "reward checkpoint parameter_digest")
+
+
+def _validate_benchmark_checkpoint_episodes(
+    value: object,
+    config: LearningDiagnosticsConfig,
+    name: str,
+) -> list[object]:
+    """Require every hundred-episode checkpoint through the frozen final step."""
+    expected = list(
+        range(config.checkpoint_interval, config.training_episodes + 1, config.checkpoint_interval)
+    )
+    if not isinstance(value, list) or [item.get("episode") if isinstance(item, dict) else None for item in value] != expected:
+        raise ValueError(f"diagnostics benchmark payload has invalid {name} checkpoints")
+    return value
+
+
+def _validate_gradient_block_summaries(
+    value: object,
+    config: LearningDiagnosticsConfig,
+) -> None:
+    """Validate per-block scale/cosine evidence without raw gradient arrays."""
+    expected = list(range(10, config.training_episodes + 1, 10))
+    if not isinstance(value, list) or [item.get("episode") if isinstance(item, dict) else None for item in value] != expected:
+        raise ValueError("diagnostics benchmark payload has invalid gradient block episodes")
+    for block in value:
+        summary = _benchmark_schema_object(
+            block,
+            {"episode", "mean_expected_bandit_to_supervised_norm_ratio", "cosine"},
+            "gradient block",
+        )
+        if (
+            type(summary["mean_expected_bandit_to_supervised_norm_ratio"]) is not float
+            or (summary["cosine"] is not None and type(summary["cosine"]) is not float)
+        ):
+            raise ValueError("diagnostics benchmark payload has invalid gradient block summaries")
+
+
+def _validate_benchmark_digest_list(value: object, name: str) -> None:
+    """Validate the fixed input/recurrent/legacy-output digest triple."""
+    if not isinstance(value, list) or len(value) != 3:
+        raise ValueError(f"diagnostics benchmark payload has an invalid {name}")
+    for digest in value:
+        _validate_digest(digest, name)
+
+
+def _validate_diagnostic_json_primitives(value: object) -> None:
+    """Enforce recursively finite primitive-only data for stable JSON evidence."""
+    if value is None or type(value) in (bool, int, str):
+        return
+    if type(value) is float:
+        if math.isfinite(value):
+            return
+        raise ValueError("diagnostics benchmark payload has non-finite JSON")
+    if isinstance(value, list):
+        for item in value:
+            _validate_diagnostic_json_primitives(item)
+        return
+    if isinstance(value, dict):
+        if not all(type(key) is str for key in value):
+            raise ValueError("diagnostics benchmark payload has non-string JSON keys")
+        for item in value.values():
+            _validate_diagnostic_json_primitives(item)
+        return
+    raise ValueError("diagnostics benchmark payload is not primitive-only")
 
 
 def _fixture_digest(fixtures: tuple[DelayedCueEpisode, ...]) -> str:
