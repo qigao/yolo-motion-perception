@@ -16,6 +16,7 @@ from .memory_probe import (
 )
 from .memory_task import Cue, DelayedCueEpisode, DelayedCueTask
 from .policy import PolicyDecision, RecurrentPolicy
+from .reward_readout import RewardModulatedReadout, RewardReadoutDecision
 from .types import (
     Action,
     GameConfig,
@@ -44,6 +45,8 @@ __all__ = [
     "ProbeAccuracy",
     "RecurrentController",
     "RecurrentPolicy",
+    "RewardModulatedReadout",
+    "RewardReadoutDecision",
     "StepResult",
     "ToyGame",
     "context_separation",

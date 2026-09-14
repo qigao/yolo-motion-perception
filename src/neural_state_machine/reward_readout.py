@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import math
 from dataclasses import dataclass
 
@@ -97,6 +98,40 @@ class RewardModulatedReadout:
             logits=_readonly_copy(logits),
             probabilities=_readonly_copy(probabilities),
         )
+
+    def learn(self, reward: float) -> None:
+        if not self.has_pending_feedback:
+            raise RuntimeError("learning requires pending training feedback")
+        try:
+            reward_value = float(reward)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("reward must be finite") from exc
+        if not math.isfinite(reward_value):
+            raise ValueError("reward must be finite")
+
+        clipped_reward = max(-1.0, min(1.0, reward_value))
+        self._weights += (
+            self.learning_rate
+            * clipped_reward
+            * self._pending_weight_eligibility
+        )
+        self._biases += (
+            self.learning_rate
+            * clipped_reward
+            * self._pending_bias_eligibility
+        )
+        self._pending_weight_eligibility = None
+        self._pending_bias_eligibility = None
+
+    def parameter_digest(self) -> str:
+        weights = np.ascontiguousarray(self._weights, dtype=np.float64)
+        biases = np.ascontiguousarray(self._biases, dtype=np.float64)
+        digest = hashlib.sha256()
+        digest.update(str(weights.shape).encode("ascii"))
+        digest.update(weights.tobytes(order="C"))
+        digest.update(str(biases.shape).encode("ascii"))
+        digest.update(biases.tobytes(order="C"))
+        return digest.hexdigest()
 
     def _distribution(
         self,
