@@ -49,7 +49,16 @@ def test_load_source_manifest_requires_license_and_sources(tmp_path: Path) -> No
 
 def test_load_source_manifest_rejects_missing_license(tmp_path: Path) -> None:
     path = tmp_path / "sources.yaml"
-    path.write_text("dataset: CAVIAR\nsources: []\n", encoding="utf-8")
+    path.write_text(
+        "dataset: CAVIAR\n"
+        "homepage: https://example.com/caviar\n"
+        "attribution: EC CAVIAR project\n"
+        "sources:\n"
+        "  - name: walk2\n"
+        "    url: https://example.com/Walk2.mpg\n"
+        "    purpose: approaching\n",
+        encoding="utf-8",
+    )
 
     with pytest.raises(SourceManifestError, match="license"):
         load_source_manifest(path)
