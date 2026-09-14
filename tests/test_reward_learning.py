@@ -659,6 +659,62 @@ def test_phase_two_b_runtime_payload_matches_committed_failure() -> None:
     assert payload == _portable_phase_2b_payload(expected)
 
 
+def test_phase_two_b_portable_payload_has_the_frozen_schema() -> None:
+    from scripts.verify_reward_learning_failure import _portable_phase_2b_payload
+
+    expected_top_level_keys = {
+        "all_passed",
+        "config",
+        "phase",
+        "results",
+        "seeds",
+        "shuffled_pooled",
+    }
+    expected_result_keys = {
+        "all_reset_hidden_equal",
+        "final_block",
+        "normal_training_choice_digest",
+        "normal_training_reward_digest",
+        "passed",
+        "per_delay",
+        "post_training",
+        "pre_training",
+        "recurrent_choice_digest",
+        "repeatable",
+        "reset_choice_digest",
+        "reset_per_delay",
+        "seed",
+        "shuffled_choice_digest",
+        "shuffled_control",
+        "shuffled_final_block",
+        "shuffled_per_delay",
+        "shuffled_total_training_reward",
+        "shuffled_training_choice_digest",
+        "shuffled_training_reward_digest",
+        "state_reset",
+        "total_training_reward",
+    }
+    local_only_result_keys = {
+        "initial_parameter_digest",
+        "matrix_controls",
+        "normal_parameter_digest",
+        "shuffled_parameter_digest",
+    }
+    evidence = json.loads(_PHASE_2B_EVIDENCE.read_text())
+    evidence["results"][0]["unexpected_result_field"] = "must not project"
+
+    portable = _portable_phase_2b_payload(evidence)
+
+    assert set(portable) == expected_top_level_keys
+    assert all(
+        set(result) == expected_result_keys for result in portable["results"]
+    )
+    assert all(
+        not (set(result) & local_only_result_keys)
+        for result in portable["results"]
+    )
+
+
 def test_reward_learning_benchmark_and_cli_are_stable() -> None:
     from scripts.verify_reward_learning_failure import _portable_phase_2b_payload
 

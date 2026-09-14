@@ -13,13 +13,29 @@ _EVIDENCE = (
     / "experiments"
     / "phase-2b-failure.json"
 )
-_LOCAL_ONLY_RESULT_KEYS = frozenset(
-    {
-        "initial_parameter_digest",
-        "matrix_controls",
-        "normal_parameter_digest",
-        "shuffled_parameter_digest",
-    }
+_PORTABLE_RESULT_KEYS = (
+    "all_reset_hidden_equal",
+    "final_block",
+    "normal_training_choice_digest",
+    "normal_training_reward_digest",
+    "passed",
+    "per_delay",
+    "post_training",
+    "pre_training",
+    "recurrent_choice_digest",
+    "repeatable",
+    "reset_choice_digest",
+    "reset_per_delay",
+    "seed",
+    "shuffled_choice_digest",
+    "shuffled_control",
+    "shuffled_final_block",
+    "shuffled_per_delay",
+    "shuffled_total_training_reward",
+    "shuffled_training_choice_digest",
+    "shuffled_training_reward_digest",
+    "state_reset",
+    "total_training_reward",
 )
 
 
@@ -36,11 +52,7 @@ def _portable_phase_2b_payload(payload: dict[str, object]) -> dict[str, object]:
         "config": payload["config"],
         "phase": payload["phase"],
         "results": [
-            {
-                key: value
-                for key, value in result.items()
-                if key not in _LOCAL_ONLY_RESULT_KEYS
-            }
+            {key: result[key] for key in _PORTABLE_RESULT_KEYS}
             for result in results
         ],
         "seeds": payload["seeds"],
