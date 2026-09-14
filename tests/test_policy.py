@@ -160,3 +160,198 @@ def test_output_weight_digest_identifies_c_contiguous_float64_output_weights() -
     ).hexdigest()
 
     assert policy.output_weight_digest() == expected
+
+
+@pytest.mark.parametrize(
+    "explore_probability",
+    [-0.01, 1.01, np.nan, np.inf, -np.inf],
+)
+def test_decide_rejects_invalid_exploration_probability(
+    explore_probability: float,
+) -> None:
+    policy = RecurrentPolicy(4, 2, seed=31)
+
+    with pytest.raises(ValueError, match="explore_probability"):
+        policy.decide(
+            np.zeros(4),
+            (0, 1),
+            explore_probability=explore_probability,
+            rng=np.random.default_rng(31),
+        )
+
+
+def test_decide_requires_rng_for_positive_exploration_probability() -> None:
+    policy = RecurrentPolicy(4, 2, seed=37)
+
+    with pytest.raises(ValueError, match="rng"):
+        policy.decide(np.zeros(4), (0, 1), explore_probability=0.25)
+
+
+def test_decide_rejects_non_generator_rng() -> None:
+    policy = RecurrentPolicy(4, 2, seed=41)
+
+    with pytest.raises(ValueError, match="rng"):
+        policy.decide(
+            np.zeros(4),
+            (0, 1),
+            explore_probability=0.25,
+            rng=np.random.RandomState(41),
+        )
+
+
+def test_exploration_is_deterministic_and_respects_legal_indices() -> None:
+    left = RecurrentPolicy(4, 3, seed=43)
+    right = RecurrentPolicy(4, 3, seed=43)
+    left_rng = np.random.default_rng(73)
+    right_rng = np.random.default_rng(73)
+    stimulus = np.array([0.1, -0.2, 0.3, -0.4])
+
+    left_actions = [
+        left.decide(
+            stimulus,
+            (0, 2),
+            explore_probability=1.0,
+            rng=left_rng,
+        ).action_index
+        for _ in range(50)
+    ]
+    right_actions = [
+        right.decide(
+            stimulus,
+            (0, 2),
+            explore_probability=1.0,
+            rng=right_rng,
+        ).action_index
+        for _ in range(50)
+    ]
+
+    assert left_actions == right_actions
+    assert set(left_actions) <= {0, 2}
+    assert set(left_actions) == {0, 2}
+
+
+def test_learning_requires_one_unconsumed_decision() -> None:
+    policy = RecurrentPolicy(4, 2, seed=7)
+    with pytest.raises(RuntimeError, match="preceding decision"):
+        policy.learn(1.0)
+
+    policy.decide(np.zeros(4), (0, 1))
+    policy.learn(1.0)
+    with pytest.raises(RuntimeError, match="preceding decision"):
+        policy.learn(1.0)
+
+
+def test_advance_does_not_create_eligibility() -> None:
+    policy = RecurrentPolicy(4, 2, seed=47)
+
+    policy.advance(np.ones(4))
+
+    with pytest.raises(RuntimeError, match="preceding decision"):
+        policy.learn(1.0)
+
+
+def test_reset_state_consumes_pending_eligibility() -> None:
+    policy = RecurrentPolicy(4, 2, seed=53)
+
+    policy.decide(np.ones(4), (0, 1))
+    policy.reset_state()
+
+    with pytest.raises(RuntimeError, match="preceding decision"):
+        policy.learn(1.0)
+
+
+def test_nonfinite_reward_does_not_consume_valid_eligibility() -> None:
+    policy = RecurrentPolicy(4, 2, seed=59)
+    before = policy.output_weight_digest()
+    policy.decide(np.array([0.2, -0.4, 0.6, -0.8]), (0, 1))
+
+    with pytest.raises(ValueError, match="finite"):
+        policy.learn(np.nan)
+
+    policy.learn(1.0)
+    assert policy.output_weight_digest() != before
+
+
+def _learned_margin(reward: float) -> tuple[str, float]:
+    policy = RecurrentPolicy(4, 2, hidden_size=10, seed=61, learning_rate=0.25)
+    stimulus = np.array([0.1, -0.2, 0.3, -0.4])
+    before = policy.decide(stimulus, (0, 1))
+    selected = before.action_index
+    policy.learn(reward)
+    policy.reset_state()
+    after = policy.decide(stimulus, (0, 1))
+    alternatives = np.delete(after.logits, selected)
+    margin = float(after.logits[selected] - alternatives.max())
+    return policy.output_weight_digest(), margin
+
+
+def test_positive_reward_increases_selected_action_margin() -> None:
+    policy = RecurrentPolicy(4, 2, hidden_size=10, seed=61, learning_rate=0.25)
+    stimulus = np.array([0.1, -0.2, 0.3, -0.4])
+    before = policy.decide(stimulus, (0, 1))
+    margin_before = float(before.logits[before.action_index] - np.delete(before.logits, before.action_index).max())
+    selected = before.action_index
+    policy.learn(1.0)
+    policy.reset_state()
+    after = policy.decide(stimulus, (0, 1))
+
+    assert float(after.logits[selected] - np.delete(after.logits, selected).max()) > margin_before
+
+
+def test_negative_reward_decreases_selected_action_margin() -> None:
+    policy = RecurrentPolicy(4, 2, hidden_size=10, seed=61, learning_rate=0.25)
+    stimulus = np.array([0.1, -0.2, 0.3, -0.4])
+    before = policy.decide(stimulus, (0, 1))
+    margin_before = float(before.logits[before.action_index] - np.delete(before.logits, before.action_index).max())
+    selected = before.action_index
+    policy.learn(-1.0)
+    policy.reset_state()
+    after = policy.decide(stimulus, (0, 1))
+
+    assert float(after.logits[selected] - np.delete(after.logits, selected).max()) < margin_before
+
+
+@pytest.mark.parametrize("reward_pair", [(1.0, 100.0), (-1.0, -100.0)])
+def test_reward_is_clipped_to_unit_magnitude(
+    reward_pair: tuple[float, float],
+) -> None:
+    unit_digest, unit_margin = _learned_margin(reward_pair[0])
+    large_digest, large_margin = _learned_margin(reward_pair[1])
+
+    assert large_digest == unit_digest
+    assert large_margin == unit_margin
+
+
+def test_learning_mutates_only_selected_output_row() -> None:
+    policy = RecurrentPolicy(4, 3, seed=67)
+    stimulus = np.array([0.2, -0.4, 0.6, -0.8])
+    input_before = policy._input_weights.copy()
+    recurrent_before = policy._recurrent_weights.copy()
+    output_before = policy._output_weights.copy()
+    decision = policy.decide(stimulus, (0, 2))
+
+    policy.learn(0.5)
+
+    assert np.array_equal(policy._input_weights, input_before)
+    assert np.array_equal(policy._recurrent_weights, recurrent_before)
+    for index in range(policy.action_count):
+        if index == decision.action_index:
+            assert not np.array_equal(policy._output_weights[index], output_before[index])
+        else:
+            assert np.array_equal(policy._output_weights[index], output_before[index])
+
+
+def test_output_digest_changes_only_for_nonzero_learning() -> None:
+    policy = RecurrentPolicy(4, 2, seed=71)
+    digest = policy.output_weight_digest()
+
+    policy.advance(np.ones(4))
+    assert policy.output_weight_digest() == digest
+    policy.decide(np.ones(4), (0, 1))
+    assert policy.output_weight_digest() == digest
+    policy.reset_state()
+    assert policy.output_weight_digest() == digest
+
+    policy.decide(np.ones(4), (0, 1))
+    policy.learn(0.5)
+    assert policy.output_weight_digest() != digest

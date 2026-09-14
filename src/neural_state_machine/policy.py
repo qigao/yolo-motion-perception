@@ -58,6 +58,8 @@ class RecurrentPolicy:
         if self.recurrent_radius == 0.0:
             self._recurrent_weights.fill(0.0)
         self._hidden_state = np.zeros(hidden_size, dtype=np.float64)
+        self._last_action_index: int | None = None
+        self._last_hidden_state: np.ndarray | None = None
 
     def _validated_stimulus(self, stimulus: np.ndarray) -> np.ndarray:
         try:
@@ -89,20 +91,50 @@ class RecurrentPolicy:
         rng: np.random.Generator | None = None,
     ) -> PolicyDecision:
         legal_indices = self._validated_legal_action_indices(legal_action_indices)
+        probability = _validated_explore_probability(explore_probability)
+        if rng is not None and not isinstance(rng, np.random.Generator):
+            raise ValueError("rng must be a numpy.random.Generator")
+        if probability > 0.0 and rng is None:
+            raise ValueError("rng is required when explore_probability is positive")
         self._evolve(stimulus)
         logits = self._output_weights @ self._hidden_state
         masked_logits = logits.copy()
         illegal = np.ones(self.action_count, dtype=bool)
         illegal[list(legal_indices)] = False
         masked_logits[illegal] = -np.inf
+        if probability > 0.0 and rng.random() < probability:
+            action_index = int(rng.choice(np.asarray(legal_indices, dtype=np.int64)))
+        else:
+            action_index = int(np.argmax(masked_logits))
+        self._last_action_index = action_index
+        self._last_hidden_state = self._hidden_state.copy()
         return PolicyDecision(
-            action_index=int(np.argmax(masked_logits)),
+            action_index=action_index,
             logits=_readonly_copy(masked_logits),
             hidden_state=_readonly_copy(self._hidden_state),
         )
 
+    def learn(self, reward: float) -> None:
+        if self._last_action_index is None or self._last_hidden_state is None:
+            raise RuntimeError("learning requires a preceding decision")
+        try:
+            reward_value = float(reward)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("reward must be finite") from exc
+        if not math.isfinite(reward_value):
+            raise ValueError("reward must be finite")
+
+        clipped = max(-1.0, min(1.0, reward_value))
+        self._output_weights[self._last_action_index] += (
+            self.learning_rate * clipped * self._last_hidden_state
+        )
+        self._last_action_index = None
+        self._last_hidden_state = None
+
     def reset_state(self) -> None:
         self._hidden_state.fill(0.0)
+        self._last_action_index = None
+        self._last_hidden_state = None
 
     def output_weight_digest(self) -> str:
         values = np.ascontiguousarray(self._output_weights, dtype=np.float64)
@@ -139,6 +171,16 @@ def _is_valid_radius(value: object) -> bool:
         return math.isfinite(value) and 0.0 <= value < 1.0
     except TypeError:
         return False
+
+
+def _validated_explore_probability(value: object) -> float:
+    try:
+        probability = float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("explore_probability must be finite and in [0.0, 1.0]") from exc
+    if isinstance(value, bool) or not math.isfinite(probability) or not 0.0 <= probability <= 1.0:
+        raise ValueError("explore_probability must be finite and in [0.0, 1.0]")
+    return probability
 
 
 def _readonly_copy(values: np.ndarray) -> np.ndarray:
