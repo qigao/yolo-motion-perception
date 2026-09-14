@@ -77,10 +77,53 @@ Run the verification suite:
 pytest -q
 ruff check .
 python scripts/benchmark.py
+python scripts/benchmark_memory_probe.py
 ```
 
 Tests and benchmarks require no GPU, model weights, network access, FlyVis,
 fly-brain, YOLO, ROS2, or game engine.
+
+## Delayed-cue memory gates
+
+Phase 2 separates two claims that the first experiment combined:
+
+- **Phase 2A — memory decodability:** one frozen Ridge linear probe measures
+  whether the current recurrent hidden vector retains a vanished left/right cue
+  across delays 1–5.
+- **Phase 2B — reward learning:** a separate online reward-modulated readout
+  must learn to use that information. Its current fixed-seed baseline fails and
+  does not determine the Phase 2A result.
+
+Run the Phase 2A scientific gate:
+
+```bash
+python scripts/benchmark_memory_probe.py
+```
+
+The command prints one compact sorted JSON object and exits nonzero if any of
+seeds 7, 17, or 29 misses the fixed gate: at least 90% overall, at least 85%
+for every delay, exact 50% after resetting state immediately before the shared
+decision input, identical reset features, unchanged policy output weights, and
+exact independent-run repeatability.
+
+| Seed | Phase 2A overall | Reset | Delay 1 / 2 / 3 / 4 / 5 |
+|---:|---:|---:|---|
+| 7 | 200/200 | 100/200 | 40/40 / 40/40 / 40/40 / 40/40 / 40/40 |
+| 17 | 200/200 | 100/200 | 40/40 / 40/40 / 40/40 / 40/40 / 40/40 |
+| 29 | 200/200 | 100/200 | 40/40 / 40/40 / 40/40 / 40/40 / 40/40 |
+
+The frozen Phase 2B reward-learning baseline remains:
+
+| Seed | Reward learner | Reset | Delay 1 / 2 / 3 / 4 / 5 |
+|---:|---:|---:|---|
+| 7 | 0.61 | 0.50 | 1.00 / 0.50 / 0.50 / 0.50 / 0.55 |
+| 17 | 0.84 | 0.50 | 1.00 / 0.85 / 0.65 / 0.90 / 0.80 |
+| 29 | 0.80 | 0.50 | 1.00 / 1.00 / 1.00 / 0.50 / 0.50 |
+
+A passing Phase 2A result supports only linear availability of cue information
+in recurrent activity. It does not show that the current reward rule learns
+the readout, that semantic attractors emerged, or that the system has general
+game intelligence or biological plausibility.
 
 ## Package layout
 
@@ -91,7 +134,10 @@ src/neural_state_machine/
 ├── controller.py    recurrent dynamics + reward plasticity
 ├── environment.py   toy-game facts + hard invariants
 ├── experiment.py    closed-loop traces + measurements
-└── benchmark.py     reproducible research benchmark
+├── benchmark.py     reproducible research benchmark
+├── memory_task.py   immutable delayed-cue protocol
+├── memory_benchmark.py  Phase 2B reward-learning baseline
+└── memory_probe.py  Phase 2A frozen linear measurement
 ```
 
 ## What the result means
@@ -121,8 +167,10 @@ possible temporal visual subsystem, not the controller studied here.
 
 - `docs/superpowers/specs/2026-09-14-neural-state-machine-game-design.md`
 - `docs/superpowers/plans/2026-09-14-neural-state-machine-game.md`
+- `docs/superpowers/specs/2026-09-14-delayed-cue-memory-design.md`
+- `docs/superpowers/plans/2026-09-14-delayed-cue-memory.md`
+- `docs/superpowers/plans/2026-09-14-phase-2a-memory-probe.md`
 
 ## License
 
 Apache-2.0.
-

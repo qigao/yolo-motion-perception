@@ -26,3 +26,5 @@ jobs:
         run: ruff check .
       - name: Deterministic benchmark
         run: python scripts/benchmark.py
+      - name: Delayed-cue linear memory probe
+        run: python scripts/benchmark_memory_probe.py
