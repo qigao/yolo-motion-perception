@@ -610,6 +610,37 @@ def test_geometry_gate_rejects_a_single_delay_miss(
     assert geometry.geometry_passed is False
 
 
+def test_geometry_gate_rejects_an_imbalanced_delay_distribution(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    training, evaluation = _perfect_geometry_datasets()
+    imbalanced_delays = np.concatenate(
+        (
+            np.full(41, 1, dtype=np.int64),
+            np.full(39, 2, dtype=np.int64),
+            np.repeat(np.arange(3, 6, dtype=np.int64), 40),
+        )
+    )
+    imbalanced_evaluation = _hidden_dataset(
+        evaluation.states, evaluation.labels, imbalanced_delays
+    )
+    probe = FittedLinearProbe(np.array([1.0]), bias=0.0)
+    monkeypatch.setattr(diagnostics, "fit_linear_probe", lambda *_args, **_kwargs: probe)
+
+    geometry = diagnostics._run_geometry(training, imbalanced_evaluation)
+
+    assert geometry.evaluation == diagnostics.AccuracyCount(200, 200)
+    assert geometry.evaluation_margins.minimum > 0.0
+    assert geometry.per_delay == (
+        (1, diagnostics.AccuracyCount(41, 41)),
+        (2, diagnostics.AccuracyCount(39, 39)),
+        (3, diagnostics.AccuracyCount(40, 40)),
+        (4, diagnostics.AccuracyCount(40, 40)),
+        (5, diagnostics.AccuracyCount(40, 40)),
+    )
+    assert geometry.geometry_passed is False
+
+
 def test_geometry_gate_rejects_a_zero_normalized_margin(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
