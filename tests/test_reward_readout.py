@@ -226,3 +226,125 @@ def test_greedy_returns_readonly_snapshots_independent_of_parameters() -> None:
         decision.logits[0] = 1.0
     with pytest.raises(ValueError):
         decision.probabilities[0] = 1.0
+
+
+@pytest.mark.parametrize(
+    "rng",
+    [None, 7, np.random.RandomState(7), object()],
+)
+def test_training_selection_rejects_non_generator_without_pending_state(
+    rng: object,
+) -> None:
+    readout = RewardModulatedReadout(4, 2)
+
+    with pytest.raises(ValueError, match="rng"):
+        readout.select_for_training(np.zeros(4), (0, 1), rng)
+
+    assert readout.has_pending_feedback is False
+    assert readout._pending_weight_eligibility is None
+    assert readout._pending_bias_eligibility is None
+
+
+def test_same_seed_produces_the_same_single_training_selection() -> None:
+    left = RewardModulatedReadout(4, 2)
+    right = RewardModulatedReadout(4, 2)
+    hidden = np.array([0.2, -0.4, 0.6, -0.8])
+
+    left_decision = left.select_for_training(
+        hidden,
+        (0, 1),
+        np.random.default_rng(31),
+    )
+    right_decision = right.select_for_training(
+        hidden,
+        (0, 1),
+        np.random.default_rng(31),
+    )
+
+    assert left_decision.action_index == right_decision.action_index
+    assert left_decision.action_index in (0, 1)
+    np.testing.assert_array_equal(left_decision.logits, right_decision.logits)
+    np.testing.assert_array_equal(
+        left_decision.probabilities,
+        right_decision.probabilities,
+    )
+    assert left.has_pending_feedback is True
+    assert right.has_pending_feedback is True
+
+
+def test_training_selection_never_samples_a_masked_action() -> None:
+    readout = RewardModulatedReadout(4, 3)
+
+    decision = readout.select_for_training(
+        np.ones(4),
+        (2, 0),
+        np.random.default_rng(37),
+    )
+
+    assert decision.action_index in (0, 2)
+    assert decision.probabilities[1] == 0.0
+    assert np.isneginf(decision.logits[1])
+
+
+def test_pending_feedback_is_one_shot_and_greedy_does_not_change_it() -> None:
+    readout = RewardModulatedReadout(3, 2)
+    hidden = np.array([0.25, -0.5, 0.75])
+
+    assert readout.has_pending_feedback is False
+    readout.select_for_training(hidden, (0, 1), np.random.default_rng(41))
+    assert readout.has_pending_feedback is True
+    weight_eligibility = readout._pending_weight_eligibility.copy()
+    bias_eligibility = readout._pending_bias_eligibility.copy()
+
+    with pytest.raises(RuntimeError, match="pending"):
+        readout.select_for_training(hidden, (0, 1), np.random.default_rng(43))
+
+    np.testing.assert_array_equal(
+        readout._pending_weight_eligibility,
+        weight_eligibility,
+    )
+    np.testing.assert_array_equal(
+        readout._pending_bias_eligibility,
+        bias_eligibility,
+    )
+    readout.select_greedy(hidden, (0, 1))
+    assert readout.has_pending_feedback is True
+    np.testing.assert_array_equal(
+        readout._pending_weight_eligibility,
+        weight_eligibility,
+    )
+    np.testing.assert_array_equal(
+        readout._pending_bias_eligibility,
+        bias_eligibility,
+    )
+
+    evaluation_only = RewardModulatedReadout(3, 2)
+    evaluation_only.select_greedy(hidden, (0, 1))
+    assert evaluation_only.has_pending_feedback is False
+
+
+def test_training_eligibility_does_not_alias_the_hidden_input() -> None:
+    readout = RewardModulatedReadout(3, 2)
+    hidden = np.array([0.2, -0.4, 0.6])
+    hidden_before = hidden.copy()
+
+    decision = readout.select_for_training(
+        hidden,
+        (0, 1),
+        np.random.default_rng(47),
+    )
+    one_hot = np.zeros(2)
+    one_hot[decision.action_index] = 1.0
+    delta = one_hot - decision.probabilities
+    expected_weights = np.outer(delta, hidden_before)
+    expected_biases = delta.copy()
+    hidden[:] = 99.0
+
+    np.testing.assert_array_equal(
+        readout._pending_weight_eligibility,
+        expected_weights,
+    )
+    np.testing.assert_array_equal(
+        readout._pending_bias_eligibility,
+        expected_biases,
+    )
