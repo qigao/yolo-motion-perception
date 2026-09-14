@@ -4,6 +4,12 @@ from .controller import RecurrentController
 from .encoding import encode_observation
 from .environment import ToyGame
 from .experiment import EpisodeTrace, context_separation, replay_equal, run_episode
+from .learning_diagnostics import (
+    LearningDiagnosticsConfig,
+    LearningDiagnosticsResult,
+    run_learning_diagnostics,
+    run_learning_diagnostics_benchmark,
+)
 from .memory_benchmark import AccuracyCount, MemoryExperimentConfig
 from .memory_probe import (
     FittedLinearProbe,
@@ -43,6 +49,8 @@ __all__ = [
     "GameConfig",
     "GameObservation",
     "GameSnapshot",
+    "LearningDiagnosticsConfig",
+    "LearningDiagnosticsResult",
     "MemoryExperimentConfig",
     "MemoryProbeConfig",
     "MemoryProbeResult",
@@ -62,6 +70,8 @@ __all__ = [
     "fit_linear_probe",
     "replay_equal",
     "run_episode",
+    "run_learning_diagnostics",
+    "run_learning_diagnostics_benchmark",
     "run_memory_probe",
     "run_memory_probe_benchmark",
     "run_reward_learning_benchmark",

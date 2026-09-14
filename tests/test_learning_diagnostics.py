@@ -4,8 +4,9 @@ import hashlib
 import json
 from collections import Counter
 from copy import deepcopy
-from dataclasses import FrozenInstanceError
+from dataclasses import FrozenInstanceError, fields, is_dataclass
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Self
 
 import numpy as np
@@ -1468,3 +1469,185 @@ def test_reward_trajectory_matches_portable_phase_two_b_evidence_locally(seed: i
     assert first.matrix_digests_before == second.matrix_digests_before
     assert first.matrix_digests_after == second.matrix_digests_after
     assert first == second
+
+
+@pytest.mark.parametrize(
+    ("protocol_match", "geometry_passed", "supervised_passed", "reward_passed", "expected"),
+    [
+        (False, False, False, False, "PROTOCOL_MISMATCH"),
+        (False, False, False, True, "PROTOCOL_MISMATCH"),
+        (False, False, True, False, "PROTOCOL_MISMATCH"),
+        (False, False, True, True, "PROTOCOL_MISMATCH"),
+        (False, True, False, False, "PROTOCOL_MISMATCH"),
+        (False, True, False, True, "PROTOCOL_MISMATCH"),
+        (False, True, True, False, "PROTOCOL_MISMATCH"),
+        (False, True, True, True, "PROTOCOL_MISMATCH"),
+        (True, False, False, False, "REPRESENTATION_FAILURE"),
+        (True, False, False, True, "REPRESENTATION_FAILURE"),
+        (True, False, True, False, "REPRESENTATION_FAILURE"),
+        (True, False, True, True, "REPRESENTATION_FAILURE"),
+        (True, True, False, False, "ONLINE_OPTIMIZATION_FAILURE"),
+        (True, True, False, True, "ONLINE_OPTIMIZATION_FAILURE"),
+        (True, True, True, False, "REWARD_CREDIT_FAILURE"),
+        (True, True, True, True, "NO_FAILURE_REPRODUCED"),
+    ],
+)
+def test_classification_has_one_priority_order(
+    protocol_match: bool,
+    geometry_passed: bool,
+    supervised_passed: bool,
+    reward_passed: bool,
+    expected: str,
+) -> None:
+    """A mismatch wins, then representation, optimization, and reward gates."""
+    assert diagnostics._classify(
+        protocol_match,
+        geometry_passed,
+        supervised_passed,
+        reward_passed,
+    ) == expected
+
+
+def _assert_public_diagnostic_values_are_array_free(value: object) -> None:
+    assert not isinstance(value, np.ndarray)
+    if is_dataclass(value):
+        for field in fields(value):
+            _assert_public_diagnostic_values_are_array_free(getattr(value, field.name))
+    elif isinstance(value, tuple):
+        for item in value:
+            _assert_public_diagnostic_values_are_array_free(item)
+
+
+def test_public_learning_diagnostic_result_is_frozen_complete_and_array_free() -> None:
+    result = diagnostics.run_learning_diagnostics(7)
+
+    assert tuple(field.name for field in fields(result)) == (
+        "seed",
+        "config",
+        "geometry",
+        "supervised",
+        "reward_trajectory",
+        "classification",
+        "matrix_digests_before",
+        "matrix_digests_after",
+        "phase_2b_portable_evidence_match",
+        "diagnostic_valid",
+        "repeatable",
+        "training_fixture_digest",
+        "training_state_digest",
+        "evaluation_fixture_digest",
+        "evaluation_state_digest",
+    )
+    assert result.seed == 7
+    assert result.geometry.geometry_passed is True
+    assert result.supervised.supervised_passed is True
+    assert result.reward_trajectory.reward_passed is False
+    assert result.classification == "REWARD_CREDIT_FAILURE"
+    assert result.phase_2b_portable_evidence_match is True
+    assert result.matrix_digests_before == result.matrix_digests_after
+    assert result.diagnostic_valid is True
+    assert result.repeatable is True
+    assert len(result.training_fixture_digest) == 64
+    assert len(result.training_state_digest) == 64
+    assert len(result.evaluation_fixture_digest) == 64
+    assert len(result.evaluation_state_digest) == 64
+    _assert_public_diagnostic_values_are_array_free(result)
+    with pytest.raises(FrozenInstanceError):
+        result.classification = "PROTOCOL_MISMATCH"
+
+
+@pytest.mark.parametrize("seed", [True, False, -1, 1.0, "7", None])
+def test_public_learning_diagnostics_rejects_invalid_seed_before_construction(
+    monkeypatch: pytest.MonkeyPatch,
+    seed: object,
+) -> None:
+    def unexpected_constructor(*args: object, **kwargs: object) -> None:
+        raise AssertionError("seed validation must precede policy construction")
+
+    monkeypatch.setattr(diagnostics, "_new_frozen_policy", unexpected_constructor)
+
+    with pytest.raises(ValueError, match="non-negative Python integer"):
+        diagnostics.run_learning_diagnostics(seed)  # type: ignore[arg-type]
+
+
+def test_public_learning_diagnostics_rejects_wrong_config_before_construction(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def unexpected_constructor(*args: object, **kwargs: object) -> None:
+        raise AssertionError("config validation must precede policy construction")
+
+    monkeypatch.setattr(diagnostics, "_new_frozen_policy", unexpected_constructor)
+
+    with pytest.raises(ValueError, match="LearningDiagnosticsConfig"):
+        diagnostics.run_learning_diagnostics(7, config=object())
+
+
+def _complete_diagnostic_run_stub(
+    matrix_digests_after: tuple[str, str, str],
+) -> SimpleNamespace:
+    digest_before = ("a" * 64, "b" * 64, "c" * 64)
+    return SimpleNamespace(
+        geometry=SimpleNamespace(geometry_passed=True),
+        supervised=SimpleNamespace(supervised_passed=True),
+        reward_trajectory=SimpleNamespace(reward_passed=False),
+        matrix_digests_before=digest_before,
+        matrix_digests_after=matrix_digests_after,
+        phase_2b_portable_evidence_match=True,
+        datasets_valid=True,
+        checkpoints_valid=True,
+        matrix_integrity=True,
+        training_fixture_digest="e" * 64,
+        training_state_digest="f" * 64,
+        evaluation_fixture_digest="0" * 64,
+        evaluation_state_digest="1" * 64,
+    )
+
+
+def test_public_learning_diagnostics_uses_two_full_runs_for_repeatability(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    first = _complete_diagnostic_run_stub(("a" * 64, "b" * 64, "c" * 64))
+    second = _complete_diagnostic_run_stub(("a" * 64, "b" * 64, "d" * 64))
+    calls: list[tuple[int, diagnostics.LearningDiagnosticsConfig]] = []
+
+    def independently_reconstructed_run(
+        seed: int,
+        config: diagnostics.LearningDiagnosticsConfig,
+    ) -> SimpleNamespace:
+        calls.append((seed, config))
+        return first if len(calls) == 1 else second
+
+    monkeypatch.setattr(
+        diagnostics,
+        "_run_learning_diagnostics_once",
+        independently_reconstructed_run,
+    )
+
+    result = diagnostics.run_learning_diagnostics(7)
+
+    assert calls == [
+        (7, diagnostics.LearningDiagnosticsConfig()),
+        (7, diagnostics.LearningDiagnosticsConfig()),
+    ]
+    assert result.repeatable is False
+    assert result.diagnostic_valid is False
+    assert result.classification == "PROTOCOL_MISMATCH"
+
+
+def test_package_exports_only_the_approved_diagnostic_public_symbols() -> None:
+    import neural_state_machine as package
+
+    approved = {
+        "LearningDiagnosticsConfig",
+        "LearningDiagnosticsResult",
+        "run_learning_diagnostics",
+        "run_learning_diagnostics_benchmark",
+    }
+    assert approved <= set(package.__all__)
+    assert not {
+        "_DiagnosticSupervisedReadout",
+        "_HiddenDataset",
+        "_run_geometry",
+        "_run_supervised_diagnostic",
+        "_run_reward_trajectory",
+    } & set(package.__all__)

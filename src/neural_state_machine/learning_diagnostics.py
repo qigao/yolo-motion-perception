@@ -20,8 +20,10 @@ from .memory_probe import FittedLinearProbe, fit_linear_probe
 from .memory_task import DelayedCueEpisode, DelayedCueTask
 from .policy import RecurrentPolicy
 from .reward_learning import (
+    RewardLearningConfig,
     _build_fixtures,
     _decision_hidden,
+    run_reward_learning_benchmark,
 )
 from .reward_readout import RewardModulatedReadout
 
@@ -187,6 +189,46 @@ class RewardTrajectoryDiagnostic:
     training_choice_digest: str
     training_reward_digest: str
     reward_passed: bool
+
+
+@dataclass(frozen=True)
+class LearningDiagnosticsResult:
+    """One complete, immutable Phase 2C measurement and its validity status."""
+
+    seed: int
+    config: LearningDiagnosticsConfig
+    geometry: GeometryDiagnostic
+    supervised: SupervisedDiagnostic
+    reward_trajectory: RewardTrajectoryDiagnostic
+    classification: str
+    matrix_digests_before: tuple[str, str, str]
+    matrix_digests_after: tuple[str, str, str]
+    phase_2b_portable_evidence_match: bool
+    diagnostic_valid: bool
+    repeatable: bool
+    training_fixture_digest: str
+    training_state_digest: str
+    evaluation_fixture_digest: str
+    evaluation_state_digest: str
+
+
+@dataclass(frozen=True)
+class _CompleteLearningDiagnosticsRun:
+    """Private complete-run record that contains only equality-safe values."""
+
+    geometry: GeometryDiagnostic
+    supervised: SupervisedDiagnostic
+    reward_trajectory: RewardTrajectoryDiagnostic
+    matrix_digests_before: tuple[str, str, str]
+    matrix_digests_after: tuple[str, str, str]
+    phase_2b_portable_evidence_match: bool
+    datasets_valid: bool
+    checkpoints_valid: bool
+    matrix_integrity: bool
+    training_fixture_digest: str
+    training_state_digest: str
+    evaluation_fixture_digest: str
+    evaluation_state_digest: str
 
 
 @dataclass(frozen=True)
@@ -918,6 +960,273 @@ def _match_phase_2b_evidence(seed: int, runtime_entry: object) -> bool:
         runtime_entry.get(key) == expected_entry.get(key)
         for key in _PHASE_2B_PORTABLE_RESULT_KEYS
     )
+
+
+def run_learning_diagnostics(
+    seed: int = 7,
+    config: LearningDiagnosticsConfig | None = None,
+) -> LearningDiagnosticsResult:
+    """Run the three diagnostic branches twice with fresh complete objects."""
+    if type(seed) is not int or seed < 0:
+        raise ValueError("seed must be a non-negative Python integer")
+    if config is None:
+        resolved_config = LearningDiagnosticsConfig()
+    elif isinstance(config, LearningDiagnosticsConfig):
+        resolved_config = config
+    else:
+        raise ValueError("config must be a LearningDiagnosticsConfig")
+
+    first = _run_learning_diagnostics_once(seed, resolved_config)
+    second = _run_learning_diagnostics_once(seed, resolved_config)
+    repeatable = first == second
+    local_integrity = (
+        _same_run_matrix_integrity(first)
+        and _same_run_matrix_integrity(second)
+        and first.matrix_digests_before == second.matrix_digests_before
+        and first.matrix_digests_after == second.matrix_digests_after
+    )
+    protocol_match = (
+        first.phase_2b_portable_evidence_match
+        and second.phase_2b_portable_evidence_match
+        and first.datasets_valid
+        and second.datasets_valid
+        and first.checkpoints_valid
+        and second.checkpoints_valid
+        and local_integrity
+        and repeatable
+    )
+    classification = _classify(
+        protocol_match,
+        first.geometry.geometry_passed,
+        first.supervised.supervised_passed,
+        first.reward_trajectory.reward_passed,
+    )
+    return LearningDiagnosticsResult(
+        seed=seed,
+        config=resolved_config,
+        geometry=first.geometry,
+        supervised=first.supervised,
+        reward_trajectory=first.reward_trajectory,
+        classification=classification,
+        matrix_digests_before=first.matrix_digests_before,
+        matrix_digests_after=first.matrix_digests_after,
+        phase_2b_portable_evidence_match=first.phase_2b_portable_evidence_match,
+        diagnostic_valid=protocol_match,
+        repeatable=repeatable,
+        training_fixture_digest=first.training_fixture_digest,
+        training_state_digest=first.training_state_digest,
+        evaluation_fixture_digest=first.evaluation_fixture_digest,
+        evaluation_state_digest=first.evaluation_state_digest,
+    )
+
+
+def _run_learning_diagnostics_once(
+    seed: int,
+    config: LearningDiagnosticsConfig,
+) -> _CompleteLearningDiagnosticsRun:
+    """Build a complete independent execution without retaining mutable objects."""
+    fixtures = _build_diagnostic_fixtures(seed, config)
+    geometry = _run_geometry(fixtures.training, fixtures.evaluation)
+    supervised = _run_supervised_diagnostic(
+        fixtures.training,
+        fixtures.evaluation,
+        config,
+    )
+    reward_trajectory = _run_reward_trajectory(seed, fixtures, config)
+    runtime_entry = _phase_2b_runtime_entry(seed, config)
+    portable_match = _match_phase_2b_evidence(seed, runtime_entry) and (
+        _reward_trajectory_matches_runtime_entry(reward_trajectory, runtime_entry)
+    )
+    return _CompleteLearningDiagnosticsRun(
+        geometry=geometry,
+        supervised=supervised,
+        reward_trajectory=reward_trajectory,
+        matrix_digests_before=reward_trajectory.matrix_digests_before,
+        matrix_digests_after=reward_trajectory.matrix_digests_after,
+        phase_2b_portable_evidence_match=portable_match,
+        datasets_valid=_diagnostic_datasets_are_valid(fixtures, config),
+        checkpoints_valid=_diagnostic_checkpoints_are_valid(
+            supervised,
+            reward_trajectory,
+            config,
+        ),
+        matrix_integrity=(
+            reward_trajectory.matrix_digests_before
+            == reward_trajectory.matrix_digests_after
+        ),
+        training_fixture_digest=fixtures.training.fixture_digest,
+        training_state_digest=fixtures.training.state_digest,
+        evaluation_fixture_digest=fixtures.evaluation.fixture_digest,
+        evaluation_state_digest=fixtures.evaluation.state_digest,
+    )
+
+
+def _phase_2b_runtime_entry(
+    seed: int,
+    config: LearningDiagnosticsConfig,
+) -> object:
+    """Return the unchanged Phase 2B runtime entry for this diagnostic seed."""
+    reward_config = RewardLearningConfig(
+        hidden_size=config.hidden_size,
+        recurrent_radius=config.recurrent_radius,
+        learning_rate=config.learning_rate,
+        temperature=config.temperature,
+        training_episodes=config.training_episodes,
+        evaluation_blocks=config.evaluation_blocks,
+    )
+    runtime = run_reward_learning_benchmark((seed,), reward_config)
+    results = runtime.get("results")
+    if not isinstance(results, list):
+        return None
+    return next(
+        (
+            entry
+            for entry in results
+            if isinstance(entry, dict) and entry.get("seed") == seed
+        ),
+        None,
+    )
+
+
+def _reward_trajectory_matches_runtime_entry(
+    reward: RewardTrajectoryDiagnostic,
+    runtime_entry: object,
+) -> bool:
+    """Compare the trace to Phase 2B's portable behavior, not float digests."""
+    if not isinstance(runtime_entry, dict):
+        return False
+    try:
+        post_training = runtime_entry["post_training"]
+        runtime_per_delay = runtime_entry["per_delay"]
+        if not isinstance(post_training, dict) or not isinstance(runtime_per_delay, list):
+            return False
+        expected_overall = AccuracyCount(
+            int(post_training["correct"]),
+            int(post_training["total"]),
+        )
+        expected_per_delay = tuple(
+            (
+                int(item["delay"]),
+                AccuracyCount(int(item["correct"]), int(item["total"])),
+            )
+            for item in runtime_per_delay
+            if isinstance(item, dict)
+        )
+        return (
+            reward.overall == expected_overall
+            and reward.per_delay == expected_per_delay
+            and reward.total_training_reward == runtime_entry["total_training_reward"]
+            and reward.training_choice_digest
+            == runtime_entry["normal_training_choice_digest"]
+            and reward.training_reward_digest
+            == runtime_entry["normal_training_reward_digest"]
+        )
+    except (KeyError, TypeError, ValueError):
+        return False
+
+
+def _diagnostic_datasets_are_valid(
+    fixtures: _DiagnosticFixtures,
+    config: LearningDiagnosticsConfig,
+) -> bool:
+    """Recheck the immutable dataset schema used by every diagnostic branch."""
+    expected_rows = (
+        (fixtures.training, config.training_episodes),
+        (fixtures.evaluation, config.evaluation_blocks * 10),
+    )
+    for dataset, row_count in expected_rows:
+        if (
+            dataset.states.shape != (row_count, config.hidden_size)
+            or dataset.labels.shape != (row_count,)
+            or dataset.delays.shape != (row_count,)
+            or dataset.states.flags.writeable
+            or dataset.labels.flags.writeable
+            or dataset.delays.flags.writeable
+            or dataset.state_digest != _array_digest(dataset.states)
+        ):
+            return False
+        try:
+            _validate_digest(dataset.fixture_digest, "fixture_digest")
+            _validate_digest(dataset.state_digest, "state_digest")
+        except ValueError:
+            return False
+    return (
+        tuple(np.bincount(fixtures.training.labels, minlength=2))
+        == (config.training_episodes // 2, config.training_episodes // 2)
+        and tuple(np.bincount(fixtures.evaluation.labels, minlength=2))
+        == (config.evaluation_blocks * 5, config.evaluation_blocks * 5)
+        and tuple(np.bincount(fixtures.evaluation.delays, minlength=6)[1:])
+        == (config.evaluation_blocks * 2,) * 5
+    )
+
+
+def _diagnostic_checkpoints_are_valid(
+    supervised: SupervisedDiagnostic,
+    reward: RewardTrajectoryDiagnostic,
+    config: LearningDiagnosticsConfig,
+) -> bool:
+    """Ensure scheduled read-only checkpoints cover the whole frozen run."""
+    expected_episodes = tuple(
+        range(config.checkpoint_interval, config.training_episodes + 1, config.checkpoint_interval)
+    )
+    if (
+        tuple(checkpoint.episode for checkpoint in supervised.checkpoints)
+        != expected_episodes
+        or tuple(checkpoint.episode for checkpoint in reward.checkpoints)
+        != expected_episodes
+        or not supervised.checkpoints
+        or not reward.checkpoints
+        or supervised.checkpoints[-1].parameter_digest != supervised.parameter_digest
+        or reward.checkpoints[-1].parameter_digest != reward.parameter_digest_after
+        or reward.checkpoints[-1].overall != reward.overall
+        or reward.checkpoints[-1].per_delay != reward.per_delay
+        or len(reward.gradient_blocks) != config.training_episodes // 10
+        or tuple(block.episode for block in reward.gradient_blocks)
+        != tuple(range(10, config.training_episodes + 1, 10))
+    ):
+        return False
+    return all(
+        checkpoint.overall.total == config.evaluation_blocks * 10
+        and len(checkpoint.per_delay) == 5
+        and all(score.total == config.evaluation_blocks * 2 for _, score in checkpoint.per_delay)
+        for checkpoint in (*supervised.checkpoints, *reward.checkpoints)
+    )
+
+
+def _same_run_matrix_integrity(run: _CompleteLearningDiagnosticsRun) -> bool:
+    """Confirm one run neither mutates nor fabricates its frozen matrix digests."""
+    if not run.matrix_integrity or run.matrix_digests_before != run.matrix_digests_after:
+        return False
+    try:
+        for digest in (*run.matrix_digests_before, *run.matrix_digests_after):
+            _validate_digest(digest, "matrix_digest")
+    except ValueError:
+        return False
+    return True
+
+
+def _classify(
+    protocol_match: bool,
+    geometry_passed: bool,
+    supervised_passed: bool,
+    reward_passed: bool,
+) -> str:
+    """Select exactly one diagnostic outcome in the frozen priority order."""
+    if not protocol_match:
+        return "PROTOCOL_MISMATCH"
+    if not geometry_passed:
+        return "REPRESENTATION_FAILURE"
+    if not supervised_passed:
+        return "ONLINE_OPTIMIZATION_FAILURE"
+    if not reward_passed:
+        return "REWARD_CREDIT_FAILURE"
+    return "NO_FAILURE_REPRODUCED"
+
+
+def run_learning_diagnostics_benchmark(*args: object, **kwargs: object) -> object:
+    """Reserved public benchmark entry point implemented in the next task."""
+    del args, kwargs
+    raise NotImplementedError("run_learning_diagnostics_benchmark is not available yet")
 
 
 def _fixture_digest(fixtures: tuple[DelayedCueEpisode, ...]) -> str:
