@@ -661,3 +661,151 @@ def test_geometry_gate_rejects_a_zero_normalized_margin(
     )
     assert geometry.evaluation_margins.minimum == 0.0
     assert geometry.geometry_passed is False
+
+
+def test_supervised_readout_uses_stable_softmax_and_immutable_greedy_snapshots() -> None:
+    readout = diagnostics._DiagnosticSupervisedReadout(
+        hidden_size=2,
+        learning_rate=0.25,
+        temperature=2.0,
+    )
+
+    assert readout._weights.dtype == np.dtype(np.float64)
+    assert readout._biases.dtype == np.dtype(np.float64)
+    np.testing.assert_array_equal(readout._weights, np.zeros((2, 2)))
+    np.testing.assert_array_equal(readout._biases, np.zeros(2))
+
+    tie = readout.select_greedy(np.array([1.0, -1.0], dtype=np.float64))
+    assert tie.action_index == 0
+    assert not tie.probabilities.flags.writeable
+    with pytest.raises(ValueError):
+        tie.probabilities[0] = 1.0
+
+    readout._weights[:] = [[1_000.0, -1_000.0], [-1_000.0, 1_000.0]]
+    readout._biases[:] = [10.0, -10.0]
+    hidden = np.array([3.0, -2.0], dtype=np.float64)
+    expected_logits = readout._weights @ hidden + readout._biases
+    scaled = expected_logits / readout.temperature
+    expected_probabilities = np.exp(scaled - np.max(scaled))
+    expected_probabilities /= expected_probabilities.sum()
+
+    decision = readout.select_greedy(hidden)
+
+    assert decision.action_index == int(np.argmax(expected_probabilities))
+    np.testing.assert_allclose(
+        decision.probabilities, expected_probabilities, rtol=0.0, atol=1e-12
+    )
+
+
+@pytest.mark.parametrize(
+    ("hidden_size", "learning_rate", "temperature"),
+    [
+        (0, 0.05, 1.0),
+        (True, 0.05, 1.0),
+        (2, 0.0, 1.0),
+        (2, True, 1.0),
+        (2, np.inf, 1.0),
+        (2, 0.05, 0.0),
+        (2, 0.05, True),
+        (2, 0.05, np.nan),
+    ],
+)
+def test_supervised_readout_constructor_matches_config_validation(
+    hidden_size: object, learning_rate: object, temperature: object
+) -> None:
+    with pytest.raises(ValueError):
+        diagnostics._DiagnosticSupervisedReadout(
+            hidden_size=hidden_size,
+            learning_rate=learning_rate,
+            temperature=temperature,
+        )
+
+
+def test_supervised_label_update_matches_literal_softmax_gradient() -> None:
+    readout = diagnostics._DiagnosticSupervisedReadout(
+        hidden_size=3,
+        learning_rate=0.2,
+        temperature=0.75,
+    )
+    readout._weights[:] = [[0.2, -0.1, 0.4], [-0.3, 0.5, 0.1]]
+    readout._biases[:] = [0.15, -0.2]
+    hidden = np.array([0.5, -1.5, 2.0], dtype=np.float64)
+    label = 1
+    before_weights = readout._weights.copy()
+    before_biases = readout._biases.copy()
+    logits = before_weights @ hidden + before_biases
+    exponentials = np.exp(logits / readout.temperature - np.max(logits / readout.temperature))
+    probabilities = exponentials / exponentials.sum()
+    delta = np.eye(2, dtype=np.float64)[label] - probabilities
+    expected_weights = before_weights + readout.learning_rate * np.outer(delta, hidden)
+    expected_biases = before_biases + readout.learning_rate * delta
+
+    observed = readout.observe_label(hidden, label)
+
+    assert not observed.flags.writeable
+    np.testing.assert_allclose(observed, probabilities, rtol=0.0, atol=1e-12)
+    np.testing.assert_allclose(
+        readout._weights, expected_weights, rtol=0.0, atol=1e-12
+    )
+    np.testing.assert_allclose(readout._biases, expected_biases, rtol=0.0, atol=1e-12)
+    assert not hasattr(readout, "learn")
+    assert not hasattr(readout, "select_for_training")
+
+
+def test_supervised_diagnostic_checkpoints_are_read_only_and_label_isolated(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    states = np.array([[-1.0], [1.0], [-1.0], [1.0], [-1.0]] * 4)
+    labels = np.array([0, 1, 0, 1, 0] * 4, dtype=np.int64)
+    delays = np.tile(np.arange(1, 6, dtype=np.int64), 4)
+    training = _hidden_dataset(states, labels, delays)
+    evaluation = _hidden_dataset(states, labels, delays)
+    config = diagnostics.LearningDiagnosticsConfig(
+        hidden_size=1,
+        training_episodes=20,
+        evaluation_blocks=2,
+        checkpoint_interval=10,
+    )
+    received: list[tuple[np.ndarray, int]] = []
+    original_observe = diagnostics._DiagnosticSupervisedReadout.observe_label
+    original_digest = diagnostics._DiagnosticSupervisedReadout.parameter_digest
+    digests_before_evaluation: list[str] = []
+
+    def observe_spy(
+        self: object, hidden: np.ndarray, label: int
+    ) -> np.ndarray:
+        assert isinstance(hidden, np.ndarray)
+        assert hidden.dtype == np.dtype(np.float64)
+        assert hidden.ndim == 1
+        assert not np.shares_memory(hidden, training.states)
+        received.append((hidden.copy(), label))
+        return original_observe(self, hidden, label)
+
+    def greedy_spy(self: object, hidden: np.ndarray):
+        digests_before_evaluation.append(original_digest(self))
+        return original_greedy(self, hidden)
+
+    original_greedy = diagnostics._DiagnosticSupervisedReadout.select_greedy
+    monkeypatch.setattr(diagnostics._DiagnosticSupervisedReadout, "observe_label", observe_spy)
+    monkeypatch.setattr(diagnostics._DiagnosticSupervisedReadout, "select_greedy", greedy_spy)
+    monkeypatch.setattr(
+        diagnostics,
+        "RewardModulatedReadout",
+        lambda *_args, **_kwargs: pytest.fail("supervised path must not use reward readout"),
+        raising=False,
+    )
+
+    result = diagnostics._run_supervised_diagnostic(training, evaluation, config)
+
+    assert tuple(checkpoint.episode for checkpoint in result.checkpoints) == (10, 20)
+    assert tuple(checkpoint.parameter_digest for checkpoint in result.checkpoints) == (
+        digests_before_evaluation[0],
+        digests_before_evaluation[20],
+    )
+    assert len(received) == 20
+    assert tuple(label for _, label in received) == tuple(training.labels.tolist())
+    for hidden, expected in zip(received, training.states, strict=True):
+        np.testing.assert_array_equal(hidden[0], expected)
+    assert result.overall.total == 20
+    assert tuple(delay for delay, _ in result.per_delay) == (1, 2, 3, 4, 5)
+    assert tuple(count.total for _, count in result.per_delay) == (4, 4, 4, 4, 4)

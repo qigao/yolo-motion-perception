@@ -112,6 +112,205 @@ class GeometryDiagnostic:
     geometry_passed: bool
 
 
+@dataclass(frozen=True)
+class DiagnosticCheckpoint:
+    """A read-only supervised evaluation after a scheduled training episode."""
+
+    episode: int
+    overall: AccuracyCount
+    per_delay: tuple[tuple[int, AccuracyCount], ...]
+    parameter_digest: str
+
+
+@dataclass(frozen=True)
+class SupervisedDiagnostic:
+    """Results from the private online supervised softmax instrument."""
+
+    overall: AccuracyCount
+    per_delay: tuple[tuple[int, AccuracyCount], ...]
+    checkpoints: tuple[DiagnosticCheckpoint, ...]
+    parameter_digest: str
+    supervised_passed: bool
+
+
+@dataclass(frozen=True)
+class _SupervisedDecision:
+    action_index: int
+    logits: np.ndarray
+    probabilities: np.ndarray
+
+
+class _DiagnosticSupervisedReadout:
+    """Private deterministic readout whose only update receives a class label."""
+
+    def __init__(
+        self,
+        hidden_size: int,
+        learning_rate: float = 0.05,
+        temperature: float = 1.0,
+    ) -> None:
+        if type(hidden_size) is not int or hidden_size <= 0:
+            raise ValueError("hidden_size must be a positive integer")
+        for name, value in (
+            ("learning_rate", learning_rate),
+            ("temperature", temperature),
+        ):
+            if not _finite_number(value) or value <= 0.0:
+                raise ValueError(f"{name} must be finite and positive")
+
+        self.hidden_size = hidden_size
+        self.learning_rate = float(learning_rate)
+        self.temperature = float(temperature)
+        self._weights = np.zeros((2, hidden_size), dtype=np.float64)
+        self._biases = np.zeros(2, dtype=np.float64)
+
+    def select_greedy(self, hidden_state: np.ndarray) -> _SupervisedDecision:
+        """Return the lowest-index maximum without creating any learning state."""
+        hidden = self._validated_hidden_state(hidden_state)
+        logits, probabilities = self._distribution(hidden)
+        return _SupervisedDecision(
+            action_index=int(np.argmax(probabilities)),
+            logits=_readonly_copy(logits, np.float64),
+            probabilities=_readonly_copy(probabilities, np.float64),
+        )
+
+    def observe_label(self, hidden_state: np.ndarray, label: int) -> np.ndarray:
+        """Apply one literal softmax update from an explicit class label."""
+        hidden = self._validated_hidden_state(hidden_state)
+        if type(label) is not int or label not in (0, 1):
+            raise ValueError("label must be action index zero or one")
+        _, probabilities = self._distribution(hidden)
+        delta = np.eye(2, dtype=np.float64)[label] - probabilities
+        self._weights += self.learning_rate * np.outer(delta, hidden)
+        self._biases += self.learning_rate * delta
+        return _readonly_copy(probabilities, np.float64)
+
+    def parameter_digest(self) -> str:
+        weights = np.ascontiguousarray(self._weights, dtype=np.float64)
+        biases = np.ascontiguousarray(self._biases, dtype=np.float64)
+        digest = hashlib.sha256()
+        digest.update(str(weights.shape).encode("ascii"))
+        digest.update(weights.tobytes(order="C"))
+        digest.update(str(biases.shape).encode("ascii"))
+        digest.update(biases.tobytes(order="C"))
+        return digest.hexdigest()
+
+    def _distribution(self, hidden_state: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        logits = self._weights @ hidden_state + self._biases
+        scaled = logits / self.temperature
+        exponentials = np.exp(scaled - np.max(scaled))
+        probabilities = exponentials / np.sum(exponentials)
+        return logits, probabilities
+
+    def _validated_hidden_state(self, hidden_state: object) -> np.ndarray:
+        try:
+            values = np.asarray(hidden_state, dtype=np.float64)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("hidden_state must be float64-compatible") from exc
+        if values.ndim != 1 or values.shape != (self.hidden_size,):
+            raise ValueError(
+                f"hidden_state must have shape ({self.hidden_size},)"
+            )
+        if not np.all(np.isfinite(values)):
+            raise ValueError("hidden_state must contain only finite values")
+        return values
+
+
+def _run_supervised_diagnostic(
+    training: _HiddenDataset,
+    evaluation: _HiddenDataset,
+    config: LearningDiagnosticsConfig,
+) -> SupervisedDiagnostic:
+    """Train only on frozen hidden rows, associating labels after each copy."""
+    if not isinstance(training, _HiddenDataset) or not isinstance(
+        evaluation, _HiddenDataset
+    ):
+        raise ValueError(  # noqa: TRY004 - protocol validation uses ValueError
+            "training and evaluation must be _HiddenDataset instances"
+        )
+    if not isinstance(config, LearningDiagnosticsConfig):
+        raise ValueError(  # noqa: TRY004 - protocol validation uses ValueError
+            "config must be a LearningDiagnosticsConfig"
+        )
+    if training.states.shape != (config.training_episodes, config.hidden_size):
+        raise ValueError("training states must match the configured episode count")
+    expected_evaluation_rows = config.evaluation_blocks * 10
+    if evaluation.states.shape != (expected_evaluation_rows, config.hidden_size):
+        raise ValueError("evaluation states must match the configured block count")
+
+    readout = _DiagnosticSupervisedReadout(
+        hidden_size=config.hidden_size,
+        learning_rate=config.learning_rate,
+        temperature=config.temperature,
+    )
+    checkpoints: list[DiagnosticCheckpoint] = []
+    for episode_index, (state, label) in enumerate(
+        zip(training.states, training.labels, strict=True), start=1
+    ):
+        # The copied numeric vector crosses the supervised label boundary first.
+        readout.observe_label(np.array(state, dtype=np.float64, copy=True), int(label))
+        if episode_index % config.checkpoint_interval == 0:
+            digest_before = readout.parameter_digest()
+            overall, per_delay = _evaluate_supervised_readout(readout, evaluation)
+            if readout.parameter_digest() != digest_before:
+                raise RuntimeError("supervised checkpoint evaluation mutated parameters")
+            checkpoints.append(
+                DiagnosticCheckpoint(
+                    episode=episode_index,
+                    overall=overall,
+                    per_delay=per_delay,
+                    parameter_digest=digest_before,
+                )
+            )
+
+    overall, per_delay = _evaluate_supervised_readout(readout, evaluation)
+    return SupervisedDiagnostic(
+        overall=overall,
+        per_delay=per_delay,
+        checkpoints=tuple(checkpoints),
+        parameter_digest=readout.parameter_digest(),
+        supervised_passed=(
+            overall.total == 200
+            and overall.correct >= 180
+            and all(
+                count.total == 40 and count.correct >= 34
+                for _, count in per_delay
+            )
+        ),
+    )
+
+
+def _evaluate_supervised_readout(
+    readout: _DiagnosticSupervisedReadout,
+    evaluation: _HiddenDataset,
+) -> tuple[AccuracyCount, tuple[tuple[int, AccuracyCount], ...]]:
+    """Score greedy choices outside the supervised readout without mutation."""
+    choices = np.fromiter(
+        (
+            readout.select_greedy(np.array(state, dtype=np.float64, copy=True)).action_index
+            for state in evaluation.states
+        ),
+        dtype=np.int64,
+        count=evaluation.states.shape[0],
+    )
+    matches = choices == evaluation.labels
+    per_delay: list[tuple[int, AccuracyCount]] = []
+    for delay in range(1, 6):
+        delay_mask = evaluation.delays == delay
+        total = int(np.count_nonzero(delay_mask))
+        if total == 0:
+            raise ValueError(f"evaluation delay {delay} has zero samples")
+        per_delay.append(
+            (
+                delay,
+                AccuracyCount(int(np.count_nonzero(matches[delay_mask])), total),
+            )
+        )
+    return AccuracyCount(int(np.count_nonzero(matches)), int(matches.size)), tuple(
+        per_delay
+    )
+
+
 def _build_diagnostic_fixtures(
     seed: int,
     config: LearningDiagnosticsConfig,
