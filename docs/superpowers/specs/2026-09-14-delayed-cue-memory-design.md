@@ -2,159 +2,142 @@
 
 ## Decision
 
-Phase 2 will test whether behavior can depend on a stimulus that is no longer
-present in the current observation. The experiment uses a delayed left/right
-cue task, a frozen recurrent reservoir, and a trainable action readout. It does
-not add an explicit memory flag, behavior state, transition table, BPTT, or an
-RL framework.
+Phase 2 is split into two independent scientific questions:
 
-This is the next required evidence after Phase 1. Phase 1 established
-deterministic recurrent trajectories and reward-driven output plasticity, but
-its fully observable combat task could be completed by repeatedly attacking.
-It did not establish that recurrent state was necessary for the behavior.
+- **Phase 2A — memory decodability:** determine whether the frozen recurrent
+  hidden state contains enough information to recover a cue that is absent
+  from the current stimulus.
+- **Phase 2B — reward learning:** determine whether an online reward-modulated
+  readout can learn to use that information.
+
+Phase 2A is the current gate. It uses one deterministic Ridge linear probe over
+hidden states from all delay lengths. The probe is a measurement instrument,
+not the game controller. It neither calls nor trains the policy action readout.
+
+Phase 2B remains a separate later experiment. Failure of the existing reward
+learner does not invalidate a passing Phase 2A result, and a passing probe does
+not allow Phase 2B to be described as successful.
+
+No explicit cue memory, semantic behavior state, transition table, BPTT, RL
+framework, or nonlinear probe is introduced.
+
+## Why the design changed
+
+The first Phase 2 design combined two claims:
+
+1. recurrent activity retains the vanished cue;
+2. a selected-action Hebbian reward update can learn the correct readout.
+
+The implemented mechanics showed that these claims cannot be inferred from
+one score. With the approved defaults, the reward learner was exactly
+repeatable and the reset ablation returned exactly 50%, but all three required
+seeds failed the accuracy gate:
+
+| Seed | Recurrent post-training | Reset ablation | Delay 1 / 2 / 3 / 4 / 5 |
+|---:|---:|---:|---|
+| 7 | 0.61 | 0.50 | 1.00 / 0.50 / 0.50 / 0.50 / 0.55 |
+| 17 | 0.84 | 0.50 | 1.00 / 0.85 / 0.65 / 0.90 / 0.80 |
+| 29 | 0.80 | 0.50 | 1.00 / 1.00 / 1.00 / 0.50 / 0.50 |
+
+These results show that transient state affects behavior, but they do not tell
+us whether longer-delay failures come from lost neural information or from an
+inadequate learning rule. Phase 2A isolates that distinction.
+
+The thresholds, seeds, delayed-cue task, reservoir defaults, and evaluation
+set are not weakened or replaced in response to the failure.
 
 ## Claim under test
 
-After seeing a left or right cue, the controller must retain enough information
-through one to five cue-free delay steps to choose the corresponding direction
-on a later decision frame.
+After a left or right cue, recurrent activity must preserve linearly decodable
+cue information through one to five cue-free delay steps. At the decision
+frame:
 
-At the decision frame:
+- left-cue and right-cue stimulus vectors are element-for-element equal;
+- one shared linear probe is used for every delay length;
+- cue identity, correct action, delay length, and episode phase are absent from
+  the probe features;
+- the only feature supplied to the probe is the current recurrent hidden
+  vector after processing the shared decision stimulus;
+- resetting recurrent state immediately before the decision stimulus makes
+  all ablated features identical and returns balanced accuracy to exactly 50%.
 
-- the left-cue and right-cue stimulus vectors are element-for-element equal;
-- the permitted actions are exactly `MOVE_LEFT` and `MOVE_RIGHT`;
-- the only permitted source of different deterministic choices is the
-  controller's recurrent hidden state and learned readout;
-- resetting hidden state immediately before the decision must remove the
-  information and return performance to the balanced 50% baseline.
-
-If these conditions hold, action differences cannot be attributed to the
-current observation or an enumerated task state supplied to the controller.
+Passing supports the narrow statement that the vanished cue remains linearly
+available in recurrent neural activity. It does not establish that the current
+reward learner can acquire the behavior.
 
 ## Alternatives considered
 
-### Selected: frozen recurrent reservoir plus learned readout
+### Selected: one Ridge linear probe
 
-Random seeded input and recurrent weights remain fixed. Reward feedback trains
-only the output weights. This isolates whether recurrent activity carries the
-cue and keeps the result deterministic and interpretable.
+Ridge regression has a deterministic closed-form solution, needs no iterative
+optimizer, and measures linear decodability without changing the recurrent
+system. A single probe across all delay lengths prevents the harness from
+smuggling delay identity into a bank of delay-specific classifiers.
 
-### Rejected for Phase 2: train the full recurrent network
+### Rejected: nearest-class-centroid probe
 
-BPTT, PPO, DQN, or another optimizer could produce a stronger policy, but it
-would add optimizer state, gradient behavior, and hyperparameters before the
-basic memory hypothesis has been isolated.
+A centroid difference is simpler and more interpretable, but can understate
+linearly available information when irrelevant hidden dimensions have large
+variance. Ridge regression controls those dimensions while remaining linear.
 
-### Rejected: explicit memory variable or FSM state
+### Rejected: logistic or nonlinear probe
 
-Recording `last_cue = LEFT` would make the task trivial by putting the answer in
-a predefined state. It cannot test whether memory exists in neural dynamics.
+Logistic regression adds convergence and optimizer choices. Kernels, MLPs,
+k-nearest neighbors, and other nonlinear probes could decode information that
+is not directly available to a linear action readout. They would weaken the
+interpretation boundary.
 
-## Architectural change
+### Deferred to Phase 2B: change the reward update
 
-The current `RecurrentController` directly encodes `GameObservation`, owns the
-recurrent matrices, selects actions, and learns. Phase 2 extracts those generic
-dynamics into `RecurrentPolicy` while preserving the existing controller as a
-compatibility adapter.
+A symmetric two-row reward update or another online rule may outperform the
+current selected-row update. Changing it before measuring hidden-state
+decodability would continue to conflate representation and learning.
 
-```text
-                         ┌──────────────────────────┐
-GameObservation ─encode─►│ RecurrentController     │
-                         │ game-specific adapter    │
-                         └────────────┬─────────────┘
-                                      │ numeric stimulus
-                                      ▼
-                         ┌──────────────────────────┐
-                         │ RecurrentPolicy          │
-                         │ generic neural dynamics  │
-                         └────────────┬─────────────┘
-                                      ▲
-                                      │ cue/delay/decision vectors
-                         ┌────────────┴─────────────┐
-                         │ DelayedCueTask           │
-                         │ experiment protocol      │
-                         └──────────────────────────┘
-```
+## Existing foundation
 
-The Phase 1 public API and its 57 tests remain valid. The extraction must not
-change Phase 1 seeded trajectories, selected actions, plasticity deltas, or
-benchmark JSON.
+The completed Phase 2 foundation remains valid:
 
-## Component boundaries
+- `RecurrentPolicy` owns generic seeded recurrent dynamics;
+- `RecurrentController` preserves the Phase 1 nine-input/four-action API and
+  numerical benchmark;
+- `DelayedCueTask` creates validated immutable four-channel episodes;
+- `memory_benchmark.py` contains the reward-learning mechanics and the failed
+  Phase 2B baseline.
 
-### `RecurrentPolicy`
+Phase 2A does not change `RecurrentPolicy`, `RecurrentController`,
+`DelayedCueTask`, or the reward learning rule.
 
-`RecurrentPolicy` is a numeric neural-dynamics component. It has no knowledge
-of games, cues, health, or semantic action names.
-
-Construction parameters:
+## Architecture
 
 ```text
-input_size: positive integer
-action_count: integer >= 2
-hidden_size: positive integer
-seed: integer
-learning_rate: finite positive float
-recurrent_radius: finite float in [0, 1)
+DelayedCueTask
+    |
+    | cue / delay / shared decision vectors
+    v
+RecurrentPolicy.advance
+    |
+    | current hidden vector only
+    v
+Hidden-state dataset
+    |
+    | training labels remain in experiment harness
+    v
+FittedLinearProbe
+    |
+    | left/right prediction
+    v
+Recurrent evaluation + state-reset ablation
 ```
 
-It owns:
+The policy action output matrix exists for Phase 1 compatibility but is never
+used to generate a Phase 2A feature or prediction and is never modified. Its
+public digest may be sampled before and after the experiment solely to prove
+that it stayed unchanged. Phase 2A calls only `reset_state()` and `advance()`
+on the state-evolution path.
 
-- seeded input, recurrent, and output matrices;
-- the recurrent hidden vector;
-- eligibility from the most recent decision;
-- no task-state or observation history outside that vector.
+## Delayed-cue stimulus contract
 
-Public operations:
-
-```python
-advance(stimulus: ndarray) -> ndarray
-decide(
-    stimulus: ndarray,
-    legal_action_indices: tuple[int, ...],
-    *,
-    explore_probability: float = 0.0,
-    rng: numpy.random.Generator | None = None,
-) -> PolicyDecision
-learn(reward: float) -> None
-reset_state() -> None
-```
-
-`advance` evolves hidden state without creating an action or eligibility. It is
-used for cue and delay frames. `decide` evolves hidden state once for the
-decision stimulus, masks illegal logits, selects an action, and records the
-decision hidden vector for learning.
-
-With zero exploration, selection is deterministic argmax with lowest-index tie
-breaking. Positive exploration requires an explicitly supplied seeded random
-generator. Exploration samples uniformly from legal actions; it never selects
-masked actions.
-
-Returned arrays are read-only copies. Stimuli must be finite one-dimensional
-`float64`-compatible arrays of exactly `input_size` elements.
-
-### Phase 1 compatibility adapter
-
-`RecurrentController` retains its existing constructor and methods:
-
-```python
-step(GameObservation) -> NeuralDecision
-learn(reward) -> None
-reset_state() -> None
-```
-
-It owns a nine-input, four-action `RecurrentPolicy`, converts
-`GameObservation` using the existing encoder, and converts numeric action
-indices back to `Action`. The refactor must preserve the initialization draw
-order and all Phase 1 numerical outputs exactly.
-
-### `DelayedCueTask`
-
-The task is an experiment protocol, not a controller state machine. It creates
-stimulus sequences and scores the final direction choice. The controller never
-receives the cue label, correct action, delay count, episode phase, or score.
-
-The four-element stimulus contract is:
+The existing four-element task contract is unchanged:
 
 ```text
 index 0: left-cue channel
@@ -163,159 +146,288 @@ index 2: bounded distractor channel
 index 3: decision channel
 ```
 
-For a left cue:
-
 ```text
-cue frame      [1, 0, 0, 0]
-delay frame    [0, 0, d, 0]  where d is seeded in [-0.25, 0.25]
-decision frame [0, 0, 0, 1]
+left cue       [1, 0, 0, 0]
+right cue      [0, 1, 0, 0]
+delay          [0, 0, d, 0], d in [-0.25, 0.25]
+decision       [0, 0, 0, 1]
 ```
 
-For a right cue, the cue frame is `[0, 1, 0, 0]`; all other contracts are
-identical. Delay length is an integer from one through five.
+Delay length remains an integer from one through five. The shared decision
+vector is exactly equal for every cue and delay. Task labels and metadata are
+used only to construct balanced datasets and score predictions.
 
-The decision frame is a shared immutable literal. A test compares left-cue and
-right-cue decision vectors using exact array equality.
+## Hidden-state collection
 
-Task phases may exist in the test harness for validation and sequencing, but
-phase identifiers are never encoded into the controller stimulus except for
-the single shared decision channel. They are hard experiment protocol, not
-learned behavior states.
+For each episode, Phase 2A executes exactly:
 
-## Training protocol
+```python
+policy.reset_state()
+policy.advance(episode.cue_stimulus)
+for stimulus in episode.delay_stimuli:
+    policy.advance(stimulus)
+hidden = policy.advance(episode.decision_stimulus)
+```
 
-Training uses the same recurrent reservoir across all episodes and changes only
-the output matrix.
+The returned decision-time hidden vector is the complete probe feature. The
+collector does not call `decide()` or `learn()`, inspect logits, or create
+eligibility.
 
-Each training block contains the Cartesian product of:
+For the state-reset ablation, the collector performs the same cue and delay
+steps, then calls `reset_state()` immediately before the final
+`advance(decision_stimulus)`. Because every ablated episode then starts the
+decision step from zero state with the same stimulus and frozen matrices, the
+resulting hidden vectors must be exactly equal.
+
+## Dataset protocol
+
+Every block contains the Cartesian product of:
 
 - cue: left and right;
-- delay: one, two, three, four, and five steps.
+- delay: one, two, three, four, and five.
 
-The ten cases are shuffled by a seeded generator. Repeating complete balanced
-blocks prevents cue-frequency bias. Delay distractors use the same generator
-but are not reused by evaluation.
+The ten cases are shuffled by a seeded generator. Every episode receives new
+seeded distractors.
 
-For each episode:
+`MemoryProbeConfig` defaults are:
 
-1. reset recurrent hidden state;
-2. call `advance` for the cue frame;
-3. call `advance` for every delay frame;
-4. call `decide` on the shared decision frame with only left/right legal;
-5. return `+1` for the correct direction and `-1` for the wrong direction;
-6. call `learn` once with that reward.
+```python
+hidden_size = 64
+recurrent_radius = 0.9
+training_blocks = 200
+evaluation_blocks = 20
+regularization = 1e-6
+```
 
-Training uses seeded epsilon-greedy exploration. The default schedule is linear
-decay from `0.25` to `0.02` over 2,000 episodes. Evaluation uses zero
-exploration and performs no learning.
+This produces 2,000 balanced training samples and 200 balanced evaluation
+samples. The reservoir and sample defaults match the failed reward experiment
+where they overlap.
 
-No training sample or evaluation result changes input or recurrent matrices.
+Each run constructs exactly one state source:
 
-## Evaluation protocol
+```python
+RecurrentPolicy(
+    input_size=4,
+    action_count=2,
+    hidden_size=config.hidden_size,
+    seed=seed,
+    recurrent_radius=config.recurrent_radius,
+)
+```
 
-Evaluation uses new deterministic distractor streams derived from an evaluation
-seed distinct from the training seed. It contains equal numbers of left and
-right cues for every delay length.
+The policy's default learning rate is irrelevant because Phase 2A never calls
+`learn()`.
 
-Two modes evaluate the same trained readout:
+RNG lineages are fixed and independent:
+
+```python
+training_rng = np.random.default_rng(
+    np.random.SeedSequence([seed, 0x50524F42])
+)
+evaluation_rng = np.random.default_rng(
+    np.random.SeedSequence([seed, 0x4556414C])
+)
+```
+
+Training and evaluation fixtures never share distractor draws. Evaluation
+fixtures are built once and reused for recurrent and reset modes.
+
+## Linear probe
+
+### Interfaces
+
+`memory_probe.py` provides the frozen data type
+`FittedLinearProbe(weights: np.ndarray, bias: float)` and these operations:
+
+```text
+FittedLinearProbe.predict(states: np.ndarray) -> np.ndarray
+FittedLinearProbe.digest() -> str
+fit_linear_probe(states: np.ndarray, labels: np.ndarray,
+                 *, regularization: float) -> FittedLinearProbe
+```
+
+`states` has shape `(samples, hidden_size)`. Labels are literal action indices:
+`0` for left and `1` for right. Fitting maps them internally to `-1.0` and
+`+1.0`.
+
+### Fit algorithm
+
+The implementation augments the feature matrix with a constant bias column:
+
+```python
+design = np.column_stack((states, np.ones(states.shape[0])))
+penalty = np.diag([regularization] * states.shape[1] + [0.0])
+target = np.where(labels == 0, -1.0, 1.0)
+parameters = np.linalg.solve(
+    design.T @ design + penalty,
+    design.T @ target,
+)
+weights = parameters[:-1]
+bias = float(parameters[-1])
+```
+
+Only feature weights are regularized; the bias is not. Prediction selects
+right for scores strictly greater than zero and left otherwise, giving the
+lowest-index action deterministic tie behavior.
+
+One fitted probe is trained on the combined delay 1–5 dataset and reused for
+all reported metrics. Delay-specific probes and delay-derived features are
+forbidden.
+
+Weights are stored as an independent read-only `float64` array. The probe
+digest is SHA-256 over the weight shape, C-contiguous weight bytes, and the
+`float64` bias bytes.
+
+Direct construction of `FittedLinearProbe` validates and defensively copies
+its weights, so callers cannot introduce non-finite, writable, or aliased
+parameters.
+
+## Evaluation and controls
 
 ### Recurrent mode
 
-The hidden state flows continuously from cue through delay to decision.
+The fitted probe predicts from decision-time hidden vectors produced by the
+continuous cue-to-delay-to-decision trajectory.
 
 ### State-reset ablation
 
-The same cue and delay frames are processed, but `reset_state()` is called
-immediately before the shared decision frame. Because the decision stimulus is
-identical and the evaluator is deterministic, the controller makes one
-constant choice. A balanced cue set therefore produces exactly 50% accuracy.
+The same fitted probe predicts from decision-time hidden vectors after state
+is cleared immediately before the shared decision input. All ablated feature
+vectors must be exactly equal. The classifier therefore produces one constant
+choice, yielding exactly 100 correct of 200 balanced samples.
 
-The ablation resets transient hidden state only. It does not reset learned
-output weights, substitute another model, or retrain a baseline.
+### Frozen-policy control
 
-## Metrics
+Phase 2A must prove:
 
-`MemoryExperimentResult` reports:
+- the policy output-weight digest is identical before and after dataset
+  collection, fitting, and both evaluation modes;
+- private input and recurrent matrices are element-for-element unchanged in
+  tests;
+- no `decide()` or `learn()` call occurs;
+- the probe receives no task metadata or label during prediction.
 
-- seed and configuration;
-- pre-training recurrent accuracy;
-- post-training recurrent accuracy;
-- post-training state-reset accuracy;
-- post-training accuracy for each delay length 1–5;
-- total training reward and training accuracy in the final balanced block;
-- exact repeatability of two independent runs using the same seed;
-- a deterministic digest of learned output weights and evaluation choices.
+Training labels are visible only to `fit_linear_probe`. Evaluation labels are
+visible only to the scorer after prediction.
 
-Accuracy is computed from literal correct/total counts. Metrics must not reuse
-controller predictions to derive expected labels.
+## Result contract
 
-## Acceptance criteria
+`MemoryProbeResult` reports:
 
-The committed benchmark must satisfy all of the following with the documented
-default configuration:
+- seed and complete `MemoryProbeConfig`;
+- training correct/total and accuracy;
+- recurrent evaluation correct/total and accuracy;
+- recurrent accuracy for every delay length 1–5;
+- state-reset correct/total and accuracy;
+- whether all ablated hidden vectors are exactly equal;
+- output-weight digest before and after the experiment;
+- fitted-probe, recurrent-choice, and reset-choice digests;
+- exact repeatability of two independent runs with the same seed.
 
-1. Post-training recurrent accuracy is at least `0.90` over the balanced
-   evaluation set.
-2. Accuracy for each individual delay length from one through five is at least
-   `0.85`.
-3. State-reset ablation accuracy is exactly `0.50`.
-4. Left-cue and right-cue decision-frame vectors are exactly equal.
-5. Two independent runs with the same seed return identical result objects and
+Accuracy is always derived from literal correct/total counts. Expected labels
+come from episode truth, never from another prediction.
+
+The public orchestration surface is:
+
+```text
+run_memory_probe(seed: int = 7,
+                 config: MemoryProbeConfig | None = None) -> MemoryProbeResult
+run_memory_probe_benchmark(seeds: Sequence[int] = (7, 17, 29),
+                           config: MemoryProbeConfig | None = None)
+    -> dict[str, object]
+```
+
+`run_memory_probe` executes two completely independent runs and sets the
+result's repeatability field from full run-object equality. The benchmark CLI
+prints one compact JSON object with sorted keys and exits nonzero when any
+fixed-seed acceptance condition fails.
+
+## Phase 2A acceptance criteria
+
+The committed default benchmark must satisfy all of the following:
+
+1. Recurrent probe accuracy is at least `0.90` over 200 balanced evaluation
+   samples.
+2. Accuracy for every individual delay length 1–5 is at least `0.85`.
+3. State-reset accuracy is exactly `0.50` (`100/200`).
+4. All state-reset decision-time hidden vectors are exactly equal.
+5. Left-cue and right-cue decision stimulus vectors are exactly equal.
+6. One shared probe is used across all delays and receives no delay feature.
+7. Two independent runs with the same seed return identical result objects and
    digests.
-6. At least three documented seeds pass criteria 1–5; default CI seeds are
-   `7`, `17`, and `29`.
-7. Phase 1 tests and benchmark JSON remain numerically unchanged.
-8. No explicit cue memory, semantic hidden-state label, compound behavior
-   state, behavior tree, or transition table is added to controller code.
-9. `pytest -q`, `ruff check .`, the Phase 1 benchmark, and the Phase 2 memory
-   benchmark pass on Python 3.10, 3.11, and 3.12.
+8. Seeds `7`, `17`, and `29` all pass criteria 1–7.
+9. Policy input, recurrent, and output weights remain unchanged.
+10. Phase 1 tests and benchmark JSON remain numerically unchanged.
+11. The existing reward-learning failure remains reported as a Phase 2B
+    baseline and is not included in Phase 2A pass/fail.
+12. `pytest -q`, `ruff check .`, the Phase 1 benchmark, and the Phase 2A probe
+    benchmark pass on Python 3.10, 3.11, and 3.12.
 
-If the recurrent accuracy threshold is not reached, the experiment reports a
-failed hypothesis boundary. The threshold must not be weakened, and seeds must
-not be replaced, merely to make CI green. A design revision is required before
-changing the reservoir, learning rule, episode count, or task difficulty.
+If any fixed seed misses the accuracy thresholds, Phase 2A reports that the
+current reservoir does not provide robust linearly decodable 1–5-step memory.
+Thresholds, fixed seeds, task difficulty, training/evaluation block counts,
+regularization, hidden size, and recurrent radius must not be changed merely
+to make CI green. Another design revision is required.
 
 ## Error handling
 
-- Invalid sizes, radii, probabilities, rewards, and non-finite stimuli raise
-  `ValueError`.
-- Exploration without a supplied generator raises `ValueError`.
-- Empty, duplicate, or out-of-range legal-action masks raise `ValueError`.
-- `learn` without a preceding decision raises `RuntimeError`.
-- Learning twice from one decision raises `RuntimeError`; one reward consumes
-  the eligibility record.
-- Invalid cue, delay, or episode counts raise `ValueError`.
-- Evaluation never mutates learned weights; tests compare weight digests before
-  and after evaluation.
+- `MemoryProbeConfig` rejects non-integer or non-positive sizes/block counts,
+  recurrent radii outside `[0, 1)`, and non-positive/non-finite
+  regularization.
+- Probe fitting rejects non-finite or non-rank-two states, zero samples or
+  features, non-rank-one labels, mismatched sample counts, labels outside
+  `{0, 1}`, and a dataset missing either class.
+- Prediction rejects non-finite or non-rank-two states and feature widths that
+  differ from the fitted probe.
+- A numerical solve failure raises `RuntimeError` with the original
+  `numpy.linalg.LinAlgError` as its cause.
+- Returned probe weights and prediction arrays are independent read-only
+  copies.
+- Probe orchestration rejects seeds that are not non-negative Python integers
+  before constructing either RNG lineage or the policy.
 
 ## Files and dependency limits
 
-Expected new modules:
+Expected new files:
 
 ```text
-src/neural_state_machine/policy.py
-src/neural_state_machine/memory_task.py
-src/neural_state_machine/memory_benchmark.py
-scripts/benchmark_memory.py
+src/neural_state_machine/memory_probe.py
+tests/test_memory_probe.py
+scripts/benchmark_memory_probe.py
 ```
 
-Expected modifications are limited to the Phase 1 controller adapter, public
-exports, tests, README, and CI. NumPy remains the only runtime dependency.
+Expected modifications are limited to public exports, README, and CI. Existing
+policy, controller, delayed-cue task, and reward-baseline modules remain
+unchanged unless a separately demonstrated defect requires a reviewed fix.
+
+NumPy remains the only runtime dependency.
 
 ## Interpretation boundary
 
-Passing Phase 2 supports this narrow statement:
+Results are interpreted as follows:
 
-> A stimulus that is absent at decision time remains behaviorally available in
-> recurrent neural activity, and erasing that activity removes the behavior.
+| Phase 2A probe | Phase 2B reward learner | Supported conclusion |
+|---|---|---|
+| pass | fail | Neural state contains usable memory; current reward rule cannot reliably learn its readout. |
+| fail | fail | The current reservoir does not robustly preserve linearly decodable 1–5-step memory. |
+| pass | pass | Both memory representation and the separately tested reward-learning mechanism succeed. |
 
-It does not demonstrate semantic attractors, open-world game intelligence,
-biological plausibility, or a complete replacement for all state machines.
-Those require later experiments.
+A Phase 2A pass does not demonstrate semantic attractors, online learning,
+open-world game intelligence, biological plausibility, or replacement of all
+state machines.
 
-## Next gate
+## Plan supersession and next gates
 
-Only after Phase 2 passes should Phase 3 introduce multiple concurrent memories
-and conflicting objectives such as attack, retreat, and healing. A `fly-brain`
-adapter remains later still; it must be compared against the same delayed-cue
-protocol before biological topology is credited with any improvement.
+Tasks 1–6 of
+`docs/superpowers/plans/2026-09-14-delayed-cue-memory.md` remain the implemented
+and reviewed foundation. Its original Tasks 7–8 are superseded because their
+combined reward-learning acceptance was falsified before implementation.
+
+After this revised spec is approved, a new implementation plan must cover only
+the Phase 2A probe, its benchmark, documentation, CI, and final audit.
+
+If Phase 2A passes, the next design session may address Phase 2B with a revised
+reward-learning rule. Multiple concurrent memories and conflicting
+attack/retreat/heal objectives remain Phase 3. A `fly-brain` adapter remains
+later still and must face the same Phase 2A/2B separation before biological
+topology is credited with improvement.
