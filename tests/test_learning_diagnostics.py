@@ -10,7 +10,6 @@ from copy import deepcopy
 from dataclasses import FrozenInstanceError, fields, is_dataclass
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
-from typing import Self
 
 import numpy as np
 import pytest
@@ -1202,7 +1201,7 @@ class _SelectionLockedVector(np.ndarray):
         name: str,
         events: list[tuple[str, object]],
         selected_index: callable,
-    ) -> Self:
+    ) -> _SelectionLockedVector:
         result = np.asarray(values).view(cls)
         result._name = name
         result._events = events
