@@ -960,22 +960,109 @@ _PHASE_2B_PORTABLE_RESULT_KEYS = (
 
 
 def _match_phase_2b_evidence(seed: int, runtime_entry: object) -> bool:
-    """Match one public Phase 2B result on its cross-platform stable fields."""
+    """Validate the full reference before comparing one portable result."""
     if type(seed) is not int or seed < 0 or not isinstance(runtime_entry, dict):
         return False
     try:
         expected_payload = json.loads(_PHASE_2B_EVIDENCE.read_text(encoding="utf-8"))
+        expected_results = _validated_phase_2b_results(expected_payload, (7, 17, 29))
+        if expected_payload["all_passed"] is not False:
+            return False
+        _validate_phase_2b_result(runtime_entry)
         expected_entry = next(
-            entry
-            for entry in expected_payload["results"]
-            if isinstance(entry, dict) and entry.get("seed") == seed
+            entry for entry in expected_results if entry["seed"] == seed
         )
-    except (OSError, StopIteration, TypeError, json.JSONDecodeError, KeyError):
+    except (OSError, StopIteration, TypeError, ValueError, KeyError):
         return False
     return all(
-        runtime_entry.get(key) == expected_entry.get(key)
+        runtime_entry[key] == expected_entry[key]
         for key in _PHASE_2B_PORTABLE_RESULT_KEYS
     )
+
+
+def _validated_phase_2b_results(payload: object, seeds: tuple[int, ...]) -> list[dict]:
+    """Check an entire frozen-protocol envelope before selecting any result."""
+    if not isinstance(payload, dict) or set(payload) != {
+        "all_passed", "config", "phase", "results", "seeds", "shuffled_pooled",
+    }:
+        raise ValueError("Phase 2B evidence has an invalid envelope")
+    if payload["phase"] != "2B" or payload["seeds"] != list(seeds):
+        raise ValueError("Phase 2B evidence has an unexpected phase or ordered seeds")
+    config = payload["config"]
+    if (
+        not isinstance(config, dict)
+        or set(config) != {field.name for field in fields(RewardLearningConfig)}
+        or RewardLearningConfig(**config) != RewardLearningConfig()
+    ):
+        raise ValueError("Phase 2B evidence has an unexpected configuration")
+    results = payload["results"]
+    if not isinstance(results, list) or len(results) != len(seeds):
+        raise ValueError("Phase 2B evidence has missing or duplicate results")
+    for seed, result in zip(seeds, results, strict=True):
+        _validate_phase_2b_result(result)
+        if result["seed"] != seed:
+            raise ValueError("Phase 2B evidence has unexpected or duplicate result seeds")
+    pooled = payload["shuffled_pooled"]
+    _validate_phase_2b_count(pooled, 200 * len(seeds))
+    if (
+        pooled["correct"] != 100 * len(seeds)
+        or pooled["correct"] != sum(result["shuffled_control"]["correct"] for result in results)
+        or payload["all_passed"] is not all(result["passed"] for result in results)
+    ):
+        raise ValueError("Phase 2B evidence has inconsistent pooled controls or pass status")
+    return results
+
+
+def _validate_phase_2b_result(result: object) -> None:
+    """Require complete, typed portable fields without comparing float bytes."""
+    if not isinstance(result, dict) or not set(_PHASE_2B_PORTABLE_RESULT_KEYS) <= set(result):
+        raise ValueError("Phase 2B evidence has missing result fields")
+    if type(result["seed"]) is not int or result["seed"] < 0:
+        raise ValueError("Phase 2B evidence has an invalid result seed")
+    for key in ("all_reset_hidden_equal", "passed", "repeatable"):
+        if type(result[key]) is not bool:
+            raise ValueError("Phase 2B evidence has invalid result flags")
+    for key in ("total_training_reward", "shuffled_total_training_reward"):
+        if type(result[key]) is not int or not 0 <= result[key] <= 2000:
+            raise ValueError("Phase 2B evidence has invalid training reward")
+    for key in _PHASE_2B_PORTABLE_RESULT_KEYS:
+        if key.endswith("_digest"):
+            _validate_digest(result[key], key)
+    for key in ("pre_training", "post_training", "state_reset", "shuffled_control"):
+        _validate_phase_2b_count(result[key], 200)
+    for key in ("final_block", "shuffled_final_block"):
+        _validate_phase_2b_count(result[key], 10)
+    for key, overall_key in (
+        ("per_delay", "post_training"),
+        ("reset_per_delay", "state_reset"),
+        ("shuffled_per_delay", "shuffled_control"),
+    ):
+        counts = result[key]
+        if not isinstance(counts, list) or len(counts) != 5:
+            raise ValueError("Phase 2B evidence has invalid per-delay counts")
+        for delay, count in enumerate(counts, start=1):
+            _validate_phase_2b_count(count, 40, delay=delay)
+        if sum(count["correct"] for count in counts) != result[overall_key]["correct"]:
+            raise ValueError("Phase 2B evidence has inconsistent per-delay counts")
+
+
+def _validate_phase_2b_count(value: object, total: int, *, delay: int | None = None) -> None:
+    """Validate literal Phase 2B counts and their deterministic derived accuracy."""
+    keys = {"accuracy", "correct", "total"}
+    if delay is not None:
+        keys.add("delay")
+    if (
+        not isinstance(value, dict)
+        or set(value) != keys
+        or type(value["correct"]) is not int
+        or type(value["total"]) is not int
+        or value["total"] != total
+        or not 0 <= value["correct"] <= total
+        or not _finite_number(value["accuracy"])
+        or value["accuracy"] != value["correct"] / total
+        or (delay is not None and (type(value["delay"]) is not int or value["delay"] != delay))
+    ):
+        raise ValueError("Phase 2B evidence has an invalid accuracy count")
 
 
 def run_learning_diagnostics(
@@ -1029,7 +1116,10 @@ def run_learning_diagnostics(
         classification=classification,
         matrix_digests_before=first.matrix_digests_before,
         matrix_digests_after=first.matrix_digests_after,
-        phase_2b_portable_evidence_match=first.phase_2b_portable_evidence_match,
+        phase_2b_portable_evidence_match=(
+            first.phase_2b_portable_evidence_match
+            and second.phase_2b_portable_evidence_match
+        ),
         diagnostic_valid=protocol_match,
         repeatable=repeatable,
         training_fixture_digest=first.training_fixture_digest,
@@ -1096,17 +1186,11 @@ def _phase_2b_runtime_entry(
         evaluation_blocks=config.evaluation_blocks,
     )
     runtime = run_reward_learning_benchmark((seed,), reward_config)
-    results = runtime.get("results")
-    if not isinstance(results, list):
+    try:
+        results = _validated_phase_2b_results(runtime, (seed,))
+    except (KeyError, TypeError, ValueError):
         return None
-    return next(
-        (
-            entry
-            for entry in results
-            if isinstance(entry, dict) and entry.get("seed") == seed
-        ),
-        None,
-    )
+    return results[0]
 
 
 def _phase_2b_runtime_local_evidence(
@@ -1155,6 +1239,7 @@ def _phase_2b_runtime_local_evidence(
         normal_before != normal_after
         or shuffled_before != shuffled_after
         or parameter_digests[0] == parameter_digests[1]
+        or parameter_digests[0] == parameter_digests[2]
     ):
         return None
     return _Phase2bRuntimeLocalEvidence(
