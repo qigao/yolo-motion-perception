@@ -113,7 +113,7 @@ def test_build_contact_sheet_command_samples_fixed_grid() -> None:
     assert command[-1] == "sheet.jpg"
 
 
-def test_load_clip_manifest_reads_frame_windows(tmp_path: Path) -> None:
+def test_load_clip_manifest_reads_frame_windows_and_gt_targets(tmp_path: Path) -> None:
     path = tmp_path / "clips.yaml"
     path.write_text(
         "fps: 25\n"
@@ -122,6 +122,7 @@ def test_load_clip_manifest_reads_frame_windows(tmp_path: Path) -> None:
         "    source: walk2\n"
         "    start_frame: 880\n"
         "    end_frame: 1049\n"
+        "    gt_object_ids: [5]\n"
         "    lateral: moving\n"
         "    radial: approaching\n",
         encoding="utf-8",
@@ -132,6 +133,7 @@ def test_load_clip_manifest_reads_frame_windows(tmp_path: Path) -> None:
     assert manifest.fps == 25
     assert manifest.clips[0].source == "walk2"
     assert manifest.clips[0].start_frame == 880
+    assert manifest.clips[0].gt_object_ids == (5,)
     assert manifest.clips[0].radial == "approaching"
 
 
