@@ -280,6 +280,51 @@ def _filename_from_url(url: str) -> str:
     return name
 
 
+def _run_checked(command: list[str]) -> None:
+    subprocess.run(command, check=True)
+
+
+def materialize_clips(
+    source_manifest_path: str | Path,
+    clip_manifest_path: str | Path,
+    source_dir: str | Path,
+    output_dir: str | Path,
+    *,
+    runner: Callable[[list[str]], None] = _run_checked,
+) -> list[Path]:
+    source_manifest = load_source_manifest(source_manifest_path)
+    clip_manifest = load_clip_manifest(clip_manifest_path)
+    source_root = Path(source_dir)
+    output_root = Path(output_dir)
+    output_root.mkdir(parents=True, exist_ok=True)
+
+    source_files = {
+        source.name: source_root / _filename_from_url(source.url)
+        for source in source_manifest.sources
+    }
+    outputs: list[Path] = []
+    for clip in clip_manifest.clips:
+        source_path = source_files.get(clip.source)
+        if source_path is None:
+            raise SourceManifestError(
+                f"clip {clip.name!r} references unknown source {clip.source!r}"
+            )
+        if not source_path.is_file():
+            raise SourceManifestError(f"source file is missing: {source_path}")
+        output_path = output_root / f"{clip.name}.mp4"
+        runner(
+            build_trim_command(
+                source_path,
+                output_path,
+                start_frame=clip.start_frame,
+                end_frame=clip.end_frame,
+                fps=clip_manifest.fps,
+            )
+        )
+        outputs.append(output_path)
+    return outputs
+
+
 def probe_sources(manifest_path: Path, output_dir: Path) -> dict[str, Any]:
     manifest = load_source_manifest(manifest_path)
     sources_dir = output_dir / "sources"
