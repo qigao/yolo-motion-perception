@@ -10,7 +10,9 @@ from yolo_motion.source_probe import (
     SourceManifestError,
     build_contact_sheet_command,
     build_ffprobe_command,
+    build_trim_command,
     download_source,
+    load_clip_manifest,
     load_source_manifest,
     sha256_file,
 )
@@ -104,3 +106,40 @@ def test_build_contact_sheet_command_samples_fixed_grid() -> None:
     assert "fps=1/2" in command[command.index("-vf") + 1]
     assert "tile=4x3" in command[command.index("-vf") + 1]
     assert command[-1] == "sheet.jpg"
+
+
+def test_load_clip_manifest_reads_frame_windows(tmp_path: Path) -> None:
+    path = tmp_path / "clips.yaml"
+    path.write_text(
+        "fps: 25\n"
+        "clips:\n"
+        "  - name: approaching\n"
+        "    source: walk2\n"
+        "    start_frame: 880\n"
+        "    end_frame: 1049\n"
+        "    lateral: moving\n"
+        "    radial: approaching\n",
+        encoding="utf-8",
+    )
+
+    manifest = load_clip_manifest(path)
+
+    assert manifest.fps == 25
+    assert manifest.clips[0].source == "walk2"
+    assert manifest.clips[0].start_frame == 880
+    assert manifest.clips[0].radial == "approaching"
+
+
+def test_build_trim_command_selects_inclusive_frame_window() -> None:
+    command = build_trim_command(
+        Path("Walk2.mpg"),
+        Path("approaching.mp4"),
+        start_frame=880,
+        end_frame=1049,
+        fps=25,
+    )
+
+    filter_chain = command[command.index("-vf") + 1]
+    assert "between(n,880,1049)" in filter_chain
+    assert "setpts=N/(25*TB)" in filter_chain
+    assert command[-1] == "approaching.mp4"
