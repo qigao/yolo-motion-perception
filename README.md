@@ -113,6 +113,37 @@ python -m yolo_motion.cli \
 
 The CLI uses `persist=True` only for consecutive frames from the same stream and converts Ultralytics results immediately into local data types.
 
+## Evaluate a real-video run
+
+V1 evaluation is intentionally tied to a specific tracker run: first generate JSONL, then annotate the resulting `track_id` over labeled time intervals. This avoids adding a second object-matching algorithm to the benchmark.
+
+Example annotation file (`benchmarks/example_annotations.yaml`):
+
+```yaml
+video: path/to/video.mp4
+intervals:
+  - track_id: 1
+    start: 1.0
+    end: 3.0
+    lateral: stationary
+    radial: approaching
+  - track_id: 1
+    start: 3.0
+    end: 5.0
+    lateral: moving
+    radial: stable
+```
+
+Either dimension may be omitted when it is not part of the scene label. Score the run with:
+
+```bash
+python scripts/evaluate_jsonl.py \
+  --predictions runs/motion.jsonl \
+  --annotations benchmarks/example_annotations.yaml
+```
+
+The report contains per-dimension sample count, accuracy, confusion counts, and first-correct latency for each labeled interval. Predictions outside labeled intervals are ignored.
+
 ## Configuration
 
 `configs/baseline.yaml`:
