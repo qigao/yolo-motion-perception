@@ -41,6 +41,7 @@ class ClipSpec:
     source: str
     start_frame: int
     end_frame: int
+    gt_object_ids: tuple[int, ...] = ()
     lateral: str | None = None
     radial: str | None = None
 
@@ -146,6 +147,17 @@ def load_clip_manifest(path: str | Path) -> ClipManifest:
             raise SourceManifestError(
                 f"clips[{index}] requires 0 <= start_frame <= end_frame"
             )
+
+        raw_gt_object_ids = item.get("gt_object_ids", [])
+        if not isinstance(raw_gt_object_ids, list):
+            raise SourceManifestError(f"clips[{index}]: gt_object_ids must be a list")
+        try:
+            gt_object_ids = tuple(int(value) for value in raw_gt_object_ids)
+        except (TypeError, ValueError) as exc:
+            raise SourceManifestError(
+                f"clips[{index}]: gt_object_ids must contain integers"
+            ) from exc
+
         lateral = item.get("lateral")
         radial = item.get("radial")
         if lateral is not None and not isinstance(lateral, str):
@@ -158,6 +170,7 @@ def load_clip_manifest(path: str | Path) -> ClipManifest:
                 source=source,
                 start_frame=start_frame,
                 end_frame=end_frame,
+                gt_object_ids=gt_object_ids,
                 lateral=lateral,
                 radial=radial,
             )
@@ -368,9 +381,7 @@ def probe_sources(manifest_path: Path, output_dir: Path) -> dict[str, Any]:
             gt_filename = _filename_from_url(source.ground_truth_url)
             gt_path = ground_truth_dir / gt_filename
             gt_download = download_source(source.ground_truth_url, gt_path)
-            sha_lines.append(
-                f"{gt_download.sha256}  ground-truth/{gt_filename}"
-            )
+            sha_lines.append(f"{gt_download.sha256}  ground-truth/{gt_filename}")
             record["ground_truth_url"] = source.ground_truth_url
             record["ground_truth_file"] = f"ground-truth/{gt_filename}"
             record["ground_truth_sha256"] = gt_download.sha256
