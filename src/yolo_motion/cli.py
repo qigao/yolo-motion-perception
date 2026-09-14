@@ -10,6 +10,7 @@ import yaml
 
 from .motion import MotionConfig
 from .pipeline import MotionPipeline, TrackMotionResult
+from .types import TrackObservation
 from .ultralytics_adapter import observations_from_result
 
 
@@ -31,13 +32,34 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--tracker", default="botsort.yaml", help="Ultralytics tracker config")
     parser.add_argument("--config", default="configs/baseline.yaml", help="Motion YAML config")
     parser.add_argument("--conf", type=float, default=0.25, help="YOLO detection confidence")
-    parser.add_argument("--jsonl", type=Path, help="Optional JSONL output path")
+    parser.add_argument("--jsonl", type=Path, help="Optional motion-result JSONL output path")
+    parser.add_argument(
+        "--observations-jsonl",
+        type=Path,
+        help="Optional raw YOLO/BoT-SORT TrackObservation JSONL output path",
+    )
     parser.add_argument("--show", action="store_true", help="Display annotated video")
     return parser
 
 
 def _coerce_source(source: str) -> str | int:
     return int(source) if source.isdigit() else source
+
+
+def _observation_to_dict(
+    observation: TrackObservation, *, frame_index: int
+) -> dict[str, object]:
+    return {
+        "frame_index": frame_index,
+        "track_id": observation.track_id,
+        "timestamp": observation.timestamp,
+        "class_id": observation.class_id,
+        "detection_confidence": observation.confidence,
+        "cx": observation.cx,
+        "cy": observation.cy,
+        "width": observation.width,
+        "height": observation.height,
+    }
 
 
 def _result_to_dict(result: TrackMotionResult) -> dict[str, object]:
@@ -52,13 +74,23 @@ def _result_to_dict(result: TrackMotionResult) -> dict[str, object]:
     }
 
 
-def _write_result(handle: TextIO | None, result: TrackMotionResult) -> None:
-    payload = json.dumps(_result_to_dict(result), separators=(",", ":"))
+def _write_payload(handle: TextIO | None, payload: dict[str, object]) -> None:
+    encoded = json.dumps(payload, separators=(",", ":"))
     if handle is None:
-        print(payload)
+        print(encoded)
     else:
-        handle.write(payload + "\n")
+        handle.write(encoded + "\n")
         handle.flush()
+
+
+def _write_result(handle: TextIO | None, result: TrackMotionResult) -> None:
+    _write_payload(handle, _result_to_dict(result))
+
+
+def _write_observation(
+    handle: TextIO, observation: TrackObservation, *, frame_index: int
+) -> None:
+    _write_payload(handle, _observation_to_dict(observation, frame_index=frame_index))
 
 
 def run(args: argparse.Namespace) -> int:
@@ -81,9 +113,13 @@ def run(args: argparse.Namespace) -> int:
     fps = float(capture.get(cv2.CAP_PROP_FPS))
     frame_index = 0
     output: TextIO | None = None
+    observations_output: TextIO | None = None
     if args.jsonl is not None:
         args.jsonl.parent.mkdir(parents=True, exist_ok=True)
         output = args.jsonl.open("w", encoding="utf-8")
+    if args.observations_jsonl is not None:
+        args.observations_jsonl.parent.mkdir(parents=True, exist_ok=True)
+        observations_output = args.observations_jsonl.open("w", encoding="utf-8")
 
     try:
         while True:
@@ -108,6 +144,14 @@ def run(args: argparse.Namespace) -> int:
             )
             result = tracked[0]
             observations = observations_from_result(result, timestamp, frame.shape[:2])
+            if observations_output is not None:
+                for observation in observations:
+                    _write_observation(
+                        observations_output,
+                        observation,
+                        frame_index=frame_index,
+                    )
+
             active_ids = {observation.track_id for observation in observations}
             motion_results = []
             for observation in observations:
@@ -145,6 +189,8 @@ def run(args: argparse.Namespace) -> int:
         capture.release()
         if output is not None:
             output.close()
+        if observations_output is not None:
+            observations_output.close()
         if args.show:
             cv2.destroyAllWindows()
 
