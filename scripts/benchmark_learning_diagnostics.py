@@ -15,14 +15,22 @@ _APPROVED_EVIDENCE = _ROOT / "docs" / "experiments" / "phase-2c-diagnostics.json
 _PHASE_2B_EVIDENCE = _ROOT / "docs" / "experiments" / "phase-2b-failure.json"
 
 
-def _write_evidence(target: Path, payload: dict[str, object]) -> None:
+def _write_evidence(
+    target: Path,
+    payload: dict[str, object],
+    *,
+    approved_evidence: Path = _APPROVED_EVIDENCE,
+) -> None:
     """Atomically replace only the approved Phase 2C measured evidence file."""
-    resolved_target = target.resolve()
-    approved = _APPROVED_EVIDENCE.resolve()
-    if resolved_target == _PHASE_2B_EVIDENCE.resolve():
+    destination = Path(os.path.abspath(target))
+    approved = Path(os.path.abspath(approved_evidence))
+    phase_2b = Path(os.path.abspath(_PHASE_2B_EVIDENCE))
+    if destination == phase_2b:
         raise ValueError("refusing to overwrite frozen Phase 2B evidence")
-    if resolved_target != approved:
+    if destination != approved:
         raise ValueError("evidence output must be the approved Phase 2C evidence path")
+    if approved.is_symlink() or destination.is_symlink():
+        raise ValueError("refusing to write evidence through a symlink")
 
     rendered = json.dumps(payload, sort_keys=True, indent=2, allow_nan=False) + "\n"
     if approved.exists() and approved.read_text(encoding="utf-8") == rendered:

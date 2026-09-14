@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import json
 import subprocess
 import sys
@@ -8,7 +9,7 @@ from collections import Counter
 from copy import deepcopy
 from dataclasses import FrozenInstanceError, fields, is_dataclass
 from pathlib import Path
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
 from typing import Self
 
 import numpy as np
@@ -1833,30 +1834,45 @@ def test_diagnostics_benchmark_cli_is_compact_and_byte_stable() -> None:
     assert first.returncode == second.returncode == int(not payload["all_valid"])
 
 
-def test_diagnostics_benchmark_cli_writes_only_immutable_approved_evidence(
+def _diagnostics_benchmark_script_module() -> ModuleType:
+    script = Path(__file__).parents[1] / "scripts/benchmark_learning_diagnostics.py"
+    spec = importlib.util.spec_from_file_location("benchmark_learning_diagnostics", script)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_diagnostics_benchmark_evidence_writer_is_targeted_atomic_and_symlink_safe(
     tmp_path: Path,
 ) -> None:
     root = Path(__file__).parents[1]
-    approved = root / "docs/experiments/phase-2c-diagnostics.json"
+    writer = _diagnostics_benchmark_script_module()
+    payload = {"phase": "test", "values": [1, True, None]}
+    approved = tmp_path / "phase-2c-diagnostics.json"
     phase_2b = root / "docs/experiments/phase-2b-failure.json"
     forbidden = tmp_path / "other-evidence.json"
     forbidden.write_text("not approved\n", encoding="utf-8")
     phase_2b_before = phase_2b.read_bytes()
 
-    rejected = _run_diagnostics_benchmark_cli(Path("--evidence"), forbidden)
-    assert rejected.returncode != 0
+    with pytest.raises(ValueError, match="approved Phase 2C"):
+        writer._write_evidence(forbidden, payload, approved_evidence=approved)
     assert forbidden.read_text(encoding="utf-8") == "not approved\n"
 
-    phase_2b_rejected = _run_diagnostics_benchmark_cli(Path("--evidence"), phase_2b)
-    assert phase_2b_rejected.returncode != 0
+    with pytest.raises(ValueError, match="Phase 2B"):
+        writer._write_evidence(phase_2b, payload, approved_evidence=approved)
     assert phase_2b.read_bytes() == phase_2b_before
 
-    approved.parent.mkdir(parents=True, exist_ok=True)
+    unrelated = tmp_path / "unrelated.json"
+    unrelated.write_text("must not change\n", encoding="utf-8")
+    approved.symlink_to(unrelated)
+    with pytest.raises(ValueError, match="symlink"):
+        writer._write_evidence(approved, payload, approved_evidence=approved)
+    assert unrelated.read_text(encoding="utf-8") == "must not change\n"
+    approved.unlink()
+
     approved.write_text("outdated measured output\n", encoding="utf-8")
-    written = _run_diagnostics_benchmark_cli(Path("--evidence"), approved)
-    payload = json.loads(written.stdout)
-    assert written.returncode == int(not payload["all_valid"])
-    assert written.stderr == ""
+    writer._write_evidence(approved, payload, approved_evidence=approved)
     assert json.loads(approved.read_text(encoding="utf-8")) == payload
     assert approved.read_text(encoding="utf-8") == (
         json.dumps(payload, sort_keys=True, indent=2) + "\n"
