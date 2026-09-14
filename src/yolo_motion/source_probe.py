@@ -35,6 +35,22 @@ class SourceManifest:
 
 
 @dataclass(frozen=True)
+class ClipSpec:
+    name: str
+    source: str
+    start_frame: int
+    end_frame: int
+    lateral: str | None = None
+    radial: str | None = None
+
+
+@dataclass(frozen=True)
+class ClipManifest:
+    fps: int
+    clips: tuple[ClipSpec, ...]
+
+
+@dataclass(frozen=True)
 class DownloadResult:
     size_bytes: int
     sha256: str
@@ -93,6 +109,59 @@ def load_source_manifest(path: str | Path) -> SourceManifest:
         attribution=attribution,
         sources=tuple(sources),
     )
+
+
+def load_clip_manifest(path: str | Path) -> ClipManifest:
+    with Path(path).open("r", encoding="utf-8") as handle:
+        raw = yaml.safe_load(handle) or {}
+    if not isinstance(raw, dict):
+        raise SourceManifestError("clip manifest root must be a mapping")
+
+    try:
+        fps = int(raw["fps"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise SourceManifestError("fps must be a positive integer") from exc
+    if fps <= 0:
+        raise SourceManifestError("fps must be a positive integer")
+
+    raw_clips = raw.get("clips")
+    if not isinstance(raw_clips, list) or not raw_clips:
+        raise SourceManifestError("clips must be a non-empty list")
+
+    clips: list[ClipSpec] = []
+    for index, item in enumerate(raw_clips):
+        if not isinstance(item, dict):
+            raise SourceManifestError(f"clips[{index}] must be a mapping")
+        try:
+            name = _require_string(item, "name")
+            source = _require_string(item, "source")
+            start_frame = int(item["start_frame"])
+            end_frame = int(item["end_frame"])
+        except (KeyError, TypeError, ValueError, SourceManifestError) as exc:
+            raise SourceManifestError(
+                f"clips[{index}] requires name/source/start_frame/end_frame"
+            ) from exc
+        if start_frame < 0 or end_frame < start_frame:
+            raise SourceManifestError(
+                f"clips[{index}] requires 0 <= start_frame <= end_frame"
+            )
+        lateral = item.get("lateral")
+        radial = item.get("radial")
+        if lateral is not None and not isinstance(lateral, str):
+            raise SourceManifestError(f"clips[{index}]: lateral must be a string")
+        if radial is not None and not isinstance(radial, str):
+            raise SourceManifestError(f"clips[{index}]: radial must be a string")
+        clips.append(
+            ClipSpec(
+                name=name,
+                source=source,
+                start_frame=start_frame,
+                end_frame=end_frame,
+                lateral=lateral,
+                radial=radial,
+            )
+        )
+    return ClipManifest(fps=fps, clips=tuple(clips))
 
 
 def sha256_file(path: str | Path) -> str:
@@ -165,6 +234,40 @@ def build_contact_sheet_command(
         filter_chain,
         "-frames:v",
         "1",
+        str(output),
+    ]
+
+
+def build_trim_command(
+    source: Path,
+    output: Path,
+    *,
+    start_frame: int,
+    end_frame: int,
+    fps: int,
+) -> list[str]:
+    if fps <= 0:
+        raise ValueError("fps must be positive")
+    if start_frame < 0 or end_frame < start_frame:
+        raise ValueError("requires 0 <= start_frame <= end_frame")
+    filter_chain = (
+        f"select='between(n,{start_frame},{end_frame})',"
+        f"setpts=N/({fps}*TB)"
+    )
+    return [
+        "ffmpeg",
+        "-y",
+        "-i",
+        str(source),
+        "-vf",
+        filter_chain,
+        "-r",
+        str(fps),
+        "-an",
+        "-c:v",
+        "libx264",
+        "-pix_fmt",
+        "yuv420p",
         str(output),
     ]
 
