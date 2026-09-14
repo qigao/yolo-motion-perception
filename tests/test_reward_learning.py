@@ -141,11 +141,16 @@ def test_decision_hidden_uses_only_the_required_policy_sequence(
         expected_names.insert(-1, "reset_state")
     assert [name for name, _ in policy.calls] == expected_names
     advanced = [stimulus for name, stimulus in policy.calls if name == "advance"]
-    assert advanced == [
+    expected_stimuli = [
         episode.cue_stimulus,
         *episode.delay_stimuli,
         episode.decision_stimulus,
     ]
+    assert len(advanced) == len(expected_stimuli)
+    assert all(
+        actual is expected
+        for actual, expected in zip(advanced, expected_stimuli, strict=True)
+    )
     np.testing.assert_array_equal(hidden, np.full(3, 5))
     assert hidden.dtype == np.float64
     assert hidden.flags.writeable is False
