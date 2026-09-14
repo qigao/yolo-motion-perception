@@ -321,6 +321,40 @@ def _hidden_dataset(
     )
 
 
+def _policy_matrix_digests(policy: object) -> tuple[str, str, str]:
+    digests = []
+    for matrix in (
+        policy._input_weights,
+        policy._recurrent_weights,
+        policy._output_weights,
+    ):
+        values = np.ascontiguousarray(matrix, dtype=np.float64)
+        digest = hashlib.sha256()
+        digest.update(str(values.shape).encode("ascii"))
+        digest.update(values.tobytes(order="C"))
+        digests.append(digest.hexdigest())
+    return tuple(digests)
+
+
+def _perfect_geometry_datasets() -> tuple[
+    diagnostics._HiddenDataset,
+    diagnostics._HiddenDataset,
+]:
+    training_labels = np.tile(np.array([0, 1], dtype=np.int64), 10)
+    training = _hidden_dataset(
+        np.where(training_labels == 0, -1.0, 1.0).reshape(-1, 1),
+        training_labels,
+        np.tile(np.arange(1, 6, dtype=np.int64), 4),
+    )
+    evaluation_labels = np.tile(np.array([0, 1], dtype=np.int64), 100)
+    evaluation = _hidden_dataset(
+        np.where(evaluation_labels == 0, -1.0, 1.0).reshape(-1, 1),
+        evaluation_labels,
+        np.repeat(np.arange(1, 6, dtype=np.int64), 40),
+    )
+    return training, evaluation
+
+
 def test_normalized_signed_margins_match_the_literal_ridge_equation() -> None:
     states = np.array([[3.0, 4.0], [2.0, -1.0], [-4.0, -3.0]], dtype=np.float64)
     labels = np.array([1, 0, 0], dtype=np.int64)
@@ -471,9 +505,26 @@ def test_run_geometry_rejects_evaluation_with_a_missing_delay_without_mutation()
 @pytest.mark.parametrize("seed", [7, 17, 29])
 def test_frozen_ridge_geometry_passes_each_real_seed_without_mutating_fixtures(
     seed: int,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    created_policies = []
+    original_factory = diagnostics._new_frozen_policy
+
+    def capture_policy(
+        received_seed: int,
+        config: diagnostics.LearningDiagnosticsConfig,
+    ):
+        policy = original_factory(received_seed, config)
+        created_policies.append(policy)
+        return policy
+
+    monkeypatch.setattr(diagnostics, "_new_frozen_policy", capture_policy)
     fixtures = diagnostics._build_diagnostic_fixtures(
         seed, diagnostics.LearningDiagnosticsConfig()
+    )
+    assert len(created_policies) == 2
+    policy_digests_before = tuple(
+        _policy_matrix_digests(policy) for policy in created_policies
     )
     training_digest = fixtures.training.state_digest
     evaluation_digest = fixtures.evaluation.state_digest
@@ -496,3 +547,86 @@ def test_frozen_ridge_geometry_passes_each_real_seed_without_mutating_fixtures(
     assert fixtures.evaluation.state_digest == evaluation_digest
     assert fixtures.training.fixture_digest == training_fixture_digest
     assert fixtures.evaluation.fixture_digest == evaluation_fixture_digest
+    assert tuple(
+        _policy_matrix_digests(policy) for policy in created_policies
+    ) == policy_digests_before
+
+
+def test_geometry_gate_rejects_a_single_overall_miss(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    training, evaluation = _perfect_geometry_datasets()
+    probe = FittedLinearProbe(np.array([1.0]), bias=0.0)
+    original_predict = FittedLinearProbe.predict
+
+    monkeypatch.setattr(diagnostics, "fit_linear_probe", lambda *_args, **_kwargs: probe)
+
+    def predict_with_one_wrong_choice(
+        self: FittedLinearProbe, states: np.ndarray
+    ) -> np.ndarray:
+        choices = original_predict(self, states)
+        if states.shape == evaluation.states.shape:
+            altered = choices.copy()
+            altered[0] = 1 - altered[0]
+            altered.flags.writeable = False
+            return altered
+        return choices
+
+    monkeypatch.setattr(FittedLinearProbe, "predict", predict_with_one_wrong_choice)
+
+    geometry = diagnostics._run_geometry(training, evaluation)
+
+    assert geometry.evaluation == diagnostics.AccuracyCount(199, 200)
+    assert geometry.evaluation_margins.minimum > 0.0
+    assert geometry.geometry_passed is False
+
+
+def test_geometry_gate_rejects_a_single_delay_miss(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    training, evaluation = _perfect_geometry_datasets()
+    probe = FittedLinearProbe(np.array([1.0]), bias=0.0)
+    original_predict = FittedLinearProbe.predict
+
+    monkeypatch.setattr(diagnostics, "fit_linear_probe", lambda *_args, **_kwargs: probe)
+
+    def predict_with_delay_three_miss(
+        self: FittedLinearProbe, states: np.ndarray
+    ) -> np.ndarray:
+        choices = original_predict(self, states)
+        if states.shape == evaluation.states.shape:
+            altered = choices.copy()
+            altered[80] = 1 - altered[80]
+            altered.flags.writeable = False
+            return altered
+        return choices
+
+    monkeypatch.setattr(FittedLinearProbe, "predict", predict_with_delay_three_miss)
+
+    geometry = diagnostics._run_geometry(training, evaluation)
+
+    assert geometry.per_delay[2] == (3, diagnostics.AccuracyCount(39, 40))
+    assert geometry.evaluation_margins.minimum > 0.0
+    assert geometry.geometry_passed is False
+
+
+def test_geometry_gate_rejects_a_zero_normalized_margin(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    training, evaluation = _perfect_geometry_datasets()
+    zero_margin_states = evaluation.states.copy()
+    zero_margin_states[0, 0] = 0.0
+    zero_margin_evaluation = _hidden_dataset(
+        zero_margin_states, evaluation.labels, evaluation.delays
+    )
+    probe = FittedLinearProbe(np.array([1.0]), bias=0.0)
+    monkeypatch.setattr(diagnostics, "fit_linear_probe", lambda *_args, **_kwargs: probe)
+
+    geometry = diagnostics._run_geometry(training, zero_margin_evaluation)
+
+    assert geometry.evaluation == diagnostics.AccuracyCount(200, 200)
+    assert geometry.per_delay == tuple(
+        (delay, diagnostics.AccuracyCount(40, 40)) for delay in range(1, 6)
+    )
+    assert geometry.evaluation_margins.minimum == 0.0
+    assert geometry.geometry_passed is False
