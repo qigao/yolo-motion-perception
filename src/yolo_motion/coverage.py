@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import json
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
@@ -222,3 +223,39 @@ def evaluate_caviar_coverage(
         "fragments_by_gt": fragments_by_gt,
         "id_switches_by_gt": id_switches_by_gt,
     }
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="evaluate-caviar-coverage",
+        description="Measure person detection/track coverage against selected CAVIAR GT objects.",
+    )
+    parser.add_argument("--ground-truth", required=True, type=Path)
+    parser.add_argument("--observations", required=True, type=Path)
+    parser.add_argument("--start-frame", required=True, type=int)
+    parser.add_argument("--end-frame", required=True, type=int)
+    parser.add_argument("--gt-object-id", required=True, type=int, action="append")
+    parser.add_argument("--source-width", type=int, default=384)
+    parser.add_argument("--source-height", type=int, default=288)
+    parser.add_argument("--iou-threshold", type=float, default=0.3)
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
+    ground_truth = load_caviar_ground_truth(
+        args.ground_truth,
+        start_frame=args.start_frame,
+        end_frame=args.end_frame,
+        object_ids=set(args.gt_object_id),
+    )
+    report = evaluate_caviar_coverage(
+        ground_truth,
+        load_observations(args.observations),
+        source_width=args.source_width,
+        source_height=args.source_height,
+        start_frame=args.start_frame,
+        iou_threshold=args.iou_threshold,
+    )
+    print(json.dumps(report, indent=2, sort_keys=True))
+    return 0
