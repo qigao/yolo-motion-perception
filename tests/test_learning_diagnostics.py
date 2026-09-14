@@ -664,16 +664,20 @@ def test_geometry_gate_rejects_a_zero_normalized_margin(
 
 
 def test_supervised_readout_uses_stable_softmax_and_immutable_greedy_snapshots() -> None:
+    learning_rate = 0.25
+    temperature = 2.0
     readout = diagnostics._DiagnosticSupervisedReadout(
         hidden_size=2,
-        learning_rate=0.25,
-        temperature=2.0,
+        learning_rate=learning_rate,
+        temperature=temperature,
     )
 
     assert readout._weights.dtype == np.dtype(np.float64)
     assert readout._biases.dtype == np.dtype(np.float64)
     np.testing.assert_array_equal(readout._weights, np.zeros((2, 2)))
     np.testing.assert_array_equal(readout._biases, np.zeros(2))
+    assert readout.learning_rate == learning_rate
+    assert readout.temperature == temperature
 
     tie = readout.select_greedy(np.array([1.0, -1.0], dtype=np.float64))
     assert tie.action_index == 0
@@ -685,7 +689,7 @@ def test_supervised_readout_uses_stable_softmax_and_immutable_greedy_snapshots()
     readout._biases[:] = [10.0, -10.0]
     hidden = np.array([3.0, -2.0], dtype=np.float64)
     expected_logits = readout._weights @ hidden + readout._biases
-    scaled = expected_logits / readout.temperature
+    scaled = expected_logits / temperature
     expected_probabilities = np.exp(scaled - np.max(scaled))
     expected_probabilities /= expected_probabilities.sum()
 
@@ -722,10 +726,12 @@ def test_supervised_readout_constructor_matches_config_validation(
 
 
 def test_supervised_label_update_matches_literal_softmax_gradient() -> None:
+    learning_rate = 0.2
+    temperature = 0.75
     readout = diagnostics._DiagnosticSupervisedReadout(
         hidden_size=3,
-        learning_rate=0.2,
-        temperature=0.75,
+        learning_rate=learning_rate,
+        temperature=temperature,
     )
     readout._weights[:] = [[0.2, -0.1, 0.4], [-0.3, 0.5, 0.1]]
     readout._biases[:] = [0.15, -0.2]
@@ -734,11 +740,12 @@ def test_supervised_label_update_matches_literal_softmax_gradient() -> None:
     before_weights = readout._weights.copy()
     before_biases = readout._biases.copy()
     logits = before_weights @ hidden + before_biases
-    exponentials = np.exp(logits / readout.temperature - np.max(logits / readout.temperature))
+    scaled = logits / temperature
+    exponentials = np.exp(scaled - np.max(scaled))
     probabilities = exponentials / exponentials.sum()
     delta = np.eye(2, dtype=np.float64)[label] - probabilities
-    expected_weights = before_weights + readout.learning_rate * np.outer(delta, hidden)
-    expected_biases = before_biases + readout.learning_rate * delta
+    expected_weights = before_weights + learning_rate * np.outer(delta, hidden)
+    expected_biases = before_biases + learning_rate * delta
 
     observed = readout.observe_label(hidden, label)
 
@@ -750,6 +757,46 @@ def test_supervised_label_update_matches_literal_softmax_gradient() -> None:
     np.testing.assert_allclose(readout._biases, expected_biases, rtol=0.0, atol=1e-12)
     assert not hasattr(readout, "learn")
     assert not hasattr(readout, "select_for_training")
+
+
+@pytest.mark.parametrize(
+    "hidden",
+    [
+        np.array([1.0], dtype=np.float64),
+        np.array([1.0, 2.0, 3.0], dtype=np.float64),
+        np.array([np.nan, 0.0], dtype=np.float64),
+        np.array([np.inf, 0.0], dtype=np.float64),
+    ],
+)
+def test_supervised_readout_rejects_invalid_hidden_without_mutation(
+    hidden: np.ndarray,
+) -> None:
+    readout = diagnostics._DiagnosticSupervisedReadout(hidden_size=2)
+    weights_before = readout._weights.copy()
+    biases_before = readout._biases.copy()
+
+    with pytest.raises(ValueError):
+        readout.select_greedy(hidden)
+    with pytest.raises(ValueError):
+        readout.observe_label(hidden, 0)
+
+    np.testing.assert_array_equal(readout._weights, weights_before)
+    np.testing.assert_array_equal(readout._biases, biases_before)
+
+
+@pytest.mark.parametrize("label", [True, -1, 2, np.int64(0), 0.0, "0"])
+def test_supervised_readout_rejects_invalid_label_without_mutation(
+    label: object,
+) -> None:
+    readout = diagnostics._DiagnosticSupervisedReadout(hidden_size=2)
+    weights_before = readout._weights.copy()
+    biases_before = readout._biases.copy()
+
+    with pytest.raises(ValueError):
+        readout.observe_label(np.array([1.0, -1.0], dtype=np.float64), label)
+
+    np.testing.assert_array_equal(readout._weights, weights_before)
+    np.testing.assert_array_equal(readout._biases, biases_before)
 
 
 def test_supervised_diagnostic_checkpoints_are_read_only_and_label_isolated(
@@ -809,3 +856,59 @@ def test_supervised_diagnostic_checkpoints_are_read_only_and_label_isolated(
     assert result.overall.total == 20
     assert tuple(delay for delay, _ in result.per_delay) == (1, 2, 3, 4, 5)
     assert tuple(count.total for _, count in result.per_delay) == (4, 4, 4, 4, 4)
+
+
+@pytest.mark.parametrize(
+    ("overall_correct", "per_delay_correct", "expected_passed"),
+    [
+        (180, (36, 36, 36, 36, 36), True),
+        (179, (35, 36, 36, 36, 36), False),
+        (194, (34, 40, 40, 40, 40), True),
+        (193, (33, 40, 40, 40, 40), False),
+    ],
+    ids=(
+        "overall-exact-boundary",
+        "overall-one-below",
+        "per-delay-exact-boundary",
+        "per-delay-one-below",
+    ),
+)
+def test_supervised_gate_uses_exact_overall_and_per_delay_boundaries(
+    monkeypatch: pytest.MonkeyPatch,
+    overall_correct: int,
+    per_delay_correct: tuple[int, int, int, int, int],
+    expected_passed: bool,
+) -> None:
+    config = diagnostics.LearningDiagnosticsConfig(
+        hidden_size=1,
+        training_episodes=20,
+        evaluation_blocks=20,
+        checkpoint_interval=10,
+    )
+    training = _hidden_dataset(
+        np.tile(np.array([[-1.0], [1.0]], dtype=np.float64), (10, 1)),
+        np.tile(np.array([0, 1], dtype=np.int64), 10),
+        np.tile(np.arange(1, 6, dtype=np.int64), 4),
+    )
+    evaluation = _hidden_dataset(
+        np.tile(np.array([[-1.0], [1.0]], dtype=np.float64), (100, 1)),
+        np.tile(np.array([0, 1], dtype=np.int64), 100),
+        np.repeat(np.arange(1, 6, dtype=np.int64), 40),
+    )
+    expected_overall = diagnostics.AccuracyCount(overall_correct, 200)
+    expected_per_delay = tuple(
+        (delay, diagnostics.AccuracyCount(correct, 40))
+        for delay, correct in enumerate(per_delay_correct, start=1)
+    )
+
+    monkeypatch.setattr(
+        diagnostics,
+        "_evaluate_supervised_readout",
+        lambda *_args: (expected_overall, expected_per_delay),
+    )
+
+    result = diagnostics._run_supervised_diagnostic(training, evaluation, config)
+
+    assert result.overall == expected_overall
+    assert result.per_delay == expected_per_delay
+    assert result.supervised_passed is expected_passed
