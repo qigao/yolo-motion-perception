@@ -17,7 +17,7 @@ def load_motion_config(path: str | Path) -> MotionConfig:
     with Path(path).open("r", encoding="utf-8") as handle:
         raw = yaml.safe_load(handle) or {}
     if not isinstance(raw, dict):
-        raise ValueError("motion config must be a YAML mapping")
+        raise TypeError("motion config must be a YAML mapping")
     return MotionConfig(**raw)
 
 
