@@ -37,6 +37,38 @@ class MemoryProbeConfig:
         object.__setattr__(self, "regularization", _validated_regularization(self.regularization))
 
 
+@dataclass(frozen=True)
+class ProbeAccuracy:
+    correct: int
+    total: int
+
+    def __post_init__(self) -> None:
+        if type(self.correct) is not int or type(self.total) is not int:
+            raise ValueError("correct and total must be integers")
+        if self.total <= 0 or not 0 <= self.correct <= self.total:
+            raise ValueError("counts must satisfy 0 <= correct <= total with positive total")
+
+    @property
+    def accuracy(self) -> float:
+        return self.correct / self.total
+
+
+@dataclass(frozen=True)
+class _ProbeRun:
+    seed: int
+    config: MemoryProbeConfig
+    training: ProbeAccuracy
+    recurrent: ProbeAccuracy
+    per_delay: tuple[tuple[int, ProbeAccuracy], ...]
+    state_reset: ProbeAccuracy
+    all_reset_hidden_equal: bool
+    output_weight_digest_before: str
+    output_weight_digest_after: str
+    probe_digest: str
+    recurrent_choice_digest: str
+    reset_choice_digest: str
+
+
 def _balanced_cases(rng: np.random.Generator) -> list[tuple[Cue, int]]:
     cases = [(cue, delay) for cue in (Cue.LEFT, Cue.RIGHT) for delay in range(1, 6)]
     rng.shuffle(cases)
@@ -104,6 +136,33 @@ def _collect_dataset(
         labels=np.asarray([episode.correct_action_index for episode in fixtures], dtype=np.int64),
         delays=np.asarray([episode.delay_steps for episode in fixtures], dtype=np.int64),
     )
+
+
+def _score_predictions(
+    dataset: _StateDataset,
+    choices: np.ndarray,
+) -> tuple[ProbeAccuracy, tuple[tuple[int, ProbeAccuracy], ...]]:
+    predicted = np.asarray(choices, dtype=np.int64)
+    if predicted.ndim != 1 or predicted.shape != dataset.labels.shape:
+        raise ValueError("choices must be rank one and match the dataset")
+    matched = predicted == dataset.labels
+    overall = ProbeAccuracy(int(np.count_nonzero(matched)), int(matched.size))
+    per_delay = tuple(
+        (
+            delay,
+            ProbeAccuracy(
+                int(np.count_nonzero(matched[dataset.delays == delay])),
+                int(np.count_nonzero(dataset.delays == delay)),
+            ),
+        )
+        for delay in range(1, 6)
+    )
+    return overall, per_delay
+
+
+def _choice_digest(choices: np.ndarray) -> str:
+    values = np.ascontiguousarray(choices, dtype=np.uint8)
+    return hashlib.sha256(values.tobytes(order="C")).hexdigest()
 
 
 def _readonly_copy(values: np.ndarray, *, dtype: np.dtype) -> np.ndarray:
@@ -210,3 +269,63 @@ def fit_linear_probe(
     except np.linalg.LinAlgError as exc:
         raise RuntimeError("linear probe solve failed") from exc
     return FittedLinearProbe(parameters[:-1], float(parameters[-1]))
+
+
+def _run_probe_once(seed: int, config: MemoryProbeConfig) -> _ProbeRun:
+    policy = RecurrentPolicy(
+        input_size=4,
+        action_count=2,
+        hidden_size=config.hidden_size,
+        seed=seed,
+        recurrent_radius=config.recurrent_radius,
+    )
+    task = DelayedCueTask()
+    output_before = policy.output_weight_digest()
+    training_rng = np.random.default_rng(
+        np.random.SeedSequence([seed, 0x50524F42])
+    )
+    evaluation_rng = np.random.default_rng(
+        np.random.SeedSequence([seed, 0x4556414C])
+    )
+    training_fixtures = _build_fixtures(task, training_rng, config.training_blocks)
+    evaluation_fixtures = _build_fixtures(
+        task, evaluation_rng, config.evaluation_blocks
+    )
+    training_data = _collect_dataset(
+        policy, training_fixtures, reset_before_decision=False
+    )
+    recurrent_data = _collect_dataset(
+        policy, evaluation_fixtures, reset_before_decision=False
+    )
+    reset_data = _collect_dataset(
+        policy, evaluation_fixtures, reset_before_decision=True
+    )
+    fitted = fit_linear_probe(
+        training_data.states,
+        training_data.labels,
+        regularization=config.regularization,
+    )
+    training_choices = fitted.predict(training_data.states)
+    recurrent_choices = fitted.predict(recurrent_data.states)
+    reset_choices = fitted.predict(reset_data.states)
+    training, _ = _score_predictions(training_data, training_choices)
+    recurrent, per_delay = _score_predictions(recurrent_data, recurrent_choices)
+    state_reset, _ = _score_predictions(reset_data, reset_choices)
+    all_reset_equal = np.array_equal(
+        reset_data.states,
+        np.repeat(reset_data.states[:1], reset_data.states.shape[0], axis=0),
+    )
+    return _ProbeRun(
+        seed=seed,
+        config=config,
+        training=training,
+        recurrent=recurrent,
+        per_delay=per_delay,
+        state_reset=state_reset,
+        all_reset_hidden_equal=all_reset_equal,
+        output_weight_digest_before=output_before,
+        output_weight_digest_after=policy.output_weight_digest(),
+        probe_digest=fitted.digest(),
+        recurrent_choice_digest=_choice_digest(recurrent_choices),
+        reset_choice_digest=_choice_digest(reset_choices),
+    )

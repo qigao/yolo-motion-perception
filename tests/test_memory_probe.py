@@ -116,6 +116,114 @@ def test_dataset_collection_never_changes_policy_parameters_or_creates_eligibili
         policy.learn(1.0)
 
 
+def test_probe_scoring_uses_literal_labels_and_groups_all_five_delays() -> None:
+    dataset = probe_module._StateDataset(
+        states=np.arange(20, dtype=np.float64).reshape(10, 2),
+        labels=np.array([0, 1] * 5),
+        delays=np.repeat(np.arange(1, 6), 2),
+    )
+    choices = np.array([0, 0, 0, 1, 1, 1, 0, 1, 0, 0], dtype=np.int64)
+
+    overall, per_delay = probe_module._score_predictions(dataset, choices)
+
+    assert overall == probe_module.ProbeAccuracy(7, 10)
+    assert overall.accuracy == 0.7
+    assert per_delay == (
+        (1, probe_module.ProbeAccuracy(1, 2)),
+        (2, probe_module.ProbeAccuracy(2, 2)),
+        (3, probe_module.ProbeAccuracy(1, 2)),
+        (4, probe_module.ProbeAccuracy(2, 2)),
+        (5, probe_module.ProbeAccuracy(1, 2)),
+    )
+    expected = hashlib.sha256(np.asarray(choices, dtype=np.uint8).tobytes()).hexdigest()
+    assert probe_module._choice_digest(choices) == expected
+
+
+def test_run_probe_once_matches_independent_protocol() -> None:
+    seed = 7
+    config = MemoryProbeConfig(
+        hidden_size=9,
+        recurrent_radius=0.7,
+        training_blocks=3,
+        evaluation_blocks=2,
+        regularization=1e-4,
+    )
+    policy = RecurrentPolicy(
+        input_size=4,
+        action_count=2,
+        hidden_size=config.hidden_size,
+        seed=seed,
+        recurrent_radius=config.recurrent_radius,
+    )
+    task = DelayedCueTask()
+    train_fixtures = probe_module._build_fixtures(
+        task,
+        np.random.default_rng(np.random.SeedSequence([seed, 0x50524F42])),
+        config.training_blocks,
+    )
+    evaluation_fixtures = probe_module._build_fixtures(
+        task,
+        np.random.default_rng(np.random.SeedSequence([seed, 0x4556414C])),
+        config.evaluation_blocks,
+    )
+    assert (
+        train_fixtures[0].delay_stimuli[0].tobytes()
+        != evaluation_fixtures[0].delay_stimuli[0].tobytes()
+    )
+    before = policy.output_weight_digest()
+    training_data = probe_module._collect_dataset(
+        policy, train_fixtures, reset_before_decision=False
+    )
+    recurrent_data = probe_module._collect_dataset(
+        policy, evaluation_fixtures, reset_before_decision=False
+    )
+    reset_data = probe_module._collect_dataset(
+        policy, evaluation_fixtures, reset_before_decision=True
+    )
+    fitted = fit_linear_probe(
+        training_data.states,
+        training_data.labels,
+        regularization=config.regularization,
+    )
+    training_choices = fitted.predict(training_data.states)
+    recurrent_choices = fitted.predict(recurrent_data.states)
+    reset_choices = fitted.predict(reset_data.states)
+    training, _ = probe_module._score_predictions(training_data, training_choices)
+    recurrent, per_delay = probe_module._score_predictions(
+        recurrent_data, recurrent_choices
+    )
+    state_reset, _ = probe_module._score_predictions(reset_data, reset_choices)
+
+    actual = probe_module._run_probe_once(seed, config)
+
+    assert actual.seed == seed
+    assert actual.config == config
+    assert actual.training == training
+    assert actual.recurrent == recurrent
+    assert actual.per_delay == per_delay
+    assert actual.state_reset == state_reset
+    assert actual.all_reset_hidden_equal is np.array_equal(
+        reset_data.states,
+        np.repeat(reset_data.states[:1], reset_data.states.shape[0], axis=0),
+    )
+    assert actual.output_weight_digest_before == before
+    assert actual.output_weight_digest_after == before
+    assert actual.probe_digest == fitted.digest()
+    assert actual.recurrent_choice_digest == probe_module._choice_digest(
+        recurrent_choices
+    )
+    assert actual.reset_choice_digest == probe_module._choice_digest(reset_choices)
+
+
+def test_probe_protocol_has_one_shared_decision_vector_for_both_cues() -> None:
+    task = DelayedCueTask()
+    left = task.build_episode(Cue.LEFT, 1, np.random.default_rng(1))
+    right = task.build_episode(Cue.RIGHT, 5, np.random.default_rng(2))
+
+    np.testing.assert_array_equal(left.decision_stimulus, right.decision_stimulus)
+    np.testing.assert_array_equal(left.decision_stimulus, [0.0, 0.0, 0.0, 1.0])
+
+
 def test_fitted_probe_defensively_copies_readonly_float64_weights() -> None:
     source = np.array([1, -2], dtype=np.int64)
     probe = FittedLinearProbe(source, 0)
