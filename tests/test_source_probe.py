@@ -14,6 +14,7 @@ from yolo_motion.source_probe import (
     download_source,
     load_clip_manifest,
     load_source_manifest,
+    materialize_clips,
     sha256_file,
 )
 
@@ -27,8 +28,7 @@ class _Response(BytesIO):
         return False
 
 
-def test_load_source_manifest_requires_license_and_sources(tmp_path: Path) -> None:
-    path = tmp_path / "sources.yaml"
+def _write_source_manifest(path: Path) -> None:
     path.write_text(
         "dataset: CAVIAR\n"
         "homepage: https://example.com/caviar\n"
@@ -40,6 +40,11 @@ def test_load_source_manifest_requires_license_and_sources(tmp_path: Path) -> No
         "    purpose: approaching\n",
         encoding="utf-8",
     )
+
+
+def test_load_source_manifest_requires_license_and_sources(tmp_path: Path) -> None:
+    path = tmp_path / "sources.yaml"
+    _write_source_manifest(path)
 
     manifest = load_source_manifest(path)
 
@@ -143,3 +148,59 @@ def test_build_trim_command_selects_inclusive_frame_window() -> None:
     assert "between(n,880,1049)" in filter_chain
     assert "setpts=N/(25*TB)" in filter_chain
     assert command[-1] == "approaching.mp4"
+
+
+def test_materialize_clips_maps_logical_source_and_runs_ffmpeg(tmp_path: Path) -> None:
+    sources_yaml = tmp_path / "sources.yaml"
+    _write_source_manifest(sources_yaml)
+    clips_yaml = tmp_path / "clips.yaml"
+    clips_yaml.write_text(
+        "fps: 25\n"
+        "clips:\n"
+        "  - name: approaching\n"
+        "    source: walk2\n"
+        "    start_frame: 880\n"
+        "    end_frame: 1049\n",
+        encoding="utf-8",
+    )
+    source_dir = tmp_path / "sources"
+    source_dir.mkdir()
+    (source_dir / "Walk2.mpg").write_bytes(b"video")
+    commands: list[list[str]] = []
+
+    outputs = materialize_clips(
+        sources_yaml,
+        clips_yaml,
+        source_dir,
+        tmp_path / "clips",
+        runner=lambda command: commands.append(command),
+    )
+
+    assert outputs == [tmp_path / "clips" / "approaching.mp4"]
+    assert commands[0][0] == "ffmpeg"
+    assert str(source_dir / "Walk2.mpg") in commands[0]
+    assert commands[0][-1] == str(tmp_path / "clips" / "approaching.mp4")
+
+
+def test_materialize_clips_rejects_unknown_source(tmp_path: Path) -> None:
+    sources_yaml = tmp_path / "sources.yaml"
+    _write_source_manifest(sources_yaml)
+    clips_yaml = tmp_path / "clips.yaml"
+    clips_yaml.write_text(
+        "fps: 25\n"
+        "clips:\n"
+        "  - name: approaching\n"
+        "    source: missing\n"
+        "    start_frame: 0\n"
+        "    end_frame: 10\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(SourceManifestError, match="unknown source"):
+        materialize_clips(
+            sources_yaml,
+            clips_yaml,
+            tmp_path / "sources",
+            tmp_path / "clips",
+            runner=lambda _command: None,
+        )
