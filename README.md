@@ -144,6 +144,43 @@ python scripts/evaluate_jsonl.py \
 
 The report contains per-dimension sample count, accuracy, confusion counts, and first-correct latency for each labeled interval. Predictions outside labeled intervals are ignored.
 
+## Run a real-video benchmark suite
+
+`benchmarks/suite.yaml` defines eight fixed-camera V1 scenario slots. They are disabled by default so the repository does not pretend to ship video data. Put your clips under `benchmarks/videos/`, add matching interval labels under `benchmarks/annotations/`, and set `enabled: true` for the scenarios you want to measure.
+
+Run inference and evaluation for every enabled scenario:
+
+```bash
+python scripts/run_benchmark_suite.py \
+  --suite benchmarks/suite.yaml \
+  --output-dir runs/benchmark
+```
+
+The suite runner reuses the existing video CLI and writes:
+
+```text
+runs/benchmark/
+├── approaching/
+│   ├── motion.jsonl
+│   └── report.json
+├── receding/
+│   ├── motion.jsonl
+│   └── report.json
+├── summary.json
+└── summary.md
+```
+
+After tuning annotations or reporting logic, recompute metrics without rerunning YOLO:
+
+```bash
+python scripts/run_benchmark_suite.py \
+  --suite benchmarks/suite.yaml \
+  --output-dir runs/benchmark \
+  --evaluate-only
+```
+
+`summary.md` reports scenario-level lateral/radial accuracy and mean first-correct latency, plus sample-weighted overall accuracy. The eight initial slots are `stationary`, `lateral_crossing`, `approaching`, `receding`, `diagonal_approaching`, `approach_then_stop`, `pose_change`, and `partial_occlusion`.
+
 ## Configuration
 
 `configs/baseline.yaml`:
