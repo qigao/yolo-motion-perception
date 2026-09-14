@@ -213,6 +213,19 @@ class LearningDiagnosticsResult:
 
 
 @dataclass(frozen=True)
+class _Phase2bRuntimeLocalEvidence:
+    """Same-environment Phase 2B floating evidence excluded from portability."""
+
+    initial_parameter_digest: str
+    normal_parameter_digest: str
+    shuffled_parameter_digest: str
+    normal_matrix_digests_before: tuple[str, str, str]
+    normal_matrix_digests_after: tuple[str, str, str]
+    shuffled_matrix_digests_before: tuple[str, str, str]
+    shuffled_matrix_digests_after: tuple[str, str, str]
+
+
+@dataclass(frozen=True)
 class _CompleteLearningDiagnosticsRun:
     """Private complete-run record that contains only equality-safe values."""
 
@@ -221,6 +234,7 @@ class _CompleteLearningDiagnosticsRun:
     reward_trajectory: RewardTrajectoryDiagnostic
     matrix_digests_before: tuple[str, str, str]
     matrix_digests_after: tuple[str, str, str]
+    phase_2b_runtime_local_evidence: _Phase2bRuntimeLocalEvidence | None
     phase_2b_portable_evidence_match: bool
     datasets_valid: bool
     checkpoints_valid: bool
@@ -984,6 +998,9 @@ def run_learning_diagnostics(
         and _same_run_matrix_integrity(second)
         and first.matrix_digests_before == second.matrix_digests_before
         and first.matrix_digests_after == second.matrix_digests_after
+        and first.phase_2b_runtime_local_evidence is not None
+        and first.phase_2b_runtime_local_evidence
+        == second.phase_2b_runtime_local_evidence
     )
     protocol_match = (
         first.phase_2b_portable_evidence_match
@@ -1034,6 +1051,7 @@ def _run_learning_diagnostics_once(
     )
     reward_trajectory = _run_reward_trajectory(seed, fixtures, config)
     runtime_entry = _phase_2b_runtime_entry(seed, config)
+    runtime_local_evidence = _phase_2b_runtime_local_evidence(runtime_entry)
     portable_match = _match_phase_2b_evidence(seed, runtime_entry) and (
         _reward_trajectory_matches_runtime_entry(reward_trajectory, runtime_entry)
     )
@@ -1043,6 +1061,7 @@ def _run_learning_diagnostics_once(
         reward_trajectory=reward_trajectory,
         matrix_digests_before=reward_trajectory.matrix_digests_before,
         matrix_digests_after=reward_trajectory.matrix_digests_after,
+        phase_2b_runtime_local_evidence=runtime_local_evidence,
         phase_2b_portable_evidence_match=portable_match,
         datasets_valid=_diagnostic_datasets_are_valid(fixtures, config),
         checkpoints_valid=_diagnostic_checkpoints_are_valid(
@@ -1085,6 +1104,65 @@ def _phase_2b_runtime_entry(
             if isinstance(entry, dict) and entry.get("seed") == seed
         ),
         None,
+    )
+
+
+def _phase_2b_runtime_local_evidence(
+    runtime_entry: object,
+) -> _Phase2bRuntimeLocalEvidence | None:
+    """Freeze and validate Phase 2B's environment-local floating evidence."""
+    if not isinstance(runtime_entry, dict):
+        return None
+    try:
+        matrix_controls = runtime_entry["matrix_controls"]
+        if not isinstance(matrix_controls, dict):
+            return None
+        parameter_digests = (
+            runtime_entry["initial_parameter_digest"],
+            runtime_entry["normal_parameter_digest"],
+            runtime_entry["shuffled_parameter_digest"],
+        )
+        if not all(isinstance(digest, str) for digest in parameter_digests):
+            return None
+        for digest in parameter_digests:
+            _validate_digest(digest, "parameter_digest")
+        matrix_digest_sets = tuple(
+            tuple(matrix_controls[name])
+            for name in (
+                "normal_before",
+                "normal_after",
+                "shuffled_before",
+                "shuffled_after",
+            )
+        )
+        if any(len(digests) != 3 for digests in matrix_digest_sets):
+            return None
+        for digest_set in matrix_digest_sets:
+            for digest in digest_set:
+                _validate_digest(digest, "matrix_digest")
+    except (KeyError, TypeError, ValueError):
+        return None
+
+    (
+        normal_before,
+        normal_after,
+        shuffled_before,
+        shuffled_after,
+    ) = matrix_digest_sets
+    if (
+        normal_before != normal_after
+        or shuffled_before != shuffled_after
+        or parameter_digests[0] == parameter_digests[1]
+    ):
+        return None
+    return _Phase2bRuntimeLocalEvidence(
+        initial_parameter_digest=parameter_digests[0],
+        normal_parameter_digest=parameter_digests[1],
+        shuffled_parameter_digest=parameter_digests[2],
+        normal_matrix_digests_before=normal_before,
+        normal_matrix_digests_after=normal_after,
+        shuffled_matrix_digests_before=shuffled_before,
+        shuffled_matrix_digests_after=shuffled_after,
     )
 
 

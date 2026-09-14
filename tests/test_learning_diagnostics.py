@@ -1592,6 +1592,7 @@ def _complete_diagnostic_run_stub(
         reward_trajectory=SimpleNamespace(reward_passed=False),
         matrix_digests_before=digest_before,
         matrix_digests_after=matrix_digests_after,
+        phase_2b_runtime_local_evidence=("runtime-local-evidence",),
         phase_2b_portable_evidence_match=True,
         datasets_valid=True,
         checkpoints_valid=True,
@@ -1632,6 +1633,58 @@ def test_public_learning_diagnostics_uses_two_full_runs_for_repeatability(
     assert result.repeatable is False
     assert result.diagnostic_valid is False
     assert result.classification == "PROTOCOL_MISMATCH"
+
+
+def test_repeatability_compares_runtime_local_float_evidence(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    original_benchmark = diagnostics.run_reward_learning_benchmark
+    runtime_calls = 0
+
+    def benchmark_with_changed_second_runtime(
+        *args: object,
+        **kwargs: object,
+    ) -> dict[str, object]:
+        nonlocal runtime_calls
+        runtime_calls += 1
+        runtime = original_benchmark(*args, **kwargs)
+        assert isinstance(runtime["results"], list)
+        if runtime_calls == 2:
+            second_entry = runtime["results"][0]
+            assert isinstance(second_entry, dict)
+            digest = second_entry["normal_parameter_digest"]
+            assert isinstance(digest, str)
+            second_entry["normal_parameter_digest"] = (
+                ("0" if digest[0] != "0" else "1") + digest[1:]
+            )
+        return runtime
+
+    monkeypatch.setattr(
+        diagnostics,
+        "run_reward_learning_benchmark",
+        benchmark_with_changed_second_runtime,
+    )
+
+    result = diagnostics.run_learning_diagnostics(7)
+
+    assert runtime_calls == 2
+    assert result.phase_2b_portable_evidence_match is True
+    assert result.repeatable is False
+    assert result.diagnostic_valid is False
+    assert result.classification == "PROTOCOL_MISMATCH"
+
+
+def test_runtime_local_evidence_requires_unchanged_frozen_matrices() -> None:
+    runtime = run_reward_learning_benchmark((7,))
+    entry = runtime["results"][0]
+    assert isinstance(entry, dict)
+
+    evidence = diagnostics._phase_2b_runtime_local_evidence(entry)
+    assert evidence is not None
+    changed = deepcopy(entry)
+    changed["matrix_controls"]["normal_after"][0] = "0" * 64
+
+    assert diagnostics._phase_2b_runtime_local_evidence(changed) is None
 
 
 def test_package_exports_only_the_approved_diagnostic_public_symbols() -> None:
