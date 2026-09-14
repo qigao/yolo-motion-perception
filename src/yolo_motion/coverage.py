@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
+from itertools import pairwise
 from pathlib import Path
 from typing import Any
 
@@ -209,7 +210,7 @@ def evaluate_caviar_coverage(
         matched_track_ids.update(track_ids)
         fragments_by_gt[str(object_id)] = len(set(track_ids))
         id_switches_by_gt[str(object_id)] = sum(
-            1 for previous, current in zip(track_ids, track_ids[1:]) if current != previous
+            1 for previous, current in pairwise(track_ids) if current != previous
         )
 
     return {
