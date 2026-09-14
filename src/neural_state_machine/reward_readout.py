@@ -43,6 +43,13 @@ class RewardModulatedReadout:
         self._pending_weight_eligibility: np.ndarray | None = None
         self._pending_bias_eligibility: np.ndarray | None = None
 
+    @property
+    def has_pending_feedback(self) -> bool:
+        return (
+            self._pending_weight_eligibility is not None
+            and self._pending_bias_eligibility is not None
+        )
+
     def select_greedy(
         self,
         hidden_state: np.ndarray,
@@ -53,6 +60,38 @@ class RewardModulatedReadout:
         logits, probabilities = self._distribution(hidden, legal_indices)
         return RewardReadoutDecision(
             action_index=int(np.argmax(probabilities)),
+            logits=_readonly_copy(logits),
+            probabilities=_readonly_copy(probabilities),
+        )
+
+    def select_for_training(
+        self,
+        hidden_state: np.ndarray,
+        legal_action_indices: object,
+        rng: np.random.Generator,
+    ) -> RewardReadoutDecision:
+        if self.has_pending_feedback:
+            raise RuntimeError("training feedback is already pending")
+        if not isinstance(rng, np.random.Generator):
+            raise ValueError("rng must be a numpy.random.Generator")
+
+        hidden = self._validated_hidden_state(hidden_state)
+        legal_indices = self._validated_legal_action_indices(legal_action_indices)
+        logits, probabilities = self._distribution(hidden, legal_indices)
+        legal_array = np.asarray(legal_indices, dtype=np.int64)
+        action_index = int(
+            rng.choice(
+                legal_array,
+                p=probabilities[legal_array],
+            )
+        )
+        one_hot = np.zeros(self.action_count, dtype=np.float64)
+        one_hot[action_index] = 1.0
+        eligibility = one_hot - probabilities
+        self._pending_weight_eligibility = np.outer(eligibility, hidden)
+        self._pending_bias_eligibility = eligibility.copy()
+        return RewardReadoutDecision(
+            action_index=action_index,
             logits=_readonly_copy(logits),
             probabilities=_readonly_copy(probabilities),
         )
