@@ -32,6 +32,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--tracker", default="botsort.yaml", help="Ultralytics tracker config")
     parser.add_argument("--config", default="configs/baseline.yaml", help="Motion YAML config")
     parser.add_argument("--conf", type=float, default=0.25, help="YOLO detection confidence")
+    parser.add_argument(
+        "--imgsz",
+        type=int,
+        default=640,
+        help="YOLO inference image size",
+    )
     parser.add_argument("--jsonl", type=Path, help="Optional motion-result JSONL output path")
     parser.add_argument(
         "--observations-jsonl",
@@ -44,6 +50,16 @@ def build_parser() -> argparse.ArgumentParser:
 
 def _coerce_source(source: str) -> str | int:
     return int(source) if source.isdigit() else source
+
+
+def _track_kwargs(args: argparse.Namespace) -> dict[str, object]:
+    return {
+        "persist": True,
+        "tracker": args.tracker,
+        "conf": args.conf,
+        "imgsz": args.imgsz,
+        "verbose": False,
+    }
 
 
 def _observation_to_dict(
@@ -135,13 +151,7 @@ def run(args: argparse.Namespace) -> int:
             else:
                 timestamp = frame_index / 30.0
 
-            tracked = model.track(
-                frame,
-                persist=True,
-                tracker=args.tracker,
-                conf=args.conf,
-                verbose=False,
-            )
+            tracked = model.track(frame, **_track_kwargs(args))
             result = tracked[0]
             observations = observations_from_result(result, timestamp, frame.shape[:2])
             if observations_output is not None:
