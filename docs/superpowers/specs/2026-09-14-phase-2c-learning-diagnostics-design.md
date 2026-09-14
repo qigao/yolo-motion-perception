@@ -61,9 +61,9 @@ bandit reward-credit difficulty without changing the observed system.
   behavior without feeding those labels into the reward learner.
 - Produce one deterministic classification for each seed and a stable JSON
   report.
-- Convert the known Phase 2B CI failure into an exact frozen-failure
-  regression: green means the failure is reproduced exactly, not that Phase
-  2B passed.
+- Convert the known Phase 2B CI failure into a portable frozen-failure
+  regression: green means the scientific behavior is reproduced, not that
+  Phase 2B passed.
 
 ### Out of scope
 
@@ -99,8 +99,38 @@ unchanged:
 
 The only Phase 2B test change permitted is replacing assertions that still
 expect all_passed=true with assertions that reproduce the committed
-all_passed=false evidence exactly. No production behavior or scientific
-threshold changes with that test correction.
+all_passed=false portable semantic evidence. No production behavior or
+scientific threshold changes with that test correction.
+
+### Phase 2B evidence portability correction
+
+The committed Phase 2B JSON remains byte-for-byte unchanged as the reference
+from its producing environment. A clean rerun established that two complete
+runs in the current environment are byte-identical and reproduce every
+behavioral count and discrete trajectory digest, while recurrent-matrix and
+learned-readout byte digests differ from the committed file. RecurrentPolicy
+normalizes a random matrix with `np.linalg.eigvals`; the last floating-point
+bits of that operation are not a portable contract across NumPy/LAPACK/BLAS
+implementations.
+
+Cross-environment verification therefore compares a portable projection:
+
+- top-level phase, configuration, ordered seeds, all_passed, and pooled
+  shuffled-control counts;
+- per-seed pass flag, pre-training, post-training, reset, shuffled, final-block,
+  and per-delay counts;
+- total normal and shuffled training reward;
+- recurrent, reset, shuffled, normal-training, and shuffled-training action
+  sequence digests;
+- normal and shuffled reward-sequence digests;
+- reset-state equality and repeatability flags.
+
+Raw parameter and floating matrix byte digests are excluded from that
+cross-environment projection. They remain mandatory environment-local
+integrity checks: two independently reconstructed complete runs in the same
+environment must match exactly; recurrent and legacy-output matrices must be
+unchanged before and after each path; and the learned readout must change only
+where the frozen protocol expects it to change.
 
 NumPy remains the only runtime dependency.
 
@@ -306,8 +336,10 @@ as null in JSON and counted explicitly. It is never silently replaced with
 zero or one.
 
 The final reward result must match the corresponding seed entry in
-phase-2b-failure.json for all counts and all Phase 2B digests. A mismatch is
-PROTOCOL_MISMATCH and invalidates all downstream interpretation.
+phase-2b-failure.json for every portable semantic field. Floating matrix and
+parameter digests must satisfy the environment-local integrity rules above.
+A portable mismatch or a failed local integrity rule is PROTOCOL_MISMATCH and
+invalidates all downstream interpretation.
 
 ## Diagnosis classification
 
@@ -315,7 +347,7 @@ Each seed receives exactly one of these values, checked in priority order:
 
 | Priority | Condition | Classification |
 |---:|---|---|
-| 1 | Phase 2B final reproduction differs from frozen evidence | PROTOCOL_MISMATCH |
+| 1 | Phase 2B portable reproduction differs, or a local float-integrity rule fails | PROTOCOL_MISMATCH |
 | 2 | Ridge geometry misses its frozen gate | REPRESENTATION_FAILURE |
 | 3 | Ridge passes and supervised online readout misses its gate | ONLINE_OPTIMIZATION_FAILURE |
 | 4 | Ridge and supervised pass while reward learner misses | REWARD_CREDIT_FAILURE |
@@ -349,8 +381,8 @@ DiagnosticSupervisedReadout and HiddenDataset remain private.
 
 LearningDiagnosticsResult is a frozen dataclass containing literal counts,
 margin summaries, checkpoint tuples, parameter and fixture digests, frozen
-matrix digests, the Phase 2B evidence-match flag, repeatability, diagnostic
-validity, and the classification string.
+matrix digests, the Phase 2B portable-evidence-match flag, repeatability,
+diagnostic validity, and the classification string.
 
 The benchmark returns one compact JSON-compatible dictionary with:
 
@@ -368,18 +400,22 @@ JSON line and exits with status zero only when all_valid is true.
 
 The current test suite contains success assertions that necessarily fail for
 seeds 7 and 29. Phase 2C does not delete the gate or claim it passed. Instead,
-tests/test_reward_learning.py will become an exact known-failure regression:
+tests/test_reward_learning.py will become a portable known-failure regression:
 
 1. run the unchanged Phase 2B benchmark;
 2. require all_passed to be false;
 3. load docs/experiments/phase-2b-failure.json;
-4. require the complete runtime payload to equal the committed evidence;
-5. require the CLI to exit with status one and print the same payload.
+4. require the portable runtime projection to equal the committed projection;
+5. require two independent runtime payloads in the current environment to be
+   byte-identical and satisfy the matrix/readout invariants;
+6. require the unchanged benchmark CLI to exit with status one and reproduce
+   the same portable projection.
 
-A dedicated scripts/verify_reward_learning_failure.py command performs the
-same comparison and exits zero only when the known failure reproduces exactly.
-If Phase 2B unexpectedly passes, drifts, or fails differently, verification
-fails.
+A dedicated scripts/verify_reward_learning_failure.py command performs these
+comparisons and prints the portable projection. It exits zero only when the
+known failure reproduces portably and the current environment is internally
+byte-stable. If Phase 2B unexpectedly passes, drifts behaviorally, loses local
+repeatability, or mutates a frozen matrix, verification fails.
 
 This makes CI green for a reproducible scientific result. Green means software
 and evidence integrity, not Phase 2B behavioral acceptance.
@@ -410,8 +446,9 @@ Margin computation rejects mismatched states and labels, an empty class,
 non-finite probe output, and zero probe norm.
 
 Evidence verification rejects a missing file, malformed JSON, an unexpected
-phase, unexpected seeds, all_passed=true, duplicate seeds, or any semantic
-difference from the reproduced runtime payload.
+phase, unexpected seeds, all_passed=true, duplicate seeds, any portable
+semantic difference, any same-environment repeatability failure, or any
+frozen-matrix/readout invariant failure.
 
 A protocol error produces no fallback classification and causes diagnostic
 validity and the benchmark exit status to fail.
@@ -430,8 +467,9 @@ Every production behavior begins with a focused failing test. Tests cover:
 - exact percentile semantics;
 - checkpoints exactly at 100 through 2,000;
 - no mutation during checkpoint evaluation;
-- Phase 2B runtime payload equality with frozen evidence;
-- matrix digests before and after every path;
+- Phase 2B portable runtime projection equality with frozen evidence;
+- same-environment complete-run equality and matrix digests before and after
+  every path;
 - unique classification priority;
 - independent complete-run equality;
 - stable byte-identical JSON output and exit status;
@@ -458,10 +496,10 @@ policy.py, reward_readout.py, reward_learning.py, or controller.py.
 | src/neural_state_machine/learning_diagnostics.py | datasets, analyzers, checkpoints, classifications, results | create |
 | tests/test_learning_diagnostics.py | numerical, boundary, determinism, and diagnostic tests | create |
 | scripts/benchmark_learning_diagnostics.py | stable Phase 2C JSON and validity exit status | create |
-| scripts/verify_reward_learning_failure.py | exact known-failure verification | create |
+| scripts/verify_reward_learning_failure.py | portable known-failure verification plus local float integrity | create |
 | docs/experiments/phase-2c-diagnostics.json | immutable measured Phase 2C evidence | create after execution |
 | src/neural_state_machine/__init__.py | approved public diagnostic exports | modify |
-| tests/test_reward_learning.py | exact Phase 2B failure regression | modify |
+| tests/test_reward_learning.py | portable Phase 2B failure regression | modify |
 | .github/workflows/ci.yml | failure verification and Phase 2C benchmark | modify |
 | README.md | Phase 2B failure and Phase 2C diagnostic interpretation | modify |
 | docs/superpowers/specs/2026-09-14-phase-2c-learning-diagnostics-design.md | reviewed design | create |
@@ -471,7 +509,8 @@ policy.py, reward_readout.py, reward_learning.py, or controller.py.
 Phase 2C is complete only if:
 
 1. Every seed receives exactly one classification.
-2. Every reproduced Phase 2B payload equals the frozen evidence entry.
+2. Every reproduced Phase 2B portable projection equals the frozen evidence
+   entry's projection.
 3. Ridge geometry remains 200/200 overall, 40/40 at each delay, with strictly
    positive normalized signed margins.
 4. Online supervised results are reported against the pre-registered 180/200
@@ -481,12 +520,13 @@ Phase 2C is complete only if:
 6. No checkpoint evaluation changes learner parameters.
 7. Input, recurrent, and legacy output matrices remain byte-identical.
 8. Labels and metadata remain outside the policy and reward learner boundary.
-9. Two independently reconstructed complete executions are exactly equal.
-10. The known Phase 2B failure verifier exits zero only for exact evidence
-    reproduction.
+9. Two independently reconstructed complete executions in the same
+   environment are exactly equal.
+10. The known Phase 2B failure verifier exits zero only for portable evidence
+    reproduction plus environment-local floating-point integrity.
 11. The Phase 2C benchmark is byte-stable and all_valid reflects integrity,
     not reward success.
-12. The complete test suite, Ruff, Phase 1, Phase 2A, exact Phase 2B failure
+12. The complete test suite, Ruff, Phase 1, Phase 2A, portable Phase 2B failure
     verification, and Phase 2C benchmark pass on Python 3.10, 3.11, and 3.12.
 
 A missed integrity gate is a Phase 2C failure. A supervised behavioral miss is

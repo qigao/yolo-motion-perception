@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (- [ ]) syntax for tracking.
 
-**Goal:** Build a deterministic, label-isolated diagnostic ladder that explains whether Phase 2B failed because of recurrent representation, online optimization, or sampled reward credit while preserving the exact Phase 2B failure evidence.
+**Goal:** Build a deterministic, label-isolated diagnostic ladder that explains whether Phase 2B failed because of recurrent representation, online optimization, or sampled reward credit while preserving the portable Phase 2B failure evidence and environment-local floating-point integrity.
 
-**Architecture:** Collect complete immutable hidden datasets from the frozen recurrent policy before exposing labels to analyzers. Compare frozen Ridge geometry, a private online supervised softmax diagnostic, and an instrumented reproduction of the unchanged reward learner, then classify each seed using a fixed priority table. Treat the committed Phase 2B failure as an exact regression contract so green CI means reproducible evidence rather than behavioral success.
+**Architecture:** Collect complete immutable hidden datasets from the frozen recurrent policy before exposing labels to analyzers. Compare frozen Ridge geometry, a private online supervised softmax diagnostic, and an instrumented reproduction of the unchanged reward learner, then classify each seed using a fixed priority table. Treat the committed Phase 2B failure as a portable semantic regression contract, with stricter byte equality inside each runtime environment, so green CI means reproducible evidence rather than behavioral success.
 
 **Tech Stack:** Python 3.10+, NumPy, pytest, Ruff, setuptools, GitHub Actions.
 
@@ -18,7 +18,7 @@
 - Do not modify policy.py, reward_readout.py, reward_learning.py, controller.py, memory_task.py, memory_probe.py, or memory_benchmark.py.
 - Do not modify docs/experiments/phase-2b-failure.json.
 - Existing Phase 1 and Phase 2A tests and benchmark evidence remain unchanged.
-- The only permitted Phase 2B test edit changes obsolete success assertions into exact committed-failure regression assertions.
+- The only permitted Phase 2B test edit changes obsolete success assertions into portable committed-failure regression assertions plus local float-integrity assertions.
 - Labels and delay metadata may enter diagnostic analyzers only after hidden collection completes.
 - RecurrentPolicy and RewardModulatedReadout never receive cue labels, correct actions, delay values, phases, probe outputs, or episode objects beyond the already frozen task-scoring boundary.
 - Phase 2C does not tune learning rate, temperature, recurrent radius, seeds, episode counts, checkpoint interval, delay range, distractor amplitude, task vectors, or acceptance thresholds after observing results.
@@ -28,7 +28,7 @@
 - Every production behavior begins with a focused failing test.
 - Commit after every task with the exact subject specified by that task.
 - Push every completed commit to experiment/neural-state-machine without force.
-- If Phase 2B reproduction differs from its committed JSON, classify PROTOCOL_MISMATCH, preserve evidence, and stop.
+- If Phase 2B portable reproduction differs from its committed JSON projection, or same-environment float integrity fails, classify PROTOCOL_MISMATCH, preserve evidence, and stop.
 - If an integrity or determinism gate fails, preserve the exact output and return to design review.
 
 ## File and responsibility map
@@ -37,17 +37,17 @@
 |---|---|---|
 | src/neural_state_machine/learning_diagnostics.py | Config, immutable datasets, geometry, supervised diagnostic, reward trajectory, classification, results | Create |
 | tests/test_learning_diagnostics.py | Validation, numerics, boundaries, checkpoints, classifications, determinism | Create |
-| scripts/verify_reward_learning_failure.py | Exact Phase 2B known-failure verifier | Create |
+| scripts/verify_reward_learning_failure.py | Portable Phase 2B known-failure verifier plus local float integrity | Create |
 | scripts/benchmark_learning_diagnostics.py | Stable Phase 2C JSON, evidence writer, exit status | Create |
 | docs/experiments/phase-2c-diagnostics.json | Deterministic measured diagnostic evidence | Create after scientific run |
 | src/neural_state_machine/__init__.py | Export approved Phase 2C public API | Modify |
-| tests/test_reward_learning.py | Replace obsolete pass expectation with exact failure regression | Modify |
+| tests/test_reward_learning.py | Replace obsolete pass expectation with portable failure regression | Modify |
 | README.md | Explain Phase 2B failure and Phase 2C diagnosis | Modify after evidence |
 | .github/workflows/ci.yml | Verify Phase 2B failure and run Phase 2C benchmark | Modify |
 
 ---
 
-### Task 1: Freeze the Phase 2B failure as a passing regression contract
+### Task 1: Freeze the portable Phase 2B failure as a passing regression contract
 
 **Files:**
 - Create: scripts/verify_reward_learning_failure.py
@@ -57,7 +57,7 @@
 
 **Interfaces:**
 - Consumes: run_reward_learning_benchmark() -> dict[str, object]
-- Produces: verify_reward_learning_failure() -> dict[str, object] and a CLI that exits zero only for exact known-failure reproduction
+- Produces: `_portable_phase_2b_payload(payload) -> dict[str, object]`, `verify_reward_learning_failure() -> dict[str, object]`, and a CLI that exits zero only for portable known-failure reproduction plus local float integrity
 
 - [ ] **Step 1: Replace the obsolete seed acceptance assertions with exact frozen counts**
 
@@ -87,17 +87,19 @@ def test_phase_two_b_observed_failure_is_frozen(
     assert result.repeatable is True
 ~~~
 
-- [ ] **Step 2: Add a failing exact-evidence test for the missing verifier**
+- [ ] **Step 2: Add a failing portable-evidence test for the missing verifier**
 
 ~~~python
 def test_phase_two_b_runtime_payload_matches_committed_failure() -> None:
     from scripts.verify_reward_learning_failure import (
+        _portable_phase_2b_payload,
         verify_reward_learning_failure,
     )
 
     payload = verify_reward_learning_failure()
     assert payload["all_passed"] is False
-    assert payload == json.loads(_PHASE_2B_EVIDENCE.read_text())
+    expected = json.loads(_PHASE_2B_EVIDENCE.read_text())
+    assert payload == _portable_phase_2b_payload(expected)
 ~~~
 
 Run:
@@ -108,9 +110,27 @@ Run:
 
 Expected RED: ModuleNotFoundError for scripts.verify_reward_learning_failure after the frozen observed-count tests pass.
 
-- [ ] **Step 3: Implement the exact verifier**
+- [ ] **Step 3: Implement the portable verifier and local integrity checks**
 
-Create scripts/verify_reward_learning_failure.py with:
+Create scripts/verify_reward_learning_failure.py. `_portable_phase_2b_payload`
+must retain the top-level phase, config, ordered seeds, all_passed, and pooled
+shuffled count. In each result retain the seed/pass flags, all accuracy counts,
+per-delay and final-block counts, total rewards, reset equality, repeatability,
+and every action/reward sequence digest. Exclude `initial_parameter_digest`,
+`normal_parameter_digest`, `shuffled_parameter_digest`, and `matrix_controls`
+from cross-environment comparison.
+
+The verifier runs the benchmark twice from newly reconstructed objects,
+requires both full payloads to be exactly equal in the current environment,
+compares their portable projection to the committed evidence projection, and
+checks per result:
+
+- `matrix_controls.normal_before == matrix_controls.normal_after`;
+- `matrix_controls.shuffled_before == matrix_controls.shuffled_after`;
+- the learned normal and shuffled parameter digests differ from their initial
+  digest as required by the frozen training protocol.
+
+The core shape is:
 
 ~~~python
 from __future__ import annotations
@@ -130,16 +150,20 @@ _EVIDENCE = (
 
 def verify_reward_learning_failure() -> dict[str, object]:
     expected = json.loads(_EVIDENCE.read_text(encoding="utf-8"))
-    actual = run_reward_learning_benchmark()
+    first = run_reward_learning_benchmark()
+    second = run_reward_learning_benchmark()
     if expected.get("phase") != "2B":
         raise RuntimeError("Phase 2B evidence has an unexpected phase")
     if expected.get("seeds") != [7, 17, 29]:
         raise RuntimeError("Phase 2B evidence has unexpected seeds")
     if expected.get("all_passed") is not False:
         raise RuntimeError("Phase 2B evidence must record a failed gate")
-    if actual != expected:
-        raise RuntimeError("Phase 2B runtime differs from frozen evidence")
-    return actual
+    if first != second:
+        raise RuntimeError("Phase 2B is not byte-stable in this environment")
+    if _portable_phase_2b_payload(first) != _portable_phase_2b_payload(expected):
+        raise RuntimeError("Phase 2B portable runtime differs from frozen evidence")
+    _verify_local_float_integrity(first)
+    return _portable_phase_2b_payload(first)
 
 
 def main() -> int:
@@ -152,11 +176,13 @@ if __name__ == "__main__":
     raise SystemExit(main())
 ~~~
 
-- [ ] **Step 4: Correct the existing benchmark/CLI assertions without weakening evidence**
+- [ ] **Step 4: Correct existing benchmark/CLI assertions without weakening evidence**
 
-Require the public benchmark to equal the complete JSON file, require
-all_passed is false, and continue to require benchmark_reward_learning.py to
-exit one with byte-identical compact JSON. Remove only assertions that demand
+Require the public benchmark's portable projection to equal the committed
+projection and require `all_passed` is false. Run the unchanged
+benchmark_reward_learning.py twice; require both current-environment stdout
+payloads to be byte-identical, exit one, satisfy local float integrity, and
+have the committed portable projection. Remove only assertions that demand
 all_passed is true or exit status zero.
 
 - [ ] **Step 5: Run focused verification**
@@ -537,13 +563,15 @@ For a 20-episode configuration require checkpoints at 10 and 20. Snapshot the
 readout digest before and after each greedy checkpoint evaluation and require
 equality. Require no pending feedback after every completed training episode.
 
-- [ ] **Step 5: Write exact Phase 2B reproduction RED tests**
+- [ ] **Step 5: Write portable Phase 2B reproduction RED tests**
 
 Load the committed evidence. For each seed, run the unchanged public Phase 2B
-benchmark and require its complete result entry to equal the matching evidence
-entry. Require the trajectory final overall, per-delay counts, total reward,
-choice digest, reward digest, and final parameter digest to equal the same
-entry.
+benchmark and require its portable result projection to equal the matching
+evidence projection. Require the trajectory final overall, per-delay counts,
+total reward, choice digest, and reward digest to equal the same entry. Require
+the trajectory's parameter and matrix digests to match a second independent
+run in the current environment and satisfy before/after immutability; do not
+compare floating byte digests across environments.
 
 - [ ] **Step 6: Run focused RED**
 
@@ -619,9 +647,9 @@ must win before optimizer or reward outcomes.
 
 LearningDiagnosticsResult contains seed, config, geometry, supervised,
 reward_trajectory, classification, matrix digests before/after,
-phase_2b_evidence_match, diagnostic_valid, and repeatable. Require mutation to
-raise FrozenInstanceError and nested arrays to be absent from the public
-surface.
+phase_2b_portable_evidence_match, diagnostic_valid, and repeatable. Require
+mutation to raise FrozenInstanceError and nested arrays to be absent from the
+public surface.
 
 - [ ] **Step 3: Write seed and configuration validation RED tests**
 
@@ -646,9 +674,10 @@ Expected RED: public result and classification interfaces are absent.
 
 - [ ] **Step 6: Implement classification, validity, and public assembly**
 
-diagnostic_valid is true only when evidence matches, all frozen matrix digests
-match, datasets and checkpoints validate, every seed run has one
-classification, and repeatable is true. Behavioral pass/fail selects the
+diagnostic_valid is true only when portable evidence matches, all
+environment-local frozen matrix digests match before/after and across the two
+independent executions, datasets and checkpoints validate, every seed run has
+one classification, and repeatable is true. Behavioral pass/fail selects the
 classification but does not independently invalidate a correctly measured
 run.
 
@@ -804,12 +833,13 @@ Document:
 - exact classifications, supervised counts, per-delay counts, and margin
   summaries copied from docs/experiments/phase-2c-diagnostics.json;
 - command python scripts/benchmark_learning_diagnostics.py;
-- green CI means exact failure reproduction plus valid diagnostics;
+- green CI means portable failure reproduction, local float integrity, and
+  valid diagnostics;
 - the next phase requires a new design review.
 
 Do not describe Phase 2B as passing and do not round away literal counts.
 
-- [ ] **Step 2: Append exact failure verification and diagnostics to CI**
+- [ ] **Step 2: Append portable failure verification and diagnostics to CI**
 
 Retain every existing CI step. Add after Phase 2A:
 
@@ -859,8 +889,8 @@ git status --short --branch
 
 Read every output. Require zero command failures. Confirm the Phase 1 JSON is
 byte-identical to its frozen output, Phase 2A remains 200/200 and 40/40 at all
-delays for all seeds, Phase 2B exactly matches its failure JSON, and Phase 2C
-all_valid is true.
+delays for all seeds, Phase 2B matches its failure JSON's portable projection
+and passes local float-integrity checks, and Phase 2C all_valid is true.
 
 - [ ] **Step 6: Commit documentation and CI**
 
@@ -901,7 +931,7 @@ The final report must include:
 - complete pytest count and Ruff result;
 - unchanged Phase 1 JSON;
 - unchanged Phase 2A counts and digests;
-- exact Phase 2B failure-evidence reproduction;
+- portable Phase 2B failure-evidence reproduction and local float integrity;
 - Phase 2C classification for each seed;
 - Ridge margin minimum, 10th percentile, and median for each delay;
 - online supervised overall and per-delay counts for every seed;
