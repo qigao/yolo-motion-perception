@@ -9,6 +9,7 @@ import pytest
 
 import neural_state_machine.learning_diagnostics as diagnostics
 from neural_state_machine import DelayedCueTask
+from neural_state_machine.reward_learning import _build_fixtures
 
 
 def test_learning_diagnostics_config_defaults_are_the_frozen_protocol() -> None:
@@ -239,9 +240,22 @@ def test_diagnostic_fixtures_are_balanced_immutable_and_repeatable(seed: int) ->
     config = diagnostics.LearningDiagnosticsConfig()
     first = diagnostics._build_diagnostic_fixtures(seed, config)
     second = diagnostics._build_diagnostic_fixtures(seed, config)
+    task = DelayedCueTask()
+    expected_training = _build_fixtures(
+        task,
+        np.random.default_rng(np.random.SeedSequence([seed, 0x54524149])),
+        config.training_episodes // 10,
+    )
+    expected_evaluation = _build_fixtures(
+        task,
+        np.random.default_rng(np.random.SeedSequence([seed, 0x4556414C])),
+        config.evaluation_blocks,
+    )
 
     assert len(first.training_episodes) == 2_000
     assert len(first.evaluation_episodes) == 200
+    _assert_ordered_fixture_stimuli_equal(first.training_episodes, expected_training)
+    _assert_ordered_fixture_stimuli_equal(first.evaluation_episodes, expected_evaluation)
     for fixtures, blocks in ((first.training_episodes, 200), (first.evaluation_episodes, 20)):
         for block_index in range(blocks):
             block = fixtures[block_index * 10 : (block_index + 1) * 10]
@@ -252,10 +266,37 @@ def test_diagnostic_fixtures_are_balanced_immutable_and_repeatable(seed: int) ->
     assert Counter(first.evaluation.delays.tolist()) == {1: 40, 2: 40, 3: 40, 4: 40, 5: 40}
     assert not first.training.states.flags.writeable
     assert not first.evaluation.states.flags.writeable
-    assert len({id(episode.delay_stimuli[0]) for episode in first.training_episodes}) == 2_000
+    distractors = [
+        stimulus
+        for fixtures in (first.training_episodes, first.evaluation_episodes)
+        for episode in fixtures
+        for stimulus in episode.delay_stimuli
+    ]
+    assert all(not stimulus.flags.writeable for stimulus in distractors)
+    assert len({id(stimulus) for stimulus in distractors}) == len(distractors)
     assert first.training.fixture_digest == second.training.fixture_digest
     assert first.evaluation.fixture_digest == second.evaluation.fixture_digest
     assert first.training.state_digest == second.training.state_digest
     assert first.evaluation.state_digest == second.evaluation.state_digest
     assert not np.shares_memory(first.training.states, second.training.states)
     assert not np.shares_memory(first.evaluation.states, second.evaluation.states)
+
+
+def _assert_ordered_fixture_stimuli_equal(actual, expected) -> None:
+    assert len(actual) == len(expected)
+    for actual_episode, expected_episode in zip(actual, expected, strict=True):
+        np.testing.assert_array_equal(
+            actual_episode.cue_stimulus,
+            expected_episode.cue_stimulus,
+        )
+        assert len(actual_episode.delay_stimuli) == len(expected_episode.delay_stimuli)
+        for actual_stimulus, expected_stimulus in zip(
+            actual_episode.delay_stimuli,
+            expected_episode.delay_stimuli,
+            strict=True,
+        ):
+            np.testing.assert_array_equal(actual_stimulus, expected_stimulus)
+        np.testing.assert_array_equal(
+            actual_episode.decision_stimulus,
+            expected_episode.decision_stimulus,
+        )
