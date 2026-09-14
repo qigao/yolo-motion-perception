@@ -1,0 +1,55 @@
+name: benchmark-video-probe
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - .github/workflows/benchmark-video-probe.yml
+      - benchmarks/sources/caviar.yaml
+      - scripts/fetch_benchmark_sources.py
+      - src/yolo_motion/source_probe.py
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install package
+        run: python -m pip install -e .
+
+      - name: Install ffmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          ffmpeg -version | head -n 1
+          ffprobe -version | head -n 1
+
+      - name: Download and probe CAVIAR candidates
+        run: |
+          python scripts/fetch_benchmark_sources.py \
+            --manifest benchmarks/sources/caviar.yaml \
+            --output-dir runs/caviar-probe
+
+      - name: Show hashes and metadata
+        run: |
+          cat runs/caviar-probe/sha256.txt
+          cat runs/caviar-probe/metadata.json
+
+      - name: Upload probe artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: caviar-video-probe
+          path: runs/caviar-probe
+          if-no-files-found: error
+          retention-days: 14
