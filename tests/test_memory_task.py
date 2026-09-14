@@ -1,7 +1,24 @@
 import numpy as np
 import pytest
 
-from neural_state_machine import Cue, DelayedCueTask
+from neural_state_machine import Cue, DelayedCueEpisode, DelayedCueTask
+
+
+def _direct_episode(
+    *,
+    cue: Cue = Cue.LEFT,
+    cue_stimulus: object = (1.0, 0.0, 0.0, 0.0),
+    delay_stimuli: object = ((0.0, 0.0, 0.1, 0.0),),
+    decision_stimulus: object = (0.0, 0.0, 0.0, 1.0),
+) -> DelayedCueEpisode:
+    return DelayedCueEpisode(
+        cue=cue,
+        delay_steps=1,
+        cue_stimulus=cue_stimulus,
+        delay_stimuli=delay_stimuli,
+        decision_stimulus=decision_stimulus,
+        correct_action_index=cue.value,
+    )
 
 
 def test_left_and_right_share_an_identical_decision_stimulus() -> None:
@@ -117,3 +134,36 @@ def test_episode_fixture_is_frozen() -> None:
 def test_reward_rejects_non_episode_fixtures() -> None:
     with pytest.raises(ValueError):
         DelayedCueTask().reward(object(), 0)
+
+
+@pytest.mark.parametrize(
+    ("cue", "cue_stimulus"),
+    [(Cue.LEFT, (0.0, 1.0, 0.0, 0.0)), (Cue.RIGHT, (1.0, 0.0, 0.0, 0.0))],
+)
+def test_direct_episode_rejects_cue_stimulus_not_matching_cue(
+    cue: Cue, cue_stimulus: tuple[float, ...]
+) -> None:
+    with pytest.raises(ValueError):
+        _direct_episode(cue=cue, cue_stimulus=cue_stimulus)
+
+
+@pytest.mark.parametrize(
+    "delay_stimulus",
+    [(1.0, 0.0, 0.1, 0.0), (0.0, 1.0, 0.1, 0.0), (0.0, 0.0, 0.1, 1.0)],
+)
+def test_direct_episode_rejects_delay_signal_outside_distractor_channel(
+    delay_stimulus: tuple[float, ...],
+) -> None:
+    with pytest.raises(ValueError):
+        _direct_episode(delay_stimuli=(delay_stimulus,))
+
+
+@pytest.mark.parametrize("distractor", [-0.250001, 0.250001, float("inf")])
+def test_direct_episode_rejects_out_of_bounds_delay_distractor(distractor: float) -> None:
+    with pytest.raises(ValueError):
+        _direct_episode(delay_stimuli=((0.0, 0.0, distractor, 0.0),))
+
+
+def test_direct_episode_rejects_decision_stimulus_other_than_shared_literal() -> None:
+    with pytest.raises(ValueError):
+        _direct_episode(decision_stimulus=(0.0, 0.0, 1.0, 0.0))

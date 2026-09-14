@@ -46,19 +46,29 @@ class DelayedCueEpisode:
         decision_stimulus = _validated_vector(
             self.decision_stimulus, "decision_stimulus"
         )
+        expected_cue = np.zeros(_INPUT_SIZE, dtype=np.float64)
+        expected_cue[self.cue.value] = 1.0
+        if not np.array_equal(cue_stimulus, expected_cue):
+            raise ValueError("cue_stimulus must encode cue identity exactly")
+        if not np.array_equal(decision_stimulus, _DECISION_STIMULUS):
+            raise ValueError("decision_stimulus must be the shared decision literal")
         try:
             delay_stimuli = tuple(self.delay_stimuli)
         except TypeError as exc:
             raise ValueError("delay_stimuli must be an iterable of vectors") from exc
         if len(delay_stimuli) != self.delay_steps:
             raise ValueError("delay_stimuli must contain exactly delay_steps vectors")
-        delay_copies = tuple(
-            _readonly_copy(_validated_vector(stimulus, "delay_stimulus"))
-            for stimulus in delay_stimuli
-        )
+        delay_copies = []
+        for stimulus in delay_stimuli:
+            validated = _validated_vector(stimulus, "delay_stimulus")
+            if not np.all(validated[[0, 1, 3]] == 0.0) or not -0.25 <= validated[2] <= 0.25:
+                raise ValueError(
+                    "delay_stimulus must have only a bounded index-2 distractor"
+                )
+            delay_copies.append(_readonly_copy(validated))
 
         object.__setattr__(self, "cue_stimulus", _readonly_copy(cue_stimulus))
-        object.__setattr__(self, "delay_stimuli", delay_copies)
+        object.__setattr__(self, "delay_stimuli", tuple(delay_copies))
         object.__setattr__(self, "decision_stimulus", _readonly_copy(decision_stimulus))
 
 
