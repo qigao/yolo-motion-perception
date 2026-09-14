@@ -1,6 +1,11 @@
 from pathlib import Path
 
-from yolo_motion.cli import _observation_to_dict, build_parser, load_motion_config
+from yolo_motion.cli import (
+    _observation_to_dict,
+    _track_kwargs,
+    build_parser,
+    load_motion_config,
+)
 from yolo_motion.types import TrackObservation
 
 
@@ -24,11 +29,12 @@ def test_load_motion_config_reads_yaml_thresholds(tmp_path: Path):
     assert config.radial_rate_threshold == 0.2
 
 
-def test_cli_parser_defaults_to_botsort_and_yolo11n():
+def test_cli_parser_defaults_to_botsort_yolo11n_and_640_imgsz():
     args = build_parser().parse_args(["--source", "0"])
 
     assert args.model == "yolo11n.pt"
     assert args.tracker == "botsort.yaml"
+    assert args.imgsz == 640
     assert args.source == "0"
     assert args.observations_jsonl is None
 
@@ -41,6 +47,35 @@ def test_cli_parser_accepts_raw_observation_output(tmp_path: Path):
     )
 
     assert args.observations_jsonl == path
+
+
+def test_cli_parser_accepts_inference_image_size():
+    args = build_parser().parse_args(["--source", "video.mp4", "--imgsz", "1280"])
+
+    assert args.imgsz == 1280
+
+
+def test_track_kwargs_forward_inference_image_size():
+    args = build_parser().parse_args(
+        [
+            "--source",
+            "video.mp4",
+            "--tracker",
+            "botsort.yaml",
+            "--conf",
+            "0.1",
+            "--imgsz",
+            "960",
+        ]
+    )
+
+    assert _track_kwargs(args) == {
+        "persist": True,
+        "tracker": "botsort.yaml",
+        "conf": 0.1,
+        "imgsz": 960,
+        "verbose": False,
+    }
 
 
 def test_observation_payload_keeps_raw_track_geometry_and_frame_index():
