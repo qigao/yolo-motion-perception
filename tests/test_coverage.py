@@ -5,6 +5,7 @@ from yolo_motion.coverage import (
     evaluate_caviar_coverage,
     load_caviar_ground_truth,
     load_observations,
+    main,
 )
 
 
@@ -132,3 +133,46 @@ def test_load_observations_accepts_empty_file(tmp_path: Path) -> None:
     path.write_text("", encoding="utf-8")
 
     assert load_observations(path) == []
+
+
+def test_coverage_cli_prints_json_report(tmp_path: Path, capsys) -> None:
+    gt_path = tmp_path / "gt.xml"
+    obs_path = tmp_path / "observations.jsonl"
+    _write_gt(gt_path, [(10, 4, 192, 144, 96, 72)])
+    _write_observations(
+        obs_path,
+        [
+            {
+                "frame_index": 0,
+                "track_id": 2,
+                "timestamp": 0.0,
+                "class_id": 0,
+                "detection_confidence": 0.8,
+                "cx": 0.5,
+                "cy": 0.5,
+                "width": 0.25,
+                "height": 0.25,
+            }
+        ],
+    )
+
+    assert (
+        main(
+            [
+                "--ground-truth",
+                str(gt_path),
+                "--observations",
+                str(obs_path),
+                "--start-frame",
+                "10",
+                "--end-frame",
+                "10",
+                "--gt-object-id",
+                "4",
+            ]
+        )
+        == 0
+    )
+    report = json.loads(capsys.readouterr().out)
+    assert report["coverage"] == 1.0
+    assert report["matched_track_ids"] == [2]
