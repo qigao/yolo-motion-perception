@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Sequence
 import math
 from dataclasses import dataclass
 
@@ -49,6 +50,39 @@ class _Evaluation:
     all_hidden_equal: bool
 
 
+
+
+@dataclass(frozen=True)
+class RewardLearningResult:
+    seed: int
+    config: RewardLearningConfig
+    pre_training: AccuracyCount
+    post_training: AccuracyCount
+    state_reset: AccuracyCount
+    shuffled_control: AccuracyCount
+    per_delay: tuple[tuple[int, AccuracyCount], ...]
+    reset_per_delay: tuple[tuple[int, AccuracyCount], ...]
+    shuffled_per_delay: tuple[tuple[int, AccuracyCount], ...]
+    total_training_reward: int
+    shuffled_total_training_reward: int
+    final_block: AccuracyCount
+    shuffled_final_block: AccuracyCount
+    initial_parameter_digest: str
+    normal_parameter_digest: str
+    shuffled_parameter_digest: str
+    normal_matrix_digests_before: tuple[str, str, str]
+    normal_matrix_digests_after: tuple[str, str, str]
+    shuffled_matrix_digests_before: tuple[str, str, str]
+    shuffled_matrix_digests_after: tuple[str, str, str]
+    recurrent_choice_digest: str
+    reset_choice_digest: str
+    shuffled_choice_digest: str
+    normal_training_choice_digest: str
+    shuffled_training_choice_digest: str
+    normal_training_reward_digest: str
+    shuffled_training_reward_digest: str
+    all_reset_hidden_equal: bool
+    repeatable: bool
 
 @dataclass(frozen=True)
 class _TrainingResult:
@@ -452,3 +486,238 @@ def _require_frozen(
         )
     ):
         raise RuntimeError("frozen recurrent policy matrices changed")
+
+
+def run_reward_learning_experiment(
+    seed: int = 7,
+    config: RewardLearningConfig | None = None,
+) -> RewardLearningResult:
+    if type(seed) is not int or seed < 0:
+        raise ValueError("seed must be a non-negative integer")
+    if config is None:
+        resolved_config = RewardLearningConfig()
+    elif isinstance(config, RewardLearningConfig):
+        resolved_config = config
+    else:
+        raise ValueError("config must be a RewardLearningConfig")
+
+    first = _run_once(seed, resolved_config)
+    second = _run_once(seed, resolved_config)
+    return _public_result(
+        seed,
+        resolved_config,
+        first,
+        repeatable=first == second,
+    )
+
+
+def run_reward_learning_benchmark(
+    seeds: Sequence[int] = (7, 17, 29),
+    config: RewardLearningConfig | None = None,
+) -> dict[str, object]:
+    try:
+        resolved_seeds = tuple(seeds)
+    except TypeError as exc:
+        raise ValueError("seeds must be a non-empty sequence") from exc
+    if not resolved_seeds:
+        raise ValueError("seeds must be a non-empty sequence")
+    if any(type(seed) is not int or seed < 0 for seed in resolved_seeds):
+        raise ValueError("seeds must contain non-negative integers")
+    if len(set(resolved_seeds)) != len(resolved_seeds):
+        raise ValueError("seeds must not contain duplicates")
+    if config is None:
+        resolved_config = RewardLearningConfig()
+    elif isinstance(config, RewardLearningConfig):
+        resolved_config = config
+    else:
+        raise ValueError("config must be a RewardLearningConfig")
+
+    results = tuple(
+        run_reward_learning_experiment(seed, resolved_config)
+        for seed in resolved_seeds
+    )
+    pooled_correct = sum(result.shuffled_control.correct for result in results)
+    pooled_total = sum(result.shuffled_control.total for result in results)
+    per_seed_passed = tuple(_passes_acceptance(result) for result in results)
+    pooled_accuracy = pooled_correct / pooled_total
+    all_passed = (
+        all(per_seed_passed)
+        and 0.40 <= pooled_accuracy <= 0.60
+    )
+    return {
+        "all_passed": all_passed,
+        "config": _config_json(resolved_config),
+        "phase": "2B",
+        "results": [
+            _result_json(result, passed)
+            for result, passed in zip(results, per_seed_passed, strict=True)
+        ],
+        "seeds": list(resolved_seeds),
+        "shuffled_pooled": {
+            "accuracy": pooled_accuracy,
+            "correct": pooled_correct,
+            "total": pooled_total,
+        },
+    }
+
+
+def _public_result(
+    seed: int,
+    config: RewardLearningConfig,
+    run: _RunResult,
+    *,
+    repeatable: bool,
+) -> RewardLearningResult:
+    return RewardLearningResult(
+        seed=seed,
+        config=config,
+        pre_training=run.pre_training.overall,
+        post_training=run.post_training.overall,
+        state_reset=run.state_reset.overall,
+        shuffled_control=run.shuffled_control.overall,
+        per_delay=run.post_training.per_delay,
+        reset_per_delay=run.state_reset.per_delay,
+        shuffled_per_delay=run.shuffled_control.per_delay,
+        total_training_reward=run.normal_training.total_reward,
+        shuffled_total_training_reward=run.shuffled_training.total_reward,
+        final_block=run.normal_training.final_block,
+        shuffled_final_block=run.shuffled_training.final_block,
+        initial_parameter_digest=run.normal_readout_digest_before,
+        normal_parameter_digest=run.normal_readout_digest_after,
+        shuffled_parameter_digest=run.shuffled_readout_digest_after,
+        normal_matrix_digests_before=run.normal_matrix_digests_before,
+        normal_matrix_digests_after=run.normal_matrix_digests_after,
+        shuffled_matrix_digests_before=run.shuffled_matrix_digests_before,
+        shuffled_matrix_digests_after=run.shuffled_matrix_digests_after,
+        recurrent_choice_digest=run.post_training.choice_digest,
+        reset_choice_digest=run.state_reset.choice_digest,
+        shuffled_choice_digest=run.shuffled_control.choice_digest,
+        normal_training_choice_digest=_choice_digest(
+            run.normal_training.actions
+        ),
+        shuffled_training_choice_digest=_choice_digest(
+            run.shuffled_training.actions
+        ),
+        normal_training_reward_digest=_reward_digest(
+            run.normal_training.rewards
+        ),
+        shuffled_training_reward_digest=_reward_digest(
+            run.shuffled_training.rewards
+        ),
+        all_reset_hidden_equal=run.state_reset.all_hidden_equal,
+        repeatable=repeatable,
+    )
+
+
+def _passes_acceptance(result: RewardLearningResult) -> bool:
+    return (
+        result.repeatable
+        and result.post_training == AccuracyCount(
+            result.post_training.correct,
+            200,
+        )
+        and result.post_training.correct >= 180
+        and all(score.correct >= 34 for _, score in result.per_delay)
+        and result.state_reset == AccuracyCount(100, 200)
+        and all(
+            score == AccuracyCount(20, 40)
+            for _, score in result.reset_per_delay
+        )
+        and result.all_reset_hidden_equal
+        and result.shuffled_control.correct < 150
+        and result.normal_matrix_digests_before
+        == result.normal_matrix_digests_after
+        and result.shuffled_matrix_digests_before
+        == result.shuffled_matrix_digests_after
+    )
+
+
+def _config_json(config: RewardLearningConfig) -> dict[str, object]:
+    return {
+        "evaluation_blocks": config.evaluation_blocks,
+        "hidden_size": config.hidden_size,
+        "learning_rate": config.learning_rate,
+        "recurrent_radius": config.recurrent_radius,
+        "temperature": config.temperature,
+        "training_episodes": config.training_episodes,
+    }
+
+
+def _result_json(
+    result: RewardLearningResult,
+    passed: bool,
+) -> dict[str, object]:
+    return {
+        "all_reset_hidden_equal": result.all_reset_hidden_equal,
+        "final_block": _count_json(result.final_block),
+        "initial_parameter_digest": result.initial_parameter_digest,
+        "matrix_controls": {
+            "normal_after": list(result.normal_matrix_digests_after),
+            "normal_before": list(result.normal_matrix_digests_before),
+            "shuffled_after": list(result.shuffled_matrix_digests_after),
+            "shuffled_before": list(result.shuffled_matrix_digests_before),
+        },
+        "normal_parameter_digest": result.normal_parameter_digest,
+        "normal_training_choice_digest": (
+            result.normal_training_choice_digest
+        ),
+        "normal_training_reward_digest": (
+            result.normal_training_reward_digest
+        ),
+        "passed": passed,
+        "per_delay": _per_delay_json(result.per_delay),
+        "post_training": _count_json(result.post_training),
+        "pre_training": _count_json(result.pre_training),
+        "recurrent_choice_digest": result.recurrent_choice_digest,
+        "repeatable": result.repeatable,
+        "reset_choice_digest": result.reset_choice_digest,
+        "reset_per_delay": _per_delay_json(result.reset_per_delay),
+        "seed": result.seed,
+        "shuffled_choice_digest": result.shuffled_choice_digest,
+        "shuffled_control": _count_json(result.shuffled_control),
+        "shuffled_final_block": _count_json(result.shuffled_final_block),
+        "shuffled_parameter_digest": result.shuffled_parameter_digest,
+        "shuffled_per_delay": _per_delay_json(result.shuffled_per_delay),
+        "shuffled_total_training_reward": (
+            result.shuffled_total_training_reward
+        ),
+        "shuffled_training_choice_digest": (
+            result.shuffled_training_choice_digest
+        ),
+        "shuffled_training_reward_digest": (
+            result.shuffled_training_reward_digest
+        ),
+        "state_reset": _count_json(result.state_reset),
+        "total_training_reward": result.total_training_reward,
+    }
+
+
+def _count_json(count: AccuracyCount) -> dict[str, object]:
+    return {
+        "accuracy": count.accuracy,
+        "correct": count.correct,
+        "total": count.total,
+    }
+
+
+def _per_delay_json(
+    scores: tuple[tuple[int, AccuracyCount], ...],
+) -> list[dict[str, object]]:
+    return [
+        {
+            "accuracy": score.accuracy,
+            "correct": score.correct,
+            "delay": delay,
+            "total": score.total,
+        }
+        for delay, score in scores
+    ]
+
+
+def _choice_digest(choices: tuple[int, ...]) -> str:
+    return hashlib.sha256(bytes(choices)).hexdigest()
+
+
+def _reward_digest(rewards: tuple[float, ...]) -> str:
+    values = np.ascontiguousarray(rewards, dtype=np.float64)
+    return hashlib.sha256(values.tobytes(order="C")).hexdigest()

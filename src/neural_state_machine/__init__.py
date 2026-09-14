@@ -16,6 +16,12 @@ from .memory_probe import (
 )
 from .memory_task import Cue, DelayedCueEpisode, DelayedCueTask
 from .policy import PolicyDecision, RecurrentPolicy
+from .reward_learning import (
+    RewardLearningConfig,
+    RewardLearningResult,
+    run_reward_learning_benchmark,
+    run_reward_learning_experiment,
+)
 from .reward_readout import RewardModulatedReadout, RewardReadoutDecision
 from .types import (
     Action,
@@ -45,6 +51,8 @@ __all__ = [
     "ProbeAccuracy",
     "RecurrentController",
     "RecurrentPolicy",
+    "RewardLearningConfig",
+    "RewardLearningResult",
     "RewardModulatedReadout",
     "RewardReadoutDecision",
     "StepResult",
@@ -56,4 +64,6 @@ __all__ = [
     "run_episode",
     "run_memory_probe",
     "run_memory_probe_benchmark",
+    "run_reward_learning_benchmark",
+    "run_reward_learning_experiment",
 ]
