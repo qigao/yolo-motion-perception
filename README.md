@@ -181,6 +181,14 @@ python scripts/run_benchmark_suite.py \
 
 `summary.md` reports scenario-level lateral/radial accuracy and mean first-correct latency, plus sample-weighted overall accuracy. The eight initial slots are `stationary`, `lateral_crossing`, `approaching`, `receding`, `diagonal_approaching`, `approach_then_stop`, `pose_change`, and `partial_occlusion`.
 
+Before running real videos, follow `benchmarks/PROTOCOL.md` and validate dataset readiness:
+
+```bash
+python scripts/check_benchmark_dataset.py --suite benchmarks/suite.yaml
+```
+
+The preflight exits with code `2` when no scenarios are enabled or when any enabled scenario is missing a non-empty video, valid annotations, or at least one labeled interval. Use `--format json` for machine-readable output. The repository includes empty annotation stubs under `benchmarks/annotations/`; fill them only after an inference run has produced the actual `track_id` values.
+
 ## Configuration
 
 `configs/baseline.yaml`:

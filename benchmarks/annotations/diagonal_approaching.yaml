@@ -1,0 +1,3 @@
+# Fill after running YOLO once so track_id values match this exact run.
+video: videos/diagonal_approaching.mp4
+intervals: []
