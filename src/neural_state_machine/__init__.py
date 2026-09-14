@@ -4,6 +4,7 @@ from .controller import RecurrentController
 from .encoding import encode_observation
 from .environment import ToyGame
 from .experiment import EpisodeTrace, context_separation, replay_equal, run_episode
+from .policy import PolicyDecision, RecurrentPolicy
 from .types import (
     Action,
     GameConfig,
@@ -20,7 +21,9 @@ __all__ = [
     "GameObservation",
     "GameSnapshot",
     "NeuralDecision",
+    "PolicyDecision",
     "RecurrentController",
+    "RecurrentPolicy",
     "StepResult",
     "ToyGame",
     "context_separation",
