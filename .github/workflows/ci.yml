@@ -28,3 +28,9 @@ jobs:
         run: python scripts/benchmark.py
       - name: Delayed-cue linear memory probe
         run: python scripts/benchmark_memory_probe.py
+
+      - name: Verify frozen Phase 2B failure
+        run: python scripts/verify_reward_learning_failure.py
+
+      - name: Phase 2C learning diagnostics
+        run: python scripts/benchmark_learning_diagnostics.py

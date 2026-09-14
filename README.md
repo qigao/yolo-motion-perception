@@ -112,7 +112,7 @@ exact independent-run repeatability.
 | 17 | 2000/2000 | 200/200 | 100/200 | 40/40 / 40/40 / 40/40 / 40/40 / 40/40 |
 | 29 | 2000/2000 | 200/200 | 100/200 | 40/40 / 40/40 / 40/40 / 40/40 / 40/40 |
 
-The frozen Phase 2B reward-learning baseline remains:
+The earlier delayed-cue reward-learning baseline remains:
 
 | Seed | Reward learner | Reset | Delay 1 / 2 / 3 / 4 / 5 |
 |---:|---:|---:|---|
@@ -124,6 +124,99 @@ A passing Phase 2A result supports only linear availability of cue information
 in recurrent activity. It does not show that the current reward rule learns
 the readout, that semantic attractors emerged, or that the system has general
 game intelligence or biological plausibility.
+
+## Phase 2C — learning failure diagnostics
+
+Phase 2A proves linear decodability on this fixed delayed-cue task. The
+pre-registered Phase 2B reward-learning result remains a failed scientific
+gate, frozen in [its original evidence](docs/experiments/phase-2b-failure.json).
+Phase 2C diagnoses that failure; it does not repair the learner, tune its
+configuration, or replace the production controller.
+
+The three diagnostic branches share frozen recurrent hidden vectors:
+
+1. Offline Ridge geometry measures normalized signed margins.
+2. A private online supervised softmax readout measures learnability with
+   explicit labels, solely as a diagnostic instrument.
+3. Read-only instrumentation reproduces the unchanged Phase 2B reward learner
+   and measures its checkpoints and sampled-versus-supervised gradients.
+
+All numeric hidden rows are collected before labels and delay metadata are
+associated with them. Labels enter only diagnostic fitting, supervised updates,
+and scoring; they never enter `RecurrentPolicy`, `RewardModulatedReadout`, the
+game controller, or action selection. The policy receives only numeric task
+stimuli, and the reward learner receives reward feedback, not labels.
+
+Run the diagnostics:
+
+```bash
+python scripts/verify_reward_learning_failure.py
+python scripts/benchmark_learning_diagnostics.py
+```
+
+The fixed configuration is hidden size `64`, recurrent radius `0.9`, learning
+rate `0.05`, temperature `1.0`, `2000` training episodes, `20` evaluation
+blocks, checkpoint interval `100`, and ordered seeds `[7, 17, 29]`.
+The following values are copied without rounding from
+[Phase 2C measured evidence](docs/experiments/phase-2c-diagnostics.json),
+SHA-256 `19aab5746703f16b4b408bb98215cf47bd8316979c57e986977356fce4f3a8ce`.
+
+| Seed | Classification | Online supervised | Supervised delay 1 / 2 / 3 / 4 / 5 | Frozen reward replay | Reward delay 1 / 2 / 3 / 4 / 5 |
+|---:|---|---:|---|---:|---|
+| 7 | `REWARD_CREDIT_FAILURE` | 197/200 | 40/40 / 40/40 / 40/40 / 37/40 / 40/40 | 169/200 | 40/40 / 40/40 / 40/40 / 20/40 / 29/40 |
+| 17 | `NO_FAILURE_REPRODUCED` | 200/200 | 40/40 / 40/40 / 40/40 / 40/40 / 40/40 | 200/200 | 40/40 / 40/40 / 40/40 / 40/40 / 40/40 |
+| 29 | `REWARD_CREDIT_FAILURE` | 199/200 | 40/40 / 40/40 / 40/40 / 40/40 / 39/40 | 171/200 | 40/40 / 40/40 / 40/40 / 31/40 / 20/40 |
+
+The Ridge branch records `2000/2000` training and `200/200` evaluation for
+every seed, with `40/40` at each delay. Its normalized signed margin summaries
+are:
+
+| Seed | Dataset | Minimum | 10th percentile | Median |
+|---:|---|---:|---:|---:|
+| 7 | Training | 0.05792864914751649 | 0.0634919085024498 | 0.06556740148006272 |
+| 7 | Evaluation | 0.05521994836230297 | 0.0629331546706889 | 0.065425997621153 |
+| 17 | Training | 0.09875603395780524 | 0.10368553250732623 | 0.10531321695116778 |
+| 17 | Evaluation | 0.09883210681142476 | 0.10371485063634409 | 0.10533604948096265 |
+| 29 | Training | 0.05486630199547468 | 0.05858430282800228 | 0.05959179529259498 |
+| 29 | Evaluation | 0.056223039055082795 | 0.05864464244785909 | 0.05959969626107961 |
+
+| Seed | Evaluation delay | Minimum | 10th percentile | Median |
+|---:|---:|---:|---:|---:|
+| 7 | 1 | 0.06484444853655802 | 0.06492690400466729 | 0.0655061104962121 |
+| 7 | 2 | 0.06305818528133311 | 0.06431199767984763 | 0.06549240299175743 |
+| 7 | 3 | 0.06250139013790612 | 0.06408996385341723 | 0.06539255408137636 |
+| 7 | 4 | 0.061619241177164163 | 0.06222613795956641 | 0.06500445756847126 |
+| 7 | 5 | 0.05521994836230297 | 0.06203999271821903 | 0.06531941528699553 |
+| 17 | 1 | 0.10498424710898284 | 0.10502501466660795 | 0.10523184882202087 |
+| 17 | 2 | 0.10338913155265715 | 0.10456375381398911 | 0.1053608871862295 |
+| 17 | 3 | 0.09902640873175636 | 0.10389451511031914 | 0.10546393299001658 |
+| 17 | 4 | 0.10057426250305962 | 0.1031050501682606 | 0.10559536407333767 |
+| 17 | 5 | 0.09883210681142476 | 0.10250158243677265 | 0.10549453806259443 |
+| 29 | 1 | 0.05870326189911872 | 0.059320133743332386 | 0.05954874886128013 |
+| 29 | 2 | 0.05778089641394101 | 0.05893259442652749 | 0.05951593417276527 |
+| 29 | 3 | 0.056777085229734764 | 0.058216538972940046 | 0.059845394227938935 |
+| 29 | 4 | 0.056223039055082795 | 0.05860506263491486 | 0.059703764816361526 |
+| 29 | 5 | 0.05708406387276004 | 0.05845156653352602 | 0.059665227802459905 |
+
+The recorded delay-five/delay-one median ratios are `0.9971499573428746`
+(seed 7), `1.0024962902725185` (seed 17), and `1.0019560266740635` (seed 29).
+All three geometry and supervised gates pass. The reward-credit diagnosis
+applies to seeds 7 and 29; `NO_FAILURE_REPRODUCED` describes seed 17 only,
+not a successful Phase 2B gate across the pre-registered seeds.
+
+The evidence includes every reward and supervised checkpoint, correct-action
+probability summaries, expected-gradient scale, block cosine measurements,
+and parameter, fixture, hidden-state, reservoir, and legacy-output digests.
+All seeds record `diagnostic_valid=true`, `repeatable=true`, and
+`phase_2b_portable_evidence_match=true`; `all_valid=true` means these diagnostics
+are valid, not that reward learning succeeded.
+
+Green CI on Python 3.10, 3.11, and 3.12 means **portable semantic failure
+reproduction plus same-environment float/matrix integrity** and valid Phase 2C
+diagnostics, alongside the unchanged Phase 1 and Phase 2A gates. It does not
+mean Phase 2B behavior passed or that floating-point JSON bytes match across
+platforms. The frozen Phase 2B evidence is not rewritten. Any next phase or
+new learning mechanism requires a new design review.
 
 ## Package layout
 
@@ -170,6 +263,9 @@ possible temporal visual subsystem, not the controller studied here.
 - [Delayed-cue memory design](docs/superpowers/specs/2026-09-14-delayed-cue-memory-design.md)
 - [Delayed-cue memory implementation plan](docs/superpowers/plans/2026-09-14-delayed-cue-memory.md)
 - [Phase 2A memory probe plan](docs/superpowers/plans/2026-09-14-phase-2a-memory-probe.md)
+- [Phase 2B reward-learning design](docs/superpowers/specs/2026-09-14-phase-2b-reward-learning-design.md)
+- [Phase 2C learning diagnostics design](docs/superpowers/specs/2026-09-14-phase-2c-learning-diagnostics-design.md)
+- [Phase 2C learning diagnostics plan](docs/superpowers/plans/2026-09-14-phase-2c-learning-diagnostics.md)
 
 ## License
 
