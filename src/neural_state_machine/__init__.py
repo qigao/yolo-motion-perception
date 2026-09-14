@@ -4,6 +4,7 @@ from .controller import RecurrentController
 from .encoding import encode_observation
 from .environment import ToyGame
 from .experiment import EpisodeTrace, context_separation, replay_equal, run_episode
+from .memory_benchmark import AccuracyCount, MemoryExperimentConfig
 from .memory_task import Cue, DelayedCueEpisode, DelayedCueTask
 from .policy import PolicyDecision, RecurrentPolicy
 from .types import (
@@ -16,6 +17,7 @@ from .types import (
 )
 
 __all__ = [
+    "AccuracyCount",
     "Action",
     "Cue",
     "DelayedCueEpisode",
@@ -24,6 +26,7 @@ __all__ = [
     "GameConfig",
     "GameObservation",
     "GameSnapshot",
+    "MemoryExperimentConfig",
     "NeuralDecision",
     "PolicyDecision",
     "RecurrentController",
