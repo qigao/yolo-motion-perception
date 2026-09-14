@@ -106,11 +106,11 @@ for every delay, exact 50% after resetting state immediately before the shared
 decision input, identical reset features, unchanged policy output weights, and
 exact independent-run repeatability.
 
-| Seed | Phase 2A overall | Reset | Delay 1 / 2 / 3 / 4 / 5 |
-|---:|---:|---:|---|
-| 7 | 200/200 | 100/200 | 40/40 / 40/40 / 40/40 / 40/40 / 40/40 |
-| 17 | 200/200 | 100/200 | 40/40 / 40/40 / 40/40 / 40/40 / 40/40 |
-| 29 | 200/200 | 100/200 | 40/40 / 40/40 / 40/40 / 40/40 / 40/40 |
+| Seed | Training | Phase 2A overall | Reset | Delay 1 / 2 / 3 / 4 / 5 |
+|---:|---:|---:|---:|---|
+| 7 | 2000/2000 | 200/200 | 100/200 | 40/40 / 40/40 / 40/40 / 40/40 / 40/40 |
+| 17 | 2000/2000 | 200/200 | 100/200 | 40/40 / 40/40 / 40/40 / 40/40 / 40/40 |
+| 29 | 2000/2000 | 200/200 | 100/200 | 40/40 / 40/40 / 40/40 / 40/40 / 40/40 |
 
 The frozen Phase 2B reward-learning baseline remains:
 
@@ -167,9 +167,9 @@ possible temporal visual subsystem, not the controller studied here.
 
 - `docs/superpowers/specs/2026-09-14-neural-state-machine-game-design.md`
 - `docs/superpowers/plans/2026-09-14-neural-state-machine-game.md`
-- `docs/superpowers/specs/2026-09-14-delayed-cue-memory-design.md`
-- `docs/superpowers/plans/2026-09-14-delayed-cue-memory.md`
-- `docs/superpowers/plans/2026-09-14-phase-2a-memory-probe.md`
+- [Delayed-cue memory design](docs/superpowers/specs/2026-09-14-delayed-cue-memory-design.md)
+- [Delayed-cue memory implementation plan](docs/superpowers/plans/2026-09-14-delayed-cue-memory.md)
+- [Phase 2A memory probe plan](docs/superpowers/plans/2026-09-14-phase-2a-memory-probe.md)
 
 ## License
 
