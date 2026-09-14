@@ -1,0 +1,103 @@
+name: real-video-baseline
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - .github/workflows/real-video-baseline.yml
+      - benchmarks/sources/caviar.yaml
+      - benchmarks/clips/caviar.yaml
+      - configs/baseline.yaml
+      - scripts/fetch_benchmark_sources.py
+      - scripts/materialize_benchmark_clips.py
+      - scripts/summarize_tracks.py
+      - src/yolo_motion/cli.py
+      - src/yolo_motion/source_probe.py
+      - src/yolo_motion/track_summary.py
+
+permissions:
+  contents: read
+
+jobs:
+  baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install ffmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Install vision runtime
+        run: python -m pip install -e '.[vision]'
+
+      - name: Record environment
+        run: |
+          mkdir -p runs/caviar-baseline
+          python --version > runs/caviar-baseline/environment.txt
+          python -c "import ultralytics; print('ultralytics', ultralytics.__version__)" >> runs/caviar-baseline/environment.txt
+          python -c "import cv2; print('opencv', cv2.__version__)" >> runs/caviar-baseline/environment.txt
+          python -m pip freeze > runs/caviar-baseline/pip-freeze.txt
+
+      - name: Download licensed CAVIAR sources
+        run: |
+          python scripts/fetch_benchmark_sources.py \
+            --manifest benchmarks/sources/caviar.yaml \
+            --output-dir runs/caviar-baseline/source-probe
+
+      - name: Materialize selected clips
+        run: |
+          python scripts/materialize_benchmark_clips.py \
+            --sources benchmarks/sources/caviar.yaml \
+            --clips benchmarks/clips/caviar.yaml \
+            --source-dir runs/caviar-baseline/source-probe/sources \
+            --output-dir runs/caviar-baseline/clips
+          sha256sum runs/caviar-baseline/clips/*.mp4 > runs/caviar-baseline/clip-sha256.txt
+
+      - name: Run YOLO motion baseline
+        run: |
+          set -euo pipefail
+          for scenario in stationary lateral_crossing approaching pose_change; do
+            mkdir -p "runs/caviar-baseline/results/${scenario}"
+            python -m yolo_motion.cli \
+              --source "runs/caviar-baseline/clips/${scenario}.mp4" \
+              --model yolo11n.pt \
+              --tracker botsort.yaml \
+              --config configs/baseline.yaml \
+              --jsonl "runs/caviar-baseline/results/${scenario}/motion.jsonl"
+            python scripts/summarize_tracks.py \
+              --predictions "runs/caviar-baseline/results/${scenario}/motion.jsonl" \
+              --annotation-draft "runs/caviar-baseline/results/${scenario}/${scenario}.yaml" \
+              > "runs/caviar-baseline/results/${scenario}/track-summary.txt"
+          done
+
+      - name: Capture model hash
+        run: |
+          if [ -f yolo11n.pt ]; then
+            sha256sum yolo11n.pt > runs/caviar-baseline/model-sha256.txt
+          fi
+
+      - name: Upload baseline artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: caviar-real-video-baseline
+          path: |
+            runs/caviar-baseline/clips
+            runs/caviar-baseline/results
+            runs/caviar-baseline/source-probe/ground-truth
+            runs/caviar-baseline/source-probe/metadata.json
+            runs/caviar-baseline/source-probe/sha256.txt
+            runs/caviar-baseline/clip-sha256.txt
+            runs/caviar-baseline/environment.txt
+            runs/caviar-baseline/pip-freeze.txt
+            runs/caviar-baseline/model-sha256.txt
+          if-no-files-found: error
+          retention-days: 14
