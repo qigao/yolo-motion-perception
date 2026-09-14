@@ -1,3 +1,4 @@
+import hashlib
 from dataclasses import FrozenInstanceError
 
 import numpy as np
@@ -348,3 +349,212 @@ def test_training_eligibility_does_not_alias_the_hidden_input() -> None:
         readout._pending_bias_eligibility,
         expected_biases,
     )
+
+
+def test_learning_requires_one_pending_training_decision() -> None:
+    readout = RewardModulatedReadout(3, 2)
+
+    with pytest.raises(RuntimeError, match="pending"):
+        readout.learn(1.0)
+
+    readout.select_for_training(
+        np.ones(3),
+        (0, 1),
+        np.random.default_rng(53),
+    )
+    readout.learn(1.0)
+    assert readout.has_pending_feedback is False
+    with pytest.raises(RuntimeError, match="pending"):
+        readout.learn(1.0)
+
+
+def test_learning_applies_the_literal_softmax_eligibility_update() -> None:
+    readout = RewardModulatedReadout(
+        hidden_size=3,
+        action_count=2,
+        learning_rate=0.2,
+    )
+    hidden = np.array([0.25, -0.5, 0.75])
+    decision = readout.select_for_training(
+        hidden,
+        (0, 1),
+        np.random.default_rng(59),
+    )
+    one_hot = np.zeros(2)
+    one_hot[decision.action_index] = 1.0
+    delta = one_hot - decision.probabilities
+
+    readout.learn(0.5)
+
+    np.testing.assert_allclose(
+        readout._weights,
+        0.2 * 0.5 * np.outer(delta, hidden),
+        rtol=0.0,
+        atol=1e-12,
+    )
+    np.testing.assert_allclose(
+        readout._biases,
+        0.2 * 0.5 * delta,
+        rtol=0.0,
+        atol=1e-12,
+    )
+    assert readout.has_pending_feedback is False
+
+
+def _selected_margin_after_reward(reward: float) -> tuple[str, float]:
+    readout = RewardModulatedReadout(3, 2, learning_rate=0.25)
+    hidden = np.array([0.2, -0.4, 0.6])
+    decision = readout.select_for_training(
+        hidden,
+        (0, 1),
+        np.random.default_rng(61),
+    )
+    selected = decision.action_index
+    readout.learn(reward)
+    replay = readout.select_greedy(hidden, (0, 1))
+    alternative = 1 - selected
+    margin = float(replay.logits[selected] - replay.logits[alternative])
+    return readout.parameter_digest(), margin
+
+
+def test_positive_reward_increases_the_sampled_action_margin() -> None:
+    _, margin = _selected_margin_after_reward(1.0)
+    assert margin > 0.0
+
+
+def test_negative_reward_decreases_the_sampled_action_margin() -> None:
+    _, margin = _selected_margin_after_reward(-1.0)
+    assert margin < 0.0
+
+
+@pytest.mark.parametrize("rewards", [(1.0, 100.0), (-1.0, -100.0)])
+def test_reward_is_clipped_to_unit_magnitude(
+    rewards: tuple[float, float],
+) -> None:
+    unit_digest, unit_margin = _selected_margin_after_reward(rewards[0])
+    large_digest, large_margin = _selected_margin_after_reward(rewards[1])
+
+    assert large_digest == unit_digest
+    assert large_margin == unit_margin
+
+
+def test_zero_reward_consumes_eligibility_without_changing_parameters() -> None:
+    readout = RewardModulatedReadout(3, 2)
+    before = readout.parameter_digest()
+    readout.select_for_training(
+        np.ones(3),
+        (0, 1),
+        np.random.default_rng(67),
+    )
+
+    readout.learn(0.0)
+
+    assert readout.parameter_digest() == before
+    assert readout.has_pending_feedback is False
+
+
+@pytest.mark.parametrize("reward", ["bad", None, np.nan, np.inf, -np.inf])
+def test_invalid_reward_preserves_pending_eligibility(reward: object) -> None:
+    readout = RewardModulatedReadout(3, 2)
+    readout.select_for_training(
+        np.ones(3),
+        (0, 1),
+        np.random.default_rng(71),
+    )
+    weights = readout._pending_weight_eligibility.copy()
+    biases = readout._pending_bias_eligibility.copy()
+
+    with pytest.raises(ValueError, match="finite"):
+        readout.learn(reward)
+
+    assert readout.has_pending_feedback is True
+    np.testing.assert_array_equal(
+        readout._pending_weight_eligibility,
+        weights,
+    )
+    np.testing.assert_array_equal(
+        readout._pending_bias_eligibility,
+        biases,
+    )
+    readout.learn(1.0)
+    assert readout.has_pending_feedback is False
+
+
+def test_training_sequence_is_repeatable_when_feedback_is_consumed() -> None:
+    left = RewardModulatedReadout(3, 2)
+    right = RewardModulatedReadout(3, 2)
+    left_rng = np.random.default_rng(73)
+    right_rng = np.random.default_rng(73)
+    hidden = np.array([0.1, -0.2, 0.3])
+    left_actions = []
+    right_actions = []
+
+    for _ in range(50):
+        left_actions.append(
+            left.select_for_training(hidden, (0, 1), left_rng).action_index
+        )
+        right_actions.append(
+            right.select_for_training(hidden, (0, 1), right_rng).action_index
+        )
+        left.learn(0.0)
+        right.learn(0.0)
+
+    assert left_actions == right_actions
+    assert set(left_actions) == {0, 1}
+    assert left.has_pending_feedback is False
+    assert right.has_pending_feedback is False
+
+
+def test_parameter_digest_covers_weight_and_bias_float64_bytes() -> None:
+    readout = RewardModulatedReadout(3, 2)
+    readout._weights[:] = [[0.1, 0.2, 0.3], [-0.1, -0.2, -0.3]]
+    readout._biases[:] = [0.25, -0.5]
+    weights = np.ascontiguousarray(readout._weights, dtype=np.float64)
+    biases = np.ascontiguousarray(readout._biases, dtype=np.float64)
+    expected = hashlib.sha256()
+    expected.update(str(weights.shape).encode("ascii"))
+    expected.update(weights.tobytes(order="C"))
+    expected.update(str(biases.shape).encode("ascii"))
+    expected.update(biases.tobytes(order="C"))
+
+    assert readout.parameter_digest() == expected.hexdigest()
+
+
+def test_negative_reward_updates_legal_rows_but_not_masked_rows() -> None:
+    readout = RewardModulatedReadout(2, 3, learning_rate=0.1)
+    hidden = np.array([0.5, -0.25])
+    before = readout._weights.copy()
+    readout.select_for_training(
+        hidden,
+        (0, 2),
+        np.random.default_rng(79),
+    )
+
+    readout.learn(-1.0)
+
+    assert not np.array_equal(readout._weights[0], before[0])
+    np.testing.assert_array_equal(readout._weights[1], before[1])
+    assert not np.array_equal(readout._weights[2], before[2])
+    np.testing.assert_allclose(
+        readout._weights[0],
+        -readout._weights[2],
+        rtol=0.0,
+        atol=1e-12,
+    )
+    assert readout._biases[0] == pytest.approx(
+        -readout._biases[2],
+        rel=0.0,
+        abs=1e-12,
+    )
+
+
+def test_reward_readout_types_are_exported_from_the_package() -> None:
+    from neural_state_machine import (
+        RewardModulatedReadout as exported_readout,
+    )
+    from neural_state_machine import (
+        RewardReadoutDecision as exported_decision,
+    )
+
+    assert exported_readout is RewardModulatedReadout
+    assert exported_decision is RewardReadoutDecision
