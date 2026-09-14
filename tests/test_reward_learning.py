@@ -368,8 +368,23 @@ def test_training_fixture_tuple_is_balanced_and_rng_isolated() -> None:
         config.training_episodes // 10,
     )
 
-    assert left == right
-    assert len(left) == 20
+    assert len(left) == len(right) == 20
+    for left_episode, right_episode in zip(left, right, strict=True):
+        assert left_episode.cue == right_episode.cue
+        assert left_episode.delay_steps == right_episode.delay_steps
+        assert left_episode.correct_action_index == (
+            right_episode.correct_action_index
+        )
+        np.testing.assert_array_equal(
+            left_episode.cue_stimulus,
+            right_episode.cue_stimulus,
+        )
+        for left_delay, right_delay in zip(
+            left_episode.delay_stimuli,
+            right_episode.delay_stimuli,
+            strict=True,
+        ):
+            np.testing.assert_array_equal(left_delay, right_delay)
     expected = {(cue, delay) for cue in Cue for delay in range(1, 6)}
     for offset in range(0, len(left), 10):
         assert {
