@@ -1,0 +1,23 @@
+# Reproducible frame windows selected from CAVIAR contact sheets and GT boxes.
+# These define source extraction only; motion labels remain independently annotated.
+fps: 25
+clips:
+  - name: approaching
+    source: walk2
+    start_frame: 880
+    end_frame: 1049
+
+  - name: lateral_crossing
+    source: crossing1front
+    start_frame: 279
+    end_frame: 373
+
+  - name: pose_change
+    source: browse3
+    start_frame: 0
+    end_frame: 74
+
+  - name: stationary
+    source: browse3
+    start_frame: 555
+    end_frame: 649
