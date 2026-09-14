@@ -13,6 +13,8 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from .memory_benchmark import AccuracyCount
+from .memory_probe import FittedLinearProbe, fit_linear_probe
 from .memory_task import DelayedCueEpisode, DelayedCueTask
 from .policy import RecurrentPolicy
 from .reward_learning import _build_fixtures, _decision_hidden
@@ -88,6 +90,26 @@ class _DiagnosticFixtures:
     evaluation_episodes: tuple[DelayedCueEpisode, ...]
     training: _HiddenDataset
     evaluation: _HiddenDataset
+
+
+@dataclass(frozen=True)
+class MarginSummary:
+    minimum: float
+    percentile_10: float
+    median: float
+
+
+@dataclass(frozen=True)
+class GeometryDiagnostic:
+    training: AccuracyCount
+    evaluation: AccuracyCount
+    per_delay: tuple[tuple[int, AccuracyCount], ...]
+    training_margins: MarginSummary
+    evaluation_margins: MarginSummary
+    per_delay_margins: tuple[tuple[int, MarginSummary], ...]
+    delay_five_to_one_median_ratio: float
+    probe_digest: str
+    geometry_passed: bool
 
 
 def _build_diagnostic_fixtures(
@@ -168,6 +190,114 @@ def _new_frozen_policy(
         hidden_size=config.hidden_size,
         seed=seed,
         recurrent_radius=config.recurrent_radius,
+    )
+
+
+def _normalized_signed_margins(
+    probe: FittedLinearProbe,
+    dataset: _HiddenDataset,
+) -> np.ndarray:
+    """Return immutable, L2-normalized margins with the label sign applied."""
+    if not isinstance(probe, FittedLinearProbe):
+        raise ValueError("probe must be a FittedLinearProbe")  # noqa: TRY004
+    if not isinstance(dataset, _HiddenDataset):
+        raise ValueError("dataset must be a _HiddenDataset")  # noqa: TRY004
+    states = _validated_states(dataset.states)
+    labels = _validated_integer_vector(dataset.labels, "labels", (0, 1))
+    if labels.shape[0] != states.shape[0]:
+        raise ValueError("dataset arrays must have matching sample counts")
+    if set(labels.tolist()) != {0, 1}:
+        raise ValueError("labels must contain both action classes")
+    if states.shape[1] != probe.weights.size:
+        raise ValueError("states must match the probe feature count")
+    norm = float(np.linalg.norm(probe.weights))
+    if not math.isfinite(norm) or norm == 0.0:
+        raise ValueError("probe weight norm must be finite and non-zero")
+    signed = np.where(labels == 0, -1.0, 1.0)
+    margins = signed * (states @ probe.weights + probe.bias) / norm
+    return _readonly_copy(margins, np.float64)
+
+
+def _margin_summary(margins: np.ndarray) -> MarginSummary:
+    values = np.asarray(margins, dtype=np.float64)
+    if values.ndim != 1 or values.size == 0 or not np.all(np.isfinite(values)):
+        raise ValueError("margins must be a non-empty finite rank-one array")
+    return MarginSummary(
+        minimum=float(np.min(values)),
+        percentile_10=float(np.percentile(values, 10, method="linear")),
+        median=float(np.median(values)),
+    )
+
+
+def _run_geometry(
+    training: _HiddenDataset,
+    evaluation: _HiddenDataset,
+) -> GeometryDiagnostic:
+    """Measure frozen Ridge accuracy and normalized signed-margin geometry."""
+    if not isinstance(training, _HiddenDataset) or not isinstance(
+        evaluation, _HiddenDataset
+    ):
+        raise ValueError(  # noqa: TRY004 - protocol validation uses ValueError
+            "training and evaluation must be _HiddenDataset instances"
+        )
+    probe = fit_linear_probe(
+        training.states,
+        training.labels,
+        regularization=1e-3,
+    )
+    training_margins = _normalized_signed_margins(probe, training)
+    evaluation_margins = _normalized_signed_margins(probe, evaluation)
+    training_choices = probe.predict(training.states)
+    evaluation_choices = probe.predict(evaluation.states)
+    training_matches = training_choices == training.labels
+    evaluation_matches = evaluation_choices == evaluation.labels
+    training_accuracy = AccuracyCount(
+        int(np.count_nonzero(training_matches)), int(training_matches.size)
+    )
+    evaluation_accuracy = AccuracyCount(
+        int(np.count_nonzero(evaluation_matches)), int(evaluation_matches.size)
+    )
+    per_delay: list[tuple[int, AccuracyCount]] = []
+    per_delay_margins: list[tuple[int, MarginSummary]] = []
+    for delay in range(1, 6):
+        delay_mask = evaluation.delays == delay
+        total = int(np.count_nonzero(delay_mask))
+        if total == 0:
+            raise ValueError(f"evaluation delay {delay} has zero samples")
+        per_delay.append(
+            (
+                delay,
+                AccuracyCount(
+                    int(np.count_nonzero(evaluation_matches[delay_mask])), total
+                ),
+            )
+        )
+        per_delay_margins.append(
+            (delay, _margin_summary(evaluation_margins[delay_mask]))
+        )
+    delay_summaries = dict(per_delay_margins)
+    delay_one_median = delay_summaries[1].median
+    if delay_one_median == 0.0:
+        raise ValueError("delay one median margin must be non-zero")
+    geometry_passed = (
+        evaluation_accuracy == AccuracyCount(200, 200)
+        and tuple(per_delay)
+        == tuple((delay, AccuracyCount(40, 40)) for delay in range(1, 6))
+        and bool(np.all(training_margins > 0.0))
+        and bool(np.all(evaluation_margins > 0.0))
+    )
+    return GeometryDiagnostic(
+        training=training_accuracy,
+        evaluation=evaluation_accuracy,
+        per_delay=tuple(per_delay),
+        training_margins=_margin_summary(training_margins),
+        evaluation_margins=_margin_summary(evaluation_margins),
+        per_delay_margins=tuple(per_delay_margins),
+        delay_five_to_one_median_ratio=(
+            delay_summaries[5].median / delay_one_median
+        ),
+        probe_digest=probe.digest(),
+        geometry_passed=geometry_passed,
     )
 
 

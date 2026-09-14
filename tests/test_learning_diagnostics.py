@@ -9,6 +9,7 @@ import pytest
 
 import neural_state_machine.learning_diagnostics as diagnostics
 from neural_state_machine import DelayedCueTask
+from neural_state_machine.memory_probe import FittedLinearProbe, fit_linear_probe
 from neural_state_machine.reward_learning import _build_fixtures
 
 
@@ -300,3 +301,198 @@ def _assert_ordered_fixture_stimuli_equal(actual, expected) -> None:
             actual_episode.decision_stimulus,
             expected_episode.decision_stimulus,
         )
+
+
+def _hidden_dataset(
+    states: np.ndarray,
+    labels: np.ndarray,
+    delays: np.ndarray,
+) -> diagnostics._HiddenDataset:
+    canonical_states = np.ascontiguousarray(states, dtype=np.float64)
+    state_hasher = hashlib.sha256()
+    state_hasher.update(str(canonical_states.shape).encode("ascii"))
+    state_hasher.update(canonical_states.tobytes(order="C"))
+    return diagnostics._HiddenDataset(
+        states=states,
+        labels=labels,
+        delays=delays,
+        fixture_digest="f" * 64,
+        state_digest=state_hasher.hexdigest(),
+    )
+
+
+def test_normalized_signed_margins_match_the_literal_ridge_equation() -> None:
+    states = np.array([[3.0, 4.0], [2.0, -1.0], [-4.0, -3.0]], dtype=np.float64)
+    labels = np.array([1, 0, 0], dtype=np.int64)
+    dataset = _hidden_dataset(states, labels, np.array([1, 2, 3], dtype=np.int64))
+    probe = FittedLinearProbe(np.array([3.0, 4.0], dtype=np.float64), bias=-2.0)
+
+    signed = np.where(labels == 0, -1.0, 1.0)
+    expected = signed * (states @ probe.weights + probe.bias) / np.linalg.norm(
+        probe.weights
+    )
+
+    margins = diagnostics._normalized_signed_margins(probe, dataset)
+
+    assert margins.shape == labels.shape
+    assert margins.dtype == np.dtype(np.float64)
+    assert not margins.flags.writeable
+    np.testing.assert_allclose(margins, expected, rtol=0.0, atol=1e-12)
+
+
+@pytest.mark.parametrize(
+    ("states", "labels", "delays"),
+    [
+        (np.empty((0, 2)), np.array([], dtype=np.int64), np.array([], dtype=np.int64)),
+        (np.ones((2, 2)), np.array([0, 0]), np.array([1, 1])),
+        (np.ones((2, 2)), np.array([0]), np.array([1])),
+        (np.array([[np.nan, 0.0], [0.0, 1.0]]), np.array([0, 1]), np.array([1, 2])),
+    ],
+)
+def test_normalized_signed_margins_rejects_invalid_geometry_without_mutation(
+    states: np.ndarray,
+    labels: np.ndarray,
+    delays: np.ndarray,
+) -> None:
+    dataset = object.__new__(diagnostics._HiddenDataset)
+    object.__setattr__(dataset, "states", states)
+    object.__setattr__(dataset, "labels", labels)
+    object.__setattr__(dataset, "delays", delays)
+    object.__setattr__(dataset, "fixture_digest", "f" * 64)
+    object.__setattr__(dataset, "state_digest", "s" * 64)
+    probe = FittedLinearProbe(np.array([1.0, -2.0]), bias=0.25)
+    states_before = states.copy()
+    labels_before = labels.copy()
+    delays_before = delays.copy()
+    weights_before = probe.weights.copy()
+    bias_before = probe.bias
+
+    with pytest.raises(ValueError):
+        diagnostics._normalized_signed_margins(probe, dataset)
+
+    np.testing.assert_array_equal(states, states_before)
+    np.testing.assert_array_equal(labels, labels_before)
+    np.testing.assert_array_equal(delays, delays_before)
+    np.testing.assert_array_equal(probe.weights, weights_before)
+    assert probe.bias == bias_before
+
+
+def test_normalized_signed_margins_rejects_a_zero_norm_probe_without_mutation() -> None:
+    dataset = _hidden_dataset(
+        np.array([[1.0, 2.0], [-1.0, 3.0]]),
+        np.array([0, 1]),
+        np.array([1, 2]),
+    )
+    probe = FittedLinearProbe(np.zeros(2, dtype=np.float64), bias=0.25)
+    states_before = dataset.states.copy()
+    labels_before = dataset.labels.copy()
+    weights_before = probe.weights.copy()
+
+    with pytest.raises(ValueError, match="norm"):
+        diagnostics._normalized_signed_margins(probe, dataset)
+
+    np.testing.assert_array_equal(dataset.states, states_before)
+    np.testing.assert_array_equal(dataset.labels, labels_before)
+    np.testing.assert_array_equal(probe.weights, weights_before)
+
+
+def test_run_geometry_uses_linear_percentiles_and_orders_every_delay() -> None:
+    training = _hidden_dataset(
+        np.array(
+            [[-4.0, 0.0], [-3.0, 0.0], [-2.0, 0.0], [-1.0, 0.0], [1.0, 0.0],
+             [2.0, 0.0], [3.0, 0.0], [4.0, 0.0], [5.0, 0.0], [6.0, 0.0]],
+            dtype=np.float64,
+        ),
+        np.array([0, 0, 0, 0, 1, 1, 1, 1, 1, 1], dtype=np.int64),
+        np.array([1, 2, 3, 4, 5, 1, 2, 3, 4, 5], dtype=np.int64),
+    )
+    evaluation_states = np.array(
+        [[-5.0, 0.0], [-4.0, 0.0], [-3.0, 0.0], [-2.0, 0.0], [-1.0, 0.0],
+         [1.0, 0.0], [2.0, 0.0], [3.0, 0.0], [4.0, 0.0], [5.0, 0.0]],
+        dtype=np.float64,
+    )
+    evaluation_labels = np.array([0, 0, 0, 0, 0, 1, 1, 1, 1, 1], dtype=np.int64)
+    evaluation_delays = np.array([1, 2, 3, 4, 5, 1, 2, 3, 4, 5], dtype=np.int64)
+    evaluation = _hidden_dataset(evaluation_states, evaluation_labels, evaluation_delays)
+
+    geometry = diagnostics._run_geometry(training, evaluation)
+
+    fitted = fit_linear_probe(
+        training.states, training.labels, regularization=1e-3
+    )
+    signed = np.where(evaluation_labels == 0, -1.0, 1.0)
+    margins = signed * (
+        evaluation_states @ fitted.weights + fitted.bias
+    ) / np.linalg.norm(fitted.weights)
+    expected_summary = diagnostics.MarginSummary(
+        minimum=float(np.min(margins)),
+        percentile_10=float(np.percentile(margins, 10, method="linear")),
+        median=float(np.median(margins)),
+    )
+
+    assert geometry.evaluation_margins == expected_summary
+    assert tuple(delay for delay, _ in geometry.per_delay) == (1, 2, 3, 4, 5)
+    assert tuple(delay for delay, _ in geometry.per_delay_margins) == (1, 2, 3, 4, 5)
+    by_delay = dict(geometry.per_delay_margins)
+    first_delay_margins = margins[evaluation_delays == 1]
+    assert by_delay[1] == diagnostics.MarginSummary(
+        minimum=float(np.min(first_delay_margins)),
+        percentile_10=float(
+            np.percentile(first_delay_margins, 10, method="linear")
+        ),
+        median=float(np.median(first_delay_margins)),
+    )
+    assert geometry.delay_five_to_one_median_ratio == (
+        by_delay[5].median / by_delay[1].median
+    )
+
+
+def test_run_geometry_rejects_evaluation_with_a_missing_delay_without_mutation() -> None:
+    training = _hidden_dataset(
+        np.array([[-1.0, 0.0], [1.0, 0.0]]),
+        np.array([0, 1]),
+        np.array([1, 2]),
+    )
+    evaluation = _hidden_dataset(
+        np.array([[-2.0, 0.0], [2.0, 0.0]]),
+        np.array([0, 1]),
+        np.array([1, 1]),
+    )
+    training_before = training.states.copy()
+    evaluation_before = evaluation.states.copy()
+
+    with pytest.raises(ValueError, match="delay"):
+        diagnostics._run_geometry(training, evaluation)
+
+    np.testing.assert_array_equal(training.states, training_before)
+    np.testing.assert_array_equal(evaluation.states, evaluation_before)
+
+
+@pytest.mark.parametrize("seed", [7, 17, 29])
+def test_frozen_ridge_geometry_passes_each_real_seed_without_mutating_fixtures(
+    seed: int,
+) -> None:
+    fixtures = diagnostics._build_diagnostic_fixtures(
+        seed, diagnostics.LearningDiagnosticsConfig()
+    )
+    training_digest = fixtures.training.state_digest
+    evaluation_digest = fixtures.evaluation.state_digest
+    training_fixture_digest = fixtures.training.fixture_digest
+    evaluation_fixture_digest = fixtures.evaluation.fixture_digest
+
+    geometry = diagnostics._run_geometry(fixtures.training, fixtures.evaluation)
+
+    assert geometry.training == diagnostics.AccuracyCount(2_000, 2_000)
+    assert geometry.evaluation == diagnostics.AccuracyCount(200, 200)
+    assert geometry.per_delay == tuple(
+        (delay, diagnostics.AccuracyCount(40, 40)) for delay in range(1, 6)
+    )
+    assert geometry.training_margins.minimum > 0.0
+    assert geometry.evaluation_margins.minimum > 0.0
+    assert all(summary.minimum > 0.0 for _, summary in geometry.per_delay_margins)
+    assert np.isfinite(geometry.delay_five_to_one_median_ratio)
+    assert geometry.geometry_passed
+    assert fixtures.training.state_digest == training_digest
+    assert fixtures.evaluation.state_digest == evaluation_digest
+    assert fixtures.training.fixture_digest == training_fixture_digest
+    assert fixtures.evaluation.fixture_digest == evaluation_fixture_digest
