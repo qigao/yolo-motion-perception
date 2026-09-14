@@ -639,6 +639,7 @@ def test_phase_two_b_acceptance(seed: int) -> None:
 
 def test_reward_learning_benchmark_and_cli_are_stable() -> None:
     benchmark = run_reward_learning_benchmark()
+    print(json.dumps(benchmark, sort_keys=True, separators=(",", ":")))
 
     assert benchmark["phase"] == "2B"
     assert benchmark["seeds"] == [7, 17, 29]
