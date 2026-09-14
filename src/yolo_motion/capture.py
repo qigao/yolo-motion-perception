@@ -102,8 +102,8 @@ def capture_scenario(
         capture.release()
         raise CaptureError(f"cannot open camera: {config.camera}")
 
-    width = int(round(float(capture.get(cv2_module.CAP_PROP_FRAME_WIDTH))))
-    height = int(round(float(capture.get(cv2_module.CAP_PROP_FRAME_HEIGHT))))
+    width = round(float(capture.get(cv2_module.CAP_PROP_FRAME_WIDTH)))
+    height = round(float(capture.get(cv2_module.CAP_PROP_FRAME_HEIGHT)))
     reported_fps = float(capture.get(cv2_module.CAP_PROP_FPS))
     fps = reported_fps if reported_fps > 0 else config.fallback_fps
     if width <= 0 or height <= 0:
