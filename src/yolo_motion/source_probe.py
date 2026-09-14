@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import argparse
 import hashlib
-from dataclasses import dataclass
+import json
+import subprocess
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, BinaryIO, Callable
-from urllib.request import urlopen
+from urllib.parse import urlparse
+from urllib.request import Request, urlopen
 
 import yaml
 
@@ -99,11 +103,16 @@ def sha256_file(path: str | Path) -> str:
     return digest.hexdigest()
 
 
+def _open_url(url: str) -> BinaryIO:
+    request = Request(url, headers={"User-Agent": "yolo-motion-perception/0.1"})
+    return urlopen(request)
+
+
 def download_source(
     url: str,
     target: str | Path,
     *,
-    opener: Callable[[str], BinaryIO] = urlopen,
+    opener: Callable[[str], BinaryIO] = _open_url,
 ) -> DownloadResult:
     target_path = Path(target)
     target_path.parent.mkdir(parents=True, exist_ok=True)
@@ -144,7 +153,7 @@ def build_contact_sheet_command(
     if columns <= 0 or rows <= 0:
         raise ValueError("contact sheet grid dimensions must be positive")
     filter_chain = (
-        f"fps=1/2,scale=384:-1:force_original_aspect_ratio=decrease,"
+        "fps=1/2,scale=384:-1:force_original_aspect_ratio=decrease,"
         f"tile={columns}x{rows}"
     )
     return [
@@ -158,3 +167,96 @@ def build_contact_sheet_command(
         "1",
         str(output),
     ]
+
+
+def _filename_from_url(url: str) -> str:
+    name = Path(urlparse(url).path).name
+    if not name:
+        raise SourceManifestError(f"source URL has no filename: {url}")
+    return name
+
+
+def probe_sources(manifest_path: Path, output_dir: Path) -> dict[str, Any]:
+    manifest = load_source_manifest(manifest_path)
+    sources_dir = output_dir / "sources"
+    ground_truth_dir = output_dir / "ground-truth"
+    probes_dir = output_dir / "ffprobe"
+    sheets_dir = output_dir / "contact-sheets"
+    for directory in (sources_dir, ground_truth_dir, probes_dir, sheets_dir):
+        directory.mkdir(parents=True, exist_ok=True)
+
+    records: list[dict[str, Any]] = []
+    sha_lines: list[str] = []
+    for source in manifest.sources:
+        filename = _filename_from_url(source.url)
+        video_path = sources_dir / filename
+        download = download_source(source.url, video_path)
+        sha_lines.append(f"{download.sha256}  sources/{filename}")
+
+        probe_path = probes_dir / f"{source.name}.json"
+        probe = subprocess.run(
+            build_ffprobe_command(video_path, probe_path),
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        probe_path.write_text(probe.stdout, encoding="utf-8")
+
+        sheet_path = sheets_dir / f"{source.name}.jpg"
+        subprocess.run(
+            build_contact_sheet_command(video_path, sheet_path),
+            check=True,
+        )
+
+        record: dict[str, Any] = {
+            "name": source.name,
+            "purpose": source.purpose,
+            "url": source.url,
+            "file": f"sources/{filename}",
+            **asdict(download),
+        }
+        if source.ground_truth_url:
+            gt_filename = _filename_from_url(source.ground_truth_url)
+            gt_path = ground_truth_dir / gt_filename
+            gt_download = download_source(source.ground_truth_url, gt_path)
+            sha_lines.append(
+                f"{gt_download.sha256}  ground-truth/{gt_filename}"
+            )
+            record["ground_truth_url"] = source.ground_truth_url
+            record["ground_truth_file"] = f"ground-truth/{gt_filename}"
+            record["ground_truth_sha256"] = gt_download.sha256
+        records.append(record)
+
+    metadata = {
+        "dataset": manifest.dataset,
+        "homepage": manifest.homepage,
+        "license": manifest.license,
+        "attribution": manifest.attribution,
+        "sources": records,
+    }
+    (output_dir / "metadata.json").write_text(
+        json.dumps(metadata, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    (output_dir / "sha256.txt").write_text(
+        "\n".join(sha_lines) + "\n",
+        encoding="utf-8",
+    )
+    return metadata
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="fetch-benchmark-sources",
+        description="Download and visually probe licensed public benchmark videos.",
+    )
+    parser.add_argument("--manifest", required=True, type=Path)
+    parser.add_argument("--output-dir", required=True, type=Path)
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
+    metadata = probe_sources(args.manifest, args.output_dir)
+    print(json.dumps(metadata, indent=2, sort_keys=True))
+    return 0
