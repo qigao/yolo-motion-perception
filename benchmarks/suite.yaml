@@ -1,0 +1,68 @@
+# Fixed-camera V1 real-video benchmark slots.
+# Add videos/annotations, then set enabled: true for each scenario you want to run.
+scenarios:
+  - name: stationary
+    video: videos/stationary.mp4
+    annotations: annotations/stationary.yaml
+    enabled: false
+    tags: [person, fixed-camera, negative-control]
+    expected:
+      lateral: stationary
+      radial: stable
+
+  - name: lateral_crossing
+    video: videos/lateral_crossing.mp4
+    annotations: annotations/lateral_crossing.yaml
+    enabled: false
+    tags: [person, fixed-camera, crossing]
+    expected:
+      lateral: moving
+      radial: stable
+
+  - name: approaching
+    video: videos/approaching.mp4
+    annotations: annotations/approaching.yaml
+    enabled: false
+    tags: [person, fixed-camera, frontal]
+    expected:
+      lateral: stationary
+      radial: approaching
+
+  - name: receding
+    video: videos/receding.mp4
+    annotations: annotations/receding.yaml
+    enabled: false
+    tags: [person, fixed-camera, frontal]
+    expected:
+      lateral: stationary
+      radial: receding
+
+  - name: diagonal_approaching
+    video: videos/diagonal_approaching.mp4
+    annotations: annotations/diagonal_approaching.yaml
+    enabled: false
+    tags: [person, fixed-camera, diagonal]
+    expected:
+      lateral: moving
+      radial: approaching
+
+  - name: approach_then_stop
+    video: videos/approach_then_stop.mp4
+    annotations: annotations/approach_then_stop.yaml
+    enabled: false
+    tags: [person, fixed-camera, transition]
+
+  - name: pose_change
+    video: videos/pose_change.mp4
+    annotations: annotations/pose_change.yaml
+    enabled: false
+    tags: [person, fixed-camera, bbox-false-positive]
+    expected:
+      lateral: stationary
+      radial: stable
+
+  - name: partial_occlusion
+    video: videos/partial_occlusion.mp4
+    annotations: annotations/partial_occlusion.yaml
+    enabled: false
+    tags: [person, fixed-camera, occlusion]
