@@ -136,7 +136,14 @@ def test_decision_hidden_uses_only_the_required_policy_sequence(
         reset_before_decision=reset_before_decision,
     )
 
-    expected_names = ["reset_state", "advance", "advance", "advance", "advance"]
+    expected_names = [
+        "reset_state",
+        "advance",
+        "advance",
+        "advance",
+        "advance",
+        "advance",
+    ]
     if reset_before_decision:
         expected_names.insert(-1, "reset_state")
     assert [name for name, _ in policy.calls] == expected_names
