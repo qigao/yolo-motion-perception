@@ -24,6 +24,7 @@ from yolo_motion.rtmw_adapter import RtmwPoseAdapter
 from yolo_motion.ultralytics_adapter import observations_from_result
 
 OUTPUT_DIR = Path("runs/real-video-gait")
+_POSE_DIAGNOSTIC_INDICES = (5, 6, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22)
 
 
 def _articulated_to_dict(articulated) -> dict[str, object]:
@@ -36,12 +37,22 @@ def _articulated_to_dict(articulated) -> dict[str, object]:
         "normalized_torso_dx": articulated.normalized_torso_dx,
         "normalized_torso_dy": articulated.normalized_torso_dy,
         "region_flow": {
-            name: asdict(region)
-            for name, region in articulated.region_flow.items()
+            name: asdict(region) for name, region in articulated.region_flow.items()
         },
         "pose_flow_agreement": articulated.pose_flow_agreement,
         "person_height_px": articulated.person_height_px,
         "quality": articulated.quality,
+    }
+
+
+def _pose_to_dict(pose) -> dict[str, object]:
+    return {
+        str(index): {
+            "x": float(pose.xy[index, 0]),
+            "y": float(pose.xy[index, 1]),
+            "confidence": float(pose.confidence[index]),
+        }
+        for index in _POSE_DIAGNOSTIC_INDICES
     }
 
 
@@ -176,6 +187,7 @@ def _diagnose_scenario(
                                         "height": observation.height,
                                         "confidence": observation.confidence,
                                     },
+                                    "pose": _pose_to_dict(current_pose),
                                     "evidence": _articulated_to_dict(articulated),
                                 },
                                 sort_keys=True,
