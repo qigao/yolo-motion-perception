@@ -1,8 +1,8 @@
+from test_gait import make_history
+
 from yolo_motion.flow_types import ArticulatedFlowEvidence, RegionFlowEvidence
 from yolo_motion.gait import GaitConfig, GaitEvidence, estimate_gait
 from yolo_motion.gait_state import LocomotionState, classify_gait
-
-from test_gait import make_history
 
 
 def config() -> GaitConfig:
