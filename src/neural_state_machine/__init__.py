@@ -9,6 +9,7 @@ from .action_value_benchmark import (
     run_action_value_experiment,
 )
 from .controller import RecurrentController
+from .delayed_credit import DelayedRewardQueue, PendingReward, RewardDelivery
 from .encoding import encode_observation
 from .environment import ToyGame
 from .experiment import EpisodeTrace, context_separation, replay_equal, run_episode
@@ -72,6 +73,7 @@ __all__ = [
     "Cue",
     "DelayedCueEpisode",
     "DelayedCueTask",
+    "DelayedRewardQueue",
     "EpisodeTrace",
     "FittedLinearProbe",
     "GameConfig",
@@ -85,10 +87,12 @@ __all__ = [
     "NeuralDecision",
     "NormalizedActionValue",
     "EligibilityTraceActionValue",
+    "PendingReward",
     "PolicyDecision",
     "ProbeAccuracy",
     "RecurrentController",
     "RecurrentPolicy",
+    "RewardDelivery",
     "RewardLearningConfig",
     "RewardLearningResult",
     "RewardModulatedReadout",
