@@ -68,8 +68,8 @@ def test_pose_flow_agreement_uses_local_support_not_one_contaminated_pixel():
     # correct, but the exact sampled center pixel is an outlier. A robust local
     # neighborhood estimate should reject these isolated center-pixel outliers.
     for index in LOCOMOTION_KEYPOINTS:
-        x = int(round(previous.xy[index, 0] * FRAME_SIZE))
-        y = int(round(previous.xy[index, 1] * FRAME_SIZE))
+        x = round(previous.xy[index, 0] * FRAME_SIZE)
+        y = round(previous.xy[index, 1] * FRAME_SIZE)
         dx[y, x] = 20.0
 
     flow = FlowObservation(
