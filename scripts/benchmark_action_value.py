@@ -37,6 +37,10 @@ def _source_commit() -> str:
     return source_commit
 
 
+def _has_symlink_component(path: Path) -> bool:
+    return any(component.is_symlink() for component in (path, *path.parents))
+
+
 def _write_evidence(
     target: Path,
     payload: dict[str, object],
@@ -52,28 +56,31 @@ def _write_evidence(
         raise ValueError("refusing to overwrite frozen Phase 2 evidence")
     if destination != approved:
         raise ValueError("evidence output must be the approved Phase 3A evidence path")
-    if approved.is_symlink() or destination.is_symlink():
+    if _has_symlink_component(destination) or _has_symlink_component(approved):
         raise ValueError("refusing to write evidence through a symlink")
+    if destination.resolve(strict=False) != approved.resolve(strict=False):
+        raise ValueError("evidence output must resolve to the approved Phase 3A evidence path")
 
     rendered = json.dumps(payload, sort_keys=True, indent=2, allow_nan=False) + "\n"
     if approved.exists() and approved.read_text(encoding="utf-8") == rendered:
         return
     temporary_name: str | None = None
     try:
-        with tempfile.NamedTemporaryFile(
+        temporary_file = tempfile.NamedTemporaryFile(
             mode="w",
             encoding="utf-8",
             dir=approved.parent,
             prefix=f".{approved.name}.",
             suffix=".tmp",
             delete=False,
-        ) as temporary:
+        )
+        temporary_name = temporary_file.name
+        with temporary_file as temporary:
             temporary.write(rendered)
             temporary.flush()
             os.fsync(temporary.fileno())
-            temporary_name = temporary.name
         os.replace(temporary_name, approved)
-    except OSError:
+    except BaseException:
         if temporary_name is not None:
             Path(temporary_name).unlink(missing_ok=True)
         raise

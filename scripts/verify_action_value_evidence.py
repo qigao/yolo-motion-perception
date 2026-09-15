@@ -96,7 +96,7 @@ def _fail(message: str) -> NoReturn:
 
 
 def _dictionary(value: object, name: str, keys: set[str]) -> dict[str, object]:
-    if not isinstance(value, dict) or set(value) != keys:
+    if type(value) is not dict or set(value) != keys:
         _fail(f"{name} has unexpected fields")
     if not all(type(key) is str for key in value):
         _fail(f"{name} has a non-string field")
@@ -124,11 +124,64 @@ def _finite(value: object, name: str) -> float:
     return result
 
 
+def _fixed_float(value: object, name: str, expected: float) -> float:
+    if type(value) is not float or not math.isfinite(value) or value != expected:
+        _fail(f"{name} must be the fixed finite float {expected}")
+    return value
+
+
 def _digest(value: object, name: str, *, length: int = 64) -> str:
     pattern = _HEX_64 if length == 64 else _HEX_40
     if type(value) is not str or pattern.fullmatch(value) is None:
         _fail(f"{name} must be {length} lowercase hexadecimal characters")
     return value
+
+
+def _zero_parameter_digest(hidden_size: int) -> str:
+    shape = (2, hidden_size + 1)
+    digest = hashlib.sha256()
+    digest.update(str(shape).encode("ascii"))
+    digest.update(bytes(shape[0] * shape[1] * 8))
+    return digest.hexdigest()
+
+
+def _validate_fixed_config(value: object) -> dict[str, object]:
+    config = _dictionary(value, "config", set(_CONFIG))
+    for key in (
+        "checkpoint_interval",
+        "evaluation_blocks",
+        "hidden_size",
+        "training_episodes",
+    ):
+        actual = _integer(config[key], f"config.{key}", minimum=1)
+        if actual != _CONFIG[key]:
+            _fail(f"config.{key} differs from the frozen protocol")
+    for key in ("recurrent_radius", "step_size"):
+        _fixed_float(config[key], f"config.{key}", _CONFIG[key])
+    return config
+
+
+def _validate_fixed_seeds(value: object) -> list[int]:
+    if type(value) is not list or len(value) != 3:
+        _fail("seeds must be a three-item list")
+    seeds = [_integer(seed, "seed") for seed in value]
+    if seeds != [7, 17, 29]:
+        _fail("seeds must be ordered as 7, 17, 29")
+    return seeds
+
+
+def _validate_rng_lineages(value: object) -> dict[str, object]:
+    lineages = _dictionary(value, "rng_lineages", set(_RNG_LINEAGES))
+    for name, expected in _RNG_LINEAGES.items():
+        lineage = lineages[name]
+        if type(lineage) is not list or len(lineage) != 2:
+            _fail(f"rng_lineages.{name} must be a two-item list")
+        if type(lineage[0]) is not str or lineage[0] != "seed":
+            _fail(f"rng_lineages.{name} must start with the string seed")
+        numeric = _integer(lineage[1], f"rng_lineages.{name}[1]")
+        if numeric != expected[1]:
+            _fail(f"rng_lineages.{name} differs from the frozen protocol")
+    return lineages
 
 
 def _count(value: object, name: str, *, total: int) -> dict[str, object]:
@@ -309,12 +362,9 @@ def _portable_phase_3a_payload(payload: dict[str, object]) -> dict[str, object]:
         _fail("phase must be 3A")
     if type(top["evidence_schema_version"]) is not int or top["evidence_schema_version"] != 1:
         _fail("schema version must be integer one")
-    if top["config"] != _CONFIG:
-        _fail("configuration differs from the frozen protocol")
-    if top["rng_lineages"] != _RNG_LINEAGES:
-        _fail("RNG lineages differ from the frozen protocol")
-    if top["seeds"] != [7, 17, 29]:
-        _fail("seeds must be ordered as 7, 17, 29")
+    _validate_fixed_config(top["config"])
+    _validate_rng_lineages(top["rng_lineages"])
+    _validate_fixed_seeds(top["seeds"])
     _boolean(top["all_passed"], "all_passed")
 
     frozen = _dictionary(
@@ -388,6 +438,8 @@ def _validate_local_controls(result: dict[str, object]) -> None:
         raise RuntimeError("Phase 3A normal reservoir matrices changed")
     if matrices["shuffled_before"] != matrices["shuffled_after"]:
         raise RuntimeError("Phase 3A shuffled reservoir matrices changed")
+    if result["initial_parameter_digest"] != _zero_parameter_digest(64):
+        raise RuntimeError("Phase 3A learner did not start from exact-zero parameters")
     if result["normal_parameter_digest"] == result["initial_parameter_digest"]:
         raise RuntimeError("Phase 3A normal learner did not update")
     if result["shuffled_parameter_digest"] == result["initial_parameter_digest"]:

@@ -1382,6 +1382,86 @@ def test_action_value_evidence_writer_is_targeted_atomic_and_symlink_safe(
     assert list(tmp_path.glob(f".{approved.name}.*.tmp")) == []
 
 
+class _FailingTemporaryFile:
+    def __init__(self, wrapped: object, failure: str) -> None:
+        self._wrapped = wrapped
+        self._failure = failure
+        self.name = wrapped.name
+
+    def __enter__(self) -> "_FailingTemporaryFile":
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        self._wrapped.close()
+        if self._failure == "close":
+            raise OSError("close failed")
+
+    def write(self, value: str) -> object:
+        if self._failure == "write":
+            raise OSError("write failed")
+        return self._wrapped.write(value)
+
+    def flush(self) -> None:
+        if self._failure == "flush":
+            raise OSError("flush failed")
+        self._wrapped.flush()
+
+    def fileno(self) -> int:
+        return self._wrapped.fileno()
+
+
+@pytest.mark.parametrize("failure", ["write", "flush", "fsync", "close", "replace"])
+def test_evidence_writer_cleans_temporary_file_after_every_io_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    failure: str,
+) -> None:
+    writer = _script_module("benchmark_action_value")
+    approved = tmp_path / "phase-3a-action-value.json"
+    original_temporary_file = writer.tempfile.NamedTemporaryFile
+
+    def temporary_file(*args: object, **kwargs: object) -> _FailingTemporaryFile:
+        return _FailingTemporaryFile(original_temporary_file(*args, **kwargs), failure)
+
+    monkeypatch.setattr(writer.tempfile, "NamedTemporaryFile", temporary_file)
+    if failure == "fsync":
+        monkeypatch.setattr(writer.os, "fsync", lambda fd: (_ for _ in ()).throw(OSError("fsync failed")))
+    if failure == "replace":
+        monkeypatch.setattr(
+            writer.os,
+            "replace",
+            lambda *args: (_ for _ in ()).throw(OSError("replace failed")),
+        )
+
+    with pytest.raises(OSError, match="failed"):
+        writer._write_evidence(
+            approved,
+            {"all_passed": False},
+            approved_evidence=approved,
+        )
+
+    assert approved.exists() is False
+    assert list(tmp_path.glob(f".{approved.name}.*.tmp")) == []
+
+
+def test_evidence_writer_rejects_parent_directory_symlink_escape(tmp_path: Path) -> None:
+    writer = _script_module("benchmark_action_value")
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    linked_parent = tmp_path / "approved-link"
+    linked_parent.symlink_to(outside, target_is_directory=True)
+    approved = linked_parent / "phase-3a-action-value.json"
+
+    with pytest.raises(ValueError, match="symlink"):
+        writer._write_evidence(
+            approved,
+            {"all_passed": False},
+            approved_evidence=approved,
+        )
+
+    assert (outside / approved.name).exists() is False
+
+
 def _evidence_payload(payload: dict[str, object]) -> dict[str, object]:
     artifact = deepcopy(payload)
     artifact["source_commit"] = "d" * 40
@@ -1402,8 +1482,19 @@ def _mutate_evidence(payload: dict[str, object], mutation: str) -> None:
     elif mutation == "config":
         assert isinstance(payload["config"], dict)
         payload["config"]["step_size"] = 0.2
+    elif mutation == "config_int_float":
+        assert isinstance(payload["config"], dict)
+        payload["config"]["hidden_size"] = 64.0
+    elif mutation == "config_float_bool":
+        assert isinstance(payload["config"], dict)
+        payload["config"]["step_size"] = True
     elif mutation == "seed_order":
         payload["seeds"] = [17, 7, 29]
+    elif mutation == "seed_float":
+        payload["seeds"] = [7.0, 17, 29]
+    elif mutation == "lineage_float":
+        assert isinstance(payload["rng_lineages"], dict)
+        payload["rng_lineages"]["behavior_action"][1] = float(0x33414354)
     elif mutation == "duplicate_results":
         results[1] = deepcopy(results[0])
     elif mutation == "count":
@@ -1419,6 +1510,12 @@ def _mutate_evidence(payload: dict[str, object], mutation: str) -> None:
     elif mutation == "local_matrix":
         assert isinstance(result["matrix_controls"], dict)
         result["matrix_controls"]["normal_after"] = ["f" * 64] * 3
+    elif mutation == "forged_zero_digests":
+        for raw in results:
+            assert isinstance(raw, dict)
+            raw["initial_parameter_digest"] = "a" * 64
+            raw["normal_parameter_digest"] = "b" * 64
+            raw["shuffled_parameter_digest"] = "c" * 64
     elif mutation == "checkpoint_sequence":
         assert isinstance(result["normal_checkpoints"], list)
         result["normal_checkpoints"][0]["episode"] = 101
@@ -1454,13 +1551,18 @@ def _mutate_evidence(payload: dict[str, object], mutation: str) -> None:
         "phase",
         "schema",
         "config",
+        "config_int_float",
+        "config_float_bool",
         "seed_order",
+        "seed_float",
+        "lineage_float",
         "duplicate_results",
         "count",
         "accuracy",
         "digest",
         "local_digest",
         "local_matrix",
+        "forged_zero_digests",
         "checkpoint_sequence",
         "checkpoint_nan",
         "frozen_hash",
@@ -1514,6 +1616,16 @@ def test_portable_projection_excludes_only_environment_local_digests(
     assert omitted.isdisjoint(projected["results"][0])
     assert set(projected["results"][0]) == set(artifact["results"][0]) - omitted
     assert "source_commit" not in projected
+
+
+def test_zero_parameter_digest_matches_real_exact_zero_table() -> None:
+    verifier = _script_module("verify_action_value_evidence")
+
+    assert verifier._zero_parameter_digest(64) == NormalizedActionValue(
+        hidden_size=64,
+        action_count=2,
+        step_size=0.1,
+    ).parameter_digest()
 
 
 def test_local_float_integrity_is_strict(
