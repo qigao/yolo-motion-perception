@@ -28,3 +28,9 @@ jobs:
         run: python scripts/benchmark_synthetic.py
       - name: Gait synthetic benchmark
         run: python scripts/benchmark_gait_synthetic.py
+      - name: Scope scan
+        run: |
+          if grep -RniE 'flywire|(^|[^[:alnum:]_])snn([^[:alnum:]_]|$)|rclpy|sensor_msgs|geometry_msgs' src tests scripts configs pyproject.toml; then
+            echo 'ERROR: forbidden cross-scope dependency marker found'
+            exit 1
+          fi
