@@ -7,15 +7,15 @@ from pathlib import Path
 import cv2
 from rtmlib import RTMPose
 from ultralytics import YOLO
-
 from validate_real_video_gait import (
     KTH_BASE,
     RTMW_MODEL,
-    RtmLibCropInferencer,
     SCENARIOS,
+    RtmLibCropInferencer,
     _download,
     _largest_person,
 )
+
 from yolo_motion.articulated_flow import ArticulatedFlowConfig, estimate_articulated_flow
 from yolo_motion.camera_motion import CameraMotionConfig, compensate_flow, estimate_camera_motion
 from yolo_motion.flow_backend import OpenCvFarnebackBackend
