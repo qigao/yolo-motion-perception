@@ -10,6 +10,7 @@ from .flow_types import ArticulatedFlowEvidence
 
 _LEFT_REGIONS = ("left_thigh", "left_calf", "left_foot")
 _RIGHT_REGIONS = ("right_thigh", "right_calf", "right_foot")
+_FUNDAMENTAL_PEAK_RATIO = 0.80
 
 
 @dataclass(frozen=True)
@@ -189,6 +190,24 @@ def _sample_interval(observations: list[ArticulatedFlowEvidence]) -> float:
     return float(np.median(intervals))
 
 
+def _fundamental_peak(lag_scores: list[tuple[int, float]]) -> tuple[int, float]:
+    strongest_lag, strongest_score = max(lag_scores, key=lambda item: item[1])
+    if strongest_score <= 0.0:
+        return strongest_lag, strongest_score
+
+    minimum_strong_score = _FUNDAMENTAL_PEAK_RATIO * strongest_score
+    strong_local_peaks: list[tuple[int, float]] = []
+    for index, (lag, score) in enumerate(lag_scores):
+        previous = lag_scores[index - 1][1] if index > 0 else -math.inf
+        following = lag_scores[index + 1][1] if index + 1 < len(lag_scores) else -math.inf
+        if score >= previous and score >= following and score >= minimum_strong_score:
+            strong_local_peaks.append((lag, score))
+
+    if not strong_local_peaks:
+        return strongest_lag, strongest_score
+    return min(strong_local_peaks, key=lambda item: item[0])
+
+
 def _cadence_and_periodicity(
     left: np.ndarray,
     right: np.ndarray,
@@ -225,7 +244,7 @@ def _cadence_and_periodicity(
         score = float(np.mean(correlations)) if correlations else 0.0
         lag_scores.append((lag, score))
 
-    lag, score = max(lag_scores, key=lambda item: item[1])
+    lag, score = _fundamental_peak(lag_scores)
     periodicity = float(np.clip(score, 0.0, 1.0))
     if periodicity <= 0.0:
         return 0.0, 0.0
