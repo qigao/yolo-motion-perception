@@ -7,21 +7,20 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from .action_value import NormalizedActionValue
 from .action_value_benchmark import (
     ActionValueBenchmarkConfig,
     _build_fixture_bundle,
     _evaluate,
-    _new_learner,
     _new_policy,
 )
 from .delayed_credit import DelayedRewardQueue
 from .memory_benchmark import AccuracyCount
 from .memory_task import DelayedCueTask
+from .phase3b_learners import DelayedTD0Adapter, EpisodeResetEligibilityTrace
 from .reward_learning import _decision_hidden
 
 
-_ALLOWED_ARMS = ("td0",)
+_ALLOWED_ARMS = ("td0", "td_lambda")
 _DEFAULT_REWARD_DELAYS = (0, 1, 3, 5)
 _DEFAULT_SEEDS = (7, 17, 29)
 
@@ -35,9 +34,11 @@ class DelayedCreditConfig:
     evaluation_blocks: int = 20
     checkpoint_interval: int = 100
     reward_delays: tuple[int, ...] = _DEFAULT_REWARD_DELAYS
+    discount: float = 0.9
+    trace_decay: float = 0.8
 
     def __post_init__(self) -> None:
-        base = ActionValueBenchmarkConfig(
+        ActionValueBenchmarkConfig(
             hidden_size=self.hidden_size,
             recurrent_radius=self.recurrent_radius,
             step_size=self.step_size,
@@ -53,7 +54,9 @@ class DelayedCreditConfig:
             raise ValueError("reward_delays must not contain duplicates")
         if self.reward_delays[0] != 0:
             raise ValueError("reward_delays must start with the immediate control 0")
-        object.__setattr__(self, "_base", base)
+        for name, value in (("discount", self.discount), ("trace_decay", self.trace_decay)):
+            if isinstance(value, bool) or not 0.0 <= float(value) <= 1.0:
+                raise ValueError(f"{name} must be finite and in [0.0, 1.0]")
 
     @property
     def action_value_config(self) -> ActionValueBenchmarkConfig:
@@ -102,9 +105,9 @@ def run_delayed_credit(
     if type(reward_delay) is not int or reward_delay not in resolved.reward_delays:
         raise ValueError("reward_delay must be one of config.reward_delays")
     if arm not in _ALLOWED_ARMS:
-        raise ValueError("arm must be one of ('td0',)")
-    first = _run_once(seed, reward_delay, resolved)
-    second = _run_once(seed, reward_delay, resolved)
+        raise ValueError("arm must be one of ('td0', 'td_lambda')")
+    first = _run_once(seed, reward_delay, arm, resolved)
+    second = _run_once(seed, reward_delay, arm, resolved)
     return DelayedCreditResult(
         seed=seed,
         arm=arm,
@@ -140,7 +143,7 @@ def run_delayed_credit_benchmark(
     if len(set(seeds)) != len(seeds):
         raise ValueError("seeds must not contain duplicates")
     if arm not in _ALLOWED_ARMS:
-        raise ValueError("arm must be one of ('td0',)")
+        raise ValueError("arm must be one of ('td0', 'td_lambda')")
     return tuple(
         run_delayed_credit(seed, delay, arm, resolved)
         for seed in seeds
@@ -182,13 +185,27 @@ def delayed_credit_payload(results: tuple[DelayedCreditResult, ...]) -> dict[str
 def _run_once(
     seed: int,
     reward_delay: int,
+    arm: str,
     config: DelayedCreditConfig,
 ) -> tuple[object, object, object, object, str, str, str, str, bool, int]:
     task = DelayedCueTask()
     action_config = config.action_value_config
     fixtures = _build_fixture_bundle(seed, action_config)
     policy = _new_policy(seed, action_config)
-    learner = _new_learner(action_config)
+    if arm == "td0":
+        learner = DelayedTD0Adapter(
+            action_config.hidden_size,
+            2,
+            step_size=action_config.step_size,
+        )
+    else:
+        learner = EpisodeResetEligibilityTrace(
+            action_config.hidden_size,
+            2,
+            step_size=action_config.step_size,
+            discount=config.discount,
+            trace_decay=config.trace_decay,
+        )
     action_rng = np.random.default_rng(np.random.SeedSequence([seed, 0x33414354]))
     queue = DelayedRewardQueue(max_delay=max(config.reward_delays))
     pre_training = _evaluate(policy, learner, fixtures.evaluation, reset_before_decision=False)
@@ -201,13 +218,14 @@ def _run_once(
         action = int(decision.action_index)
         reward = float(task.reward(episode, action))
         queue.enqueue(action, reward, reward_delay)
-        if reward_delay:
-            for _ in range(reward_delay):
-                queue.advance()
+        for _ in range(reward_delay):
+            queue.advance()
         ready = queue.deliver_ready()
         if len(ready) != 1:
             raise RuntimeError("delayed reward queue did not deliver exactly one reward")
         learner.learn(ready[0].reward)
+        if hasattr(learner, "reset_episode"):
+            learner.reset_episode()
         deliveries += len(ready)
         actions.append(action)
         rewards.append(reward)
@@ -251,6 +269,4 @@ def _count_payload(count: AccuracyCount) -> dict[str, object]:
 
 
 def _per_delay_payload(rows: tuple[tuple[int, AccuracyCount], ...]) -> list[dict[str, object]]:
-    return [
-        {"delay": delay, **_count_payload(count)} for delay, count in rows
-    ]
+    return [{"delay": delay, **_count_payload(count)} for delay, count in rows]

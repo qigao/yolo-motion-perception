@@ -57,7 +57,7 @@ def test_delayed_benchmark_rejects_invalid_seed_order_and_arm() -> None:
     with pytest.raises(ValueError, match="duplicates"):
         run_delayed_credit_benchmark((7, 7))
     with pytest.raises(ValueError, match="arm"):
-        run_delayed_credit(7, 0, "td_lambda")
+        run_delayed_credit(7, 0, "unknown", DelayedCreditConfig())
 
 
 def test_delayed_config_rejects_invalid_delay_axes() -> None:
