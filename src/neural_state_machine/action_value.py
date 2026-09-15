@@ -14,6 +14,14 @@ class ActionValueDecision:
 
 
 @dataclass(frozen=True)
+class ActionValueUpdate:
+    action_index: int
+    prediction_before: float
+    reward: float
+    td_error: float
+
+
+@dataclass(frozen=True)
 class _PendingCredit:
     action_index: int
     feature: np.ndarray
@@ -112,6 +120,23 @@ class NormalizedActionValue:
         )
         return ActionValueDecision(action_index, readonly_float64_copy(masked))
 
+    def learn(self, reward: object) -> ActionValueUpdate:
+        if self._pending is None:
+            raise RuntimeError("learning requires pending feedback")
+        reward_value = validated_finite_scalar(reward, "reward")
+        pending = self._pending
+        td_error = reward_value - pending.prediction
+        self._weights[pending.action_index] += (
+            self.step_size * td_error * pending.feature / pending.denominator
+        )
+        self._pending = None
+        return ActionValueUpdate(
+            action_index=pending.action_index,
+            prediction_before=pending.prediction,
+            reward=reward_value,
+            td_error=td_error,
+        )
+
 
 def validated_positive_integer(value: object, name: str) -> int:
     if type(value) is not int or value <= 0:
@@ -135,6 +160,18 @@ def validated_step_size(value: object) -> float:
     if not math.isfinite(step_size) or not 0.0 < step_size <= 1.0:
         raise ValueError("step_size must be finite and in (0.0, 1.0]")
     return step_size
+
+
+def validated_finite_scalar(value: object, name: str) -> float:
+    if isinstance(value, bool):
+        raise ValueError(f"{name} must be a finite scalar")
+    try:
+        scalar = float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{name} must be a finite scalar") from exc
+    if not math.isfinite(scalar):
+        raise ValueError(f"{name} must be a finite scalar")
+    return scalar
 
 
 def readonly_float64_copy(values: np.ndarray) -> np.ndarray:

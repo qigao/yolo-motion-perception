@@ -1,6 +1,10 @@
+from dataclasses import FrozenInstanceError
+
 import numpy as np
 import pytest
 
+import neural_state_machine
+import neural_state_machine.action_value as action_value
 from neural_state_machine.action_value import ActionValueDecision, NormalizedActionValue
 
 
@@ -132,10 +136,6 @@ def test_greedy_decision_is_readonly_and_does_not_mutate_learner() -> None:
     assert np.array_equal(learner.parameter_snapshot(), before)
 
 
-def _clear_pending_for_test(learner: NormalizedActionValue) -> None:
-    learner._pending = None
-
-
 def test_training_selection_is_uniform_over_legal_actions_and_seeded() -> None:
     left = NormalizedActionValue(2, 4)
     right = NormalizedActionValue(2, 4)
@@ -157,8 +157,8 @@ def test_training_selection_is_uniform_over_legal_actions_and_seeded() -> None:
     for _ in range(1000):
         left_actions.append(left.select_for_training(hidden, legal, left_rng).action_index)
         right_actions.append(right.select_for_training(hidden, legal, right_rng).action_index)
-        _clear_pending_for_test(left)
-        _clear_pending_for_test(right)
+        left.learn(0.0)
+        right.learn(0.0)
 
     assert left_actions == right_actions
     counts = np.bincount(left_actions, minlength=4)
@@ -240,3 +240,194 @@ def test_greedy_selection_neither_creates_nor_replaces_pending_feedback() -> Non
     learner.select_greedy(np.ones(2), (0, 1))
 
     assert learner._pending is pending
+
+
+def test_learning_requires_one_pending_selection_and_consumes_it_once() -> None:
+    learner = NormalizedActionValue(2, 3)
+
+    with pytest.raises(RuntimeError, match="pending"):
+        learner.learn(1.0)
+
+    learner.select_for_training(np.zeros(2), (1,), np.random.default_rng(53))
+    update = learner.learn(1.0)
+
+    assert update.action_index == 1
+    assert learner.has_pending_feedback is False
+    with pytest.raises(RuntimeError, match="pending"):
+        learner.learn(1.0)
+
+
+@pytest.mark.parametrize(
+    "invalid_reward",
+    [None, object(), True, float("nan"), float("inf"), float("-inf")],
+)
+def test_invalid_reward_preserves_parameters_and_pending_credit(
+    invalid_reward: object,
+) -> None:
+    learner = NormalizedActionValue(2, 3)
+    learner.select_for_training(
+        np.array([0.25, -0.5]), (1,), np.random.default_rng(59)
+    )
+    before = learner.parameter_snapshot()
+    before_digest = learner.parameter_digest()
+    pending = learner._pending
+
+    with pytest.raises(ValueError, match="reward"):
+        learner.learn(invalid_reward)
+
+    assert learner.parameter_snapshot().tobytes() == before.tobytes()
+    assert learner.parameter_digest() == before_digest
+    assert learner._pending is pending
+    assert learner.has_pending_feedback is True
+    update = learner.learn(1.0)
+    assert update.reward == 1.0
+    assert learner.has_pending_feedback is False
+
+
+def test_normalized_update_matches_independently_reconstructed_matrix() -> None:
+    learner = NormalizedActionValue(2, 3, step_size=0.1)
+    learner._weights[:] = np.array(
+        [
+            [0.5, -0.25, 0.75],
+            [-0.4, 0.3, 0.2],
+            [1.25, 0.5, -0.75],
+        ],
+        dtype=np.float64,
+    )
+    hidden = np.array([0.25, -0.5], dtype=np.float64)
+    feature = np.array([0.25, -0.5, 1.0], dtype=np.float64)
+    before = learner.parameter_snapshot()
+    decision = learner.select_for_training(hidden, (1,), np.random.default_rng(61))
+    reward = 1.75
+
+    denominator = float(np.dot(feature, feature))
+    expected = before.copy()
+    td_error = reward - decision.action_values[decision.action_index]
+    expected[decision.action_index] += 0.1 * td_error * feature / denominator
+
+    update = learner.learn(reward)
+
+    np.testing.assert_allclose(
+        learner.parameter_snapshot(), expected, rtol=0.0, atol=1e-15
+    )
+    assert update.action_index == decision.action_index
+    assert update.prediction_before == decision.action_values[decision.action_index]
+    assert update.reward == reward
+    assert update.td_error == pytest.approx(td_error, rel=0.0, abs=1e-15)
+    with pytest.raises(FrozenInstanceError):
+        update.reward = 0.0
+
+
+@pytest.mark.parametrize(
+    ("hidden", "reward", "action"),
+    [
+        (np.array([0.0, 0.0]), 1.0, 0),
+        (np.array([0.5, -1.25]), -1.0, 1),
+        (np.array([-2.0, 0.75]), 3.5, 2),
+    ],
+)
+def test_normalized_update_obeys_prediction_and_error_equations(
+    hidden: np.ndarray, reward: float, action: int
+) -> None:
+    alpha = 0.1
+    learner = NormalizedActionValue(2, 3, step_size=alpha)
+    learner._weights[:] = np.array(
+        [
+            [0.25, -0.5, 0.75],
+            [-0.2, 0.4, -0.6],
+            [1.1, -0.3, 0.2],
+        ],
+        dtype=np.float64,
+    )
+    decision = learner.select_for_training(
+        hidden, (action,), np.random.default_rng(67)
+    )
+    q_before = decision.action_values[action]
+
+    learner.learn(reward)
+    q_after = learner.select_greedy(hidden, (0, 1, 2)).action_values[action]
+
+    assert q_after == pytest.approx(
+        q_before + alpha * (reward - q_before), rel=0.0, abs=1e-12
+    )
+    assert reward - q_after == pytest.approx(
+        (1.0 - alpha) * (reward - q_before), rel=0.0, abs=1e-12
+    )
+
+
+def test_normalized_update_changes_only_selected_action_row() -> None:
+    learner = NormalizedActionValue(2, 3)
+    learner._weights[:] = np.array(
+        [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6], [0.7, 0.8, 0.9]],
+        dtype=np.float64,
+    )
+    before = learner.parameter_snapshot()
+    learner.select_for_training(
+        np.array([0.25, -0.5]), (1,), np.random.default_rng(71)
+    )
+
+    learner.learn(-2.0)
+    after = learner.parameter_snapshot()
+
+    assert after[0].tobytes() == before[0].tobytes()
+    assert after[2].tobytes() == before[2].tobytes()
+    assert after[1].tobytes() != before[1].tobytes()
+
+
+def test_exact_zero_td_error_preserves_matrix_and_digest() -> None:
+    learner = NormalizedActionValue(2, 3)
+    learner._weights[:] = np.array(
+        [[0.2, 0.0, 0.0], [0.0, 0.3, 0.0], [0.0, 0.0, 0.4]],
+        dtype=np.float64,
+    )
+    hidden = np.array([0.5, 0.0])
+    decision = learner.select_for_training(hidden, (0,), np.random.default_rng(73))
+    reward = decision.action_values[0]
+    before = learner.parameter_snapshot()
+    before_digest = learner.parameter_digest()
+
+    update = learner.learn(reward)
+
+    assert update.td_error == 0.0
+    assert learner.parameter_snapshot().tobytes() == before.tobytes()
+    assert learner.parameter_digest() == before_digest
+
+
+def test_unit_step_size_interpolates_same_sample_prediction_to_reward() -> None:
+    learner = NormalizedActionValue(2, 2, step_size=1.0)
+    hidden = np.array([0.5, -1.5])
+    learner._weights[1] = np.array([0.25, 0.4, -0.3])
+    learner.select_for_training(hidden, (1,), np.random.default_rng(79))
+
+    learner.learn(2.75)
+    prediction = learner.select_greedy(hidden, (0, 1)).action_values[1]
+
+    assert prediction == pytest.approx(2.75, rel=0.0, abs=1e-12)
+
+
+def test_reward_is_not_clipped_before_update() -> None:
+    small = NormalizedActionValue(2, 2)
+    large = NormalizedActionValue(2, 2)
+    hidden = np.array([0.25, -0.5])
+    small.select_for_training(hidden, (1,), np.random.default_rng(83))
+    large.select_for_training(hidden, (1,), np.random.default_rng(83))
+
+    small_update = small.learn(1.0)
+    large_update = large.learn(100.0)
+
+    assert small_update.td_error == 1.0
+    assert large_update.td_error == 100.0
+    np.testing.assert_allclose(
+        large.parameter_snapshot()[1],
+        100.0 * small.parameter_snapshot()[1],
+        rtol=0.0,
+        atol=1e-15,
+    )
+
+
+def test_action_value_public_exports_preserve_defining_module_identity() -> None:
+    assert neural_state_machine.ActionValueDecision is action_value.ActionValueDecision
+    assert neural_state_machine.ActionValueUpdate is action_value.ActionValueUpdate
+    assert neural_state_machine.NormalizedActionValue is action_value.NormalizedActionValue
+    assert not hasattr(neural_state_machine, "_PendingCredit")
+    assert not hasattr(neural_state_machine, "validated_finite_scalar")

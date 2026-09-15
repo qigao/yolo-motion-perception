@@ -1,5 +1,6 @@
 """Deterministic neural state machine game experiment."""
 
+from .action_value import ActionValueDecision, ActionValueUpdate, NormalizedActionValue
 from .controller import RecurrentController
 from .encoding import encode_observation
 from .environment import ToyGame
@@ -41,6 +42,8 @@ from .types import (
 __all__ = [
     "AccuracyCount",
     "Action",
+    "ActionValueDecision",
+    "ActionValueUpdate",
     "Cue",
     "DelayedCueEpisode",
     "DelayedCueTask",
@@ -55,6 +58,7 @@ __all__ = [
     "MemoryProbeConfig",
     "MemoryProbeResult",
     "NeuralDecision",
+    "NormalizedActionValue",
     "PolicyDecision",
     "ProbeAccuracy",
     "RecurrentController",
