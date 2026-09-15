@@ -110,7 +110,7 @@ def _pose_flow_agreement(
     max_error_norm: float,
 ) -> float:
     errors: list[float] = []
-    radius_px = max(1, int(round(_POSE_FLOW_NEIGHBORHOOD_RATIO * person_height_px)))
+    radius_px = max(1, round(_POSE_FLOW_NEIGHBORHOOD_RATIO * person_height_px))
     for index in _LOCOMOTION_KEYPOINTS:
         if previous_pose.confidence[index] <= 0.0 or current_pose.confidence[index] <= 0.0:
             continue
