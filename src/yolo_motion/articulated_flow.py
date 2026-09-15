@@ -109,7 +109,7 @@ def _pose_flow_agreement(
     person_height_px: float,
     max_error_norm: float,
 ) -> float:
-    errors: list[float] = []
+    agreements: list[float] = []
     radius_px = max(1, round(_POSE_FLOW_NEIGHBORHOOD_RATIO * person_height_px))
     for index in _LOCOMOTION_KEYPOINTS:
         if previous_pose.confidence[index] <= 0.0 or current_pose.confidence[index] <= 0.0:
@@ -128,12 +128,14 @@ def _pose_flow_agreement(
         )
         if error is None:
             continue
-        errors.append(error / person_height_px)
+        normalized_error = error / person_height_px
+        agreements.append(
+            float(np.clip(1.0 - normalized_error / max_error_norm, 0.0, 1.0))
+        )
 
-    if not errors:
+    if not agreements:
         return 0.0
-    mean_error = float(np.mean(errors))
-    return float(np.clip(1.0 - mean_error / max_error_norm, 0.0, 1.0))
+    return float(np.mean(agreements))
 
 
 def _validate_alignment(
