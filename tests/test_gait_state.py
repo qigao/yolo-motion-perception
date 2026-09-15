@@ -22,37 +22,37 @@ def config() -> GaitConfig:
 
 
 def test_standing_noise_classifies_standing():
-    evidence = estimate_gait(make_history(1.2, amplitude=0.002), config())
+    evidence = estimate_gait(make_history(0.6, amplitude=0.002), config())
     assert classify_gait(evidence, config()) is LocomotionState.STANDING
 
 
 def test_antiphase_walking_classifies_walking():
-    evidence = estimate_gait(make_history(1.5, amplitude=0.04), config())
+    evidence = estimate_gait(make_history(0.75, amplitude=0.04), config())
     assert classify_gait(evidence, config()) is LocomotionState.WALKING
 
 
 def test_fast_periodic_gait_classifies_running():
-    evidence = estimate_gait(make_history(3.0, amplitude=0.06), config())
+    evidence = estimate_gait(make_history(1.5, amplitude=0.06), config())
     assert classify_gait(evidence, config()) is LocomotionState.RUNNING
 
 
 def test_low_quality_history_fails_closed_to_unknown():
-    evidence = estimate_gait(make_history(1.5, quality=0.25), config())
+    evidence = estimate_gait(make_history(0.75, quality=0.25), config())
     assert classify_gait(evidence, config()) is LocomotionState.UNKNOWN
 
 
 def test_one_leg_missing_fails_closed_to_unknown():
-    evidence = estimate_gait(make_history(1.5, right_support=False), config())
+    evidence = estimate_gait(make_history(0.75, right_support=False), config())
     assert classify_gait(evidence, config()) is LocomotionState.UNKNOWN
 
 
 def test_irregular_nonperiodic_motion_fails_closed_to_unknown():
-    evidence = estimate_gait(make_history(1.5, irregular=True), config())
+    evidence = estimate_gait(make_history(0.75, irregular=True), config())
     assert classify_gait(evidence, config()) is LocomotionState.UNKNOWN
 
 
 def test_insufficient_history_fails_closed_to_unknown():
-    short = make_history(1.5, seconds=0.4)
+    short = make_history(0.75, seconds=0.4)
     evidence = estimate_gait(short, config())
     assert classify_gait(evidence, config()) is LocomotionState.UNKNOWN
 
@@ -67,7 +67,7 @@ def test_classification_is_pure_for_explicit_evidence():
         right_energy=0.04,
         periodicity=0.8,
         bilateral_correlation=0.9,
-        phase_lag_seconds=0.33,
+        phase_lag_seconds=0.67,
         cadence_hz=1.5,
         articulated_amplitude=0.04,
         temporal_consistency=0.9,
