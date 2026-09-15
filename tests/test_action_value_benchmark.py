@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import dataclasses
 import hashlib
+import importlib.util
 import inspect
 import json
 import subprocess
 import sys
+from copy import deepcopy
 from dataclasses import FrozenInstanceError
 from pathlib import Path
+from types import ModuleType
 from types import SimpleNamespace
 from typing import get_type_hints
 
@@ -1223,3 +1226,397 @@ def test_cli_is_byte_repeatable_and_preserves_truthful_exit_status() -> None:
     expected_status = int(not payload["all_passed"])
     assert first.returncode == second.returncode == expected_status
     assert payload["all_passed"] is False
+
+
+def _script_module(name: str) -> ModuleType:
+    script = Path(__file__).parents[1] / "scripts" / f"{name}.py"
+    spec = importlib.util.spec_from_file_location(name, script)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+@pytest.fixture(scope="module")
+def default_benchmark_payload() -> dict[str, object]:
+    return run_action_value_benchmark()
+
+
+def test_evidence_source_commit_is_strict_and_does_not_change_live_payload(
+    monkeypatch: pytest.MonkeyPatch,
+    default_benchmark_payload: dict[str, object],
+) -> None:
+    writer = _script_module("benchmark_action_value")
+    live_before = deepcopy(default_benchmark_payload)
+    completed = subprocess.CompletedProcess(
+        ["git", "rev-parse", "HEAD"], 0, stdout="a" * 40 + "\n", stderr=""
+    )
+    monkeypatch.setattr(writer.subprocess, "run", lambda *args, **kwargs: completed)
+
+    assert writer._source_commit() == "a" * 40
+    assert default_benchmark_payload == live_before
+    assert "source_commit" not in default_benchmark_payload
+
+
+@pytest.mark.parametrize(
+    "completed",
+    [
+        subprocess.CompletedProcess(["git"], 1, stdout="", stderr="no repository"),
+        subprocess.CompletedProcess(["git"], 0, stdout="", stderr=""),
+        subprocess.CompletedProcess(["git"], 0, stdout="A" * 40 + "\n", stderr=""),
+        subprocess.CompletedProcess(["git"], 0, stdout="g" * 40 + "\n", stderr=""),
+        subprocess.CompletedProcess(["git"], 0, stdout="a" * 39 + "\n", stderr=""),
+        subprocess.CompletedProcess(["git"], 0, stdout="a" * 41 + "\n", stderr=""),
+    ],
+)
+def test_evidence_source_commit_fails_closed(
+    monkeypatch: pytest.MonkeyPatch,
+    completed: subprocess.CompletedProcess[str],
+) -> None:
+    writer = _script_module("benchmark_action_value")
+    monkeypatch.setattr(writer.subprocess, "run", lambda *args, **kwargs: completed)
+
+    with pytest.raises(RuntimeError, match="source commit"):
+        writer._source_commit()
+
+
+def test_evidence_source_commit_runs_git_without_a_shell(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    writer = _script_module("benchmark_action_value")
+    calls: list[tuple[object, object]] = []
+
+    def capture(command: object, **kwargs: object) -> subprocess.CompletedProcess[str]:
+        calls.append((command, kwargs))
+        return subprocess.CompletedProcess(command, 0, stdout="b" * 40 + "\n", stderr="")
+
+    monkeypatch.setattr(writer.subprocess, "run", capture)
+
+    assert writer._source_commit() == "b" * 40
+    assert calls == [
+        (
+            ["git", "rev-parse", "HEAD"],
+            {
+                "cwd": writer._ROOT,
+                "check": False,
+                "capture_output": True,
+                "text": True,
+            },
+        )
+    ]
+
+
+def test_action_value_evidence_writer_is_targeted_atomic_and_symlink_safe(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    writer = _script_module("benchmark_action_value")
+    approved = tmp_path / "phase-3a-action-value.json"
+    frozen_2b = tmp_path / "phase-2b-failure.json"
+    frozen_2c = tmp_path / "phase-2c-diagnostics.json"
+    frozen_2b.write_text("phase 2b\n", encoding="utf-8")
+    frozen_2c.write_text("phase 2c\n", encoding="utf-8")
+    payload = {"all_passed": False, "source_commit": "c" * 40}
+    forbidden = tmp_path / "other.json"
+    forbidden.write_text("unchanged\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="approved Phase 3A"):
+        writer._write_evidence(
+            forbidden,
+            payload,
+            approved_evidence=approved,
+            frozen_evidence=(frozen_2b, frozen_2c),
+        )
+    assert forbidden.read_text(encoding="utf-8") == "unchanged\n"
+
+    for frozen in (frozen_2b, frozen_2c):
+        before = frozen.read_bytes()
+        with pytest.raises(ValueError, match="frozen Phase 2"):
+            writer._write_evidence(
+                frozen,
+                payload,
+                approved_evidence=approved,
+                frozen_evidence=(frozen_2b, frozen_2c),
+            )
+        assert frozen.read_bytes() == before
+
+    unrelated = tmp_path / "unrelated.json"
+    unrelated.write_text("must not change\n", encoding="utf-8")
+    approved.symlink_to(unrelated)
+    with pytest.raises(ValueError, match="symlink"):
+        writer._write_evidence(
+            approved,
+            payload,
+            approved_evidence=approved,
+            frozen_evidence=(frozen_2b, frozen_2c),
+        )
+    assert unrelated.read_text(encoding="utf-8") == "must not change\n"
+    approved.unlink()
+
+    writer._write_evidence(
+        approved,
+        payload,
+        approved_evidence=approved,
+        frozen_evidence=(frozen_2b, frozen_2c),
+    )
+    rendered = json.dumps(payload, sort_keys=True, indent=2, allow_nan=False) + "\n"
+    assert approved.read_text(encoding="utf-8") == rendered
+    original_stat = approved.stat()
+    writer._write_evidence(
+        approved,
+        payload,
+        approved_evidence=approved,
+        frozen_evidence=(frozen_2b, frozen_2c),
+    )
+    assert approved.stat().st_mtime_ns == original_stat.st_mtime_ns
+
+    monkeypatch.setattr(writer.os, "replace", lambda *args: (_ for _ in ()).throw(OSError("no")))
+    with pytest.raises(OSError, match="no"):
+        writer._write_evidence(
+            approved,
+            {**payload, "all_passed": True},
+            approved_evidence=approved,
+            frozen_evidence=(frozen_2b, frozen_2c),
+        )
+    assert approved.read_text(encoding="utf-8") == rendered
+    assert list(tmp_path.glob(f".{approved.name}.*.tmp")) == []
+
+
+def _evidence_payload(payload: dict[str, object]) -> dict[str, object]:
+    artifact = deepcopy(payload)
+    artifact["source_commit"] = "d" * 40
+    return artifact
+
+
+def _mutate_evidence(payload: dict[str, object], mutation: str) -> None:
+    results = payload["results"]
+    assert isinstance(results, list)
+    result = results[0]
+    assert isinstance(result, dict)
+    if mutation == "missing_key":
+        del result["post_training"]
+    elif mutation == "phase":
+        payload["phase"] = "3B"
+    elif mutation == "schema":
+        payload["evidence_schema_version"] = True
+    elif mutation == "config":
+        assert isinstance(payload["config"], dict)
+        payload["config"]["step_size"] = 0.2
+    elif mutation == "seed_order":
+        payload["seeds"] = [17, 7, 29]
+    elif mutation == "duplicate_results":
+        results[1] = deepcopy(results[0])
+    elif mutation == "count":
+        assert isinstance(result["post_training"], dict)
+        result["post_training"]["correct"] = 201
+    elif mutation == "accuracy":
+        assert isinstance(result["post_training"], dict)
+        result["post_training"]["accuracy"] = 0.123
+    elif mutation == "digest":
+        result["normal_action_digest"] = "not-a-digest"
+    elif mutation == "local_digest":
+        result["normal_parameter_digest"] = "not-a-digest"
+    elif mutation == "local_matrix":
+        assert isinstance(result["matrix_controls"], dict)
+        result["matrix_controls"]["normal_after"] = ["f" * 64] * 3
+    elif mutation == "checkpoint_sequence":
+        assert isinstance(result["normal_checkpoints"], list)
+        result["normal_checkpoints"][0]["episode"] = 101
+    elif mutation == "checkpoint_nan":
+        assert isinstance(result["normal_checkpoints"], list)
+        result["normal_checkpoints"][0]["td_error_mean"] = float("nan")
+    elif mutation == "frozen_hash":
+        assert isinstance(payload["frozen_evidence_sha256"], dict)
+        payload["frozen_evidence_sha256"]["phase_2b"] = "e" * 64
+    elif mutation == "fairness":
+        result["reward_block_multisets_equal"] = False
+    elif mutation == "pending":
+        result["normal_pending_feedback"] = True
+    elif mutation == "repeatability":
+        result["repeatable"] = False
+    elif mutation == "pass_flag":
+        result["passed"] = not result["passed"]
+    elif mutation == "pooled":
+        assert isinstance(payload["shuffled_pooled"], dict)
+        payload["shuffled_pooled"]["correct"] += 1
+    elif mutation == "all_passed":
+        payload["all_passed"] = not payload["all_passed"]
+    elif mutation == "source_commit":
+        payload["source_commit"] = "D" * 40
+    else:
+        raise AssertionError(mutation)
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "missing_key",
+        "phase",
+        "schema",
+        "config",
+        "seed_order",
+        "duplicate_results",
+        "count",
+        "accuracy",
+        "digest",
+        "local_digest",
+        "local_matrix",
+        "checkpoint_sequence",
+        "checkpoint_nan",
+        "frozen_hash",
+        "fairness",
+        "pending",
+        "repeatability",
+        "pass_flag",
+        "pooled",
+        "all_passed",
+        "source_commit",
+    ],
+)
+def test_portable_evidence_validation_fails_closed(
+    default_benchmark_payload: dict[str, object],
+    mutation: str,
+) -> None:
+    verifier = _script_module("verify_action_value_evidence")
+    artifact = _evidence_payload(default_benchmark_payload)
+    _mutate_evidence(artifact, mutation)
+
+    with pytest.raises(RuntimeError):
+        verifier._portable_phase_3a_payload(artifact)
+
+
+def test_portable_projection_excludes_only_environment_local_digests(
+    default_benchmark_payload: dict[str, object],
+) -> None:
+    verifier = _script_module("verify_action_value_evidence")
+    artifact = _evidence_payload(default_benchmark_payload)
+    projected = verifier._portable_phase_3a_payload(artifact)
+
+    assert set(projected) == {
+        "all_passed",
+        "config",
+        "evidence_schema_version",
+        "frozen_evidence_sha256",
+        "phase",
+        "results",
+        "rng_lineages",
+        "seeds",
+        "shuffled_pooled",
+    }
+    omitted = {
+        "decision_hidden_digest",
+        "initial_parameter_digest",
+        "matrix_controls",
+        "normal_parameter_digest",
+        "reset_hidden_digest",
+        "shuffled_parameter_digest",
+    }
+    assert omitted.isdisjoint(projected["results"][0])
+    assert set(projected["results"][0]) == set(artifact["results"][0]) - omitted
+    assert "source_commit" not in projected
+
+
+def test_local_float_integrity_is_strict(
+    default_benchmark_payload: dict[str, object],
+) -> None:
+    verifier = _script_module("verify_action_value_evidence")
+    verifier._verify_local_float_integrity(default_benchmark_payload)
+
+    mutations = []
+    for path, value in (
+        (("matrix_controls", "normal_after"), ["f" * 64] * 3),
+        (("normal_parameter_digest",), default_benchmark_payload["results"][0]["initial_parameter_digest"]),
+        (("shuffled_parameter_digest",), default_benchmark_payload["results"][0]["initial_parameter_digest"]),
+        (("action_sequences_equal",), False),
+        (("reward_block_multisets_equal",), False),
+        (("normal_pending_feedback",), True),
+        (("shuffled_pending_feedback",), True),
+    ):
+        changed = deepcopy(default_benchmark_payload)
+        row = changed["results"][0]
+        assert isinstance(row, dict)
+        if len(path) == 1:
+            row[path[0]] = value
+        else:
+            assert isinstance(row[path[0]], dict)
+            row[path[0]][path[1]] = value
+        mutations.append(changed)
+
+    for changed in mutations:
+        with pytest.raises(RuntimeError):
+            verifier._verify_local_float_integrity(changed)
+
+
+def test_committed_evidence_loader_rejects_corrupted_json(tmp_path: Path) -> None:
+    verifier = _script_module("verify_action_value_evidence")
+    evidence = tmp_path / "phase-3a-action-value.json"
+    evidence.write_text("{broken", encoding="utf-8")
+
+    with pytest.raises(RuntimeError, match="load Phase 3A evidence"):
+        verifier._load_committed_evidence(evidence)
+
+
+def test_source_commit_must_be_an_ancestor(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    verifier = _script_module("verify_action_value_evidence")
+    calls: list[tuple[object, object]] = []
+
+    def capture(command: object, **kwargs: object) -> subprocess.CompletedProcess[str]:
+        calls.append((command, kwargs))
+        return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(verifier.subprocess, "run", capture)
+    verifier._verify_source_commit_ancestor("a" * 40)
+    assert calls == [
+        (
+            ["git", "merge-base", "--is-ancestor", "a" * 40, "HEAD"],
+            {"cwd": verifier._ROOT, "check": False, "capture_output": True, "text": True},
+        )
+    ]
+
+    monkeypatch.setattr(
+        verifier.subprocess,
+        "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(args[0], 1),
+    )
+    with pytest.raises(RuntimeError, match="not an ancestor"):
+        verifier._verify_source_commit_ancestor("a" * 40)
+
+
+def test_verifier_rejects_same_environment_divergence(
+    monkeypatch: pytest.MonkeyPatch,
+    default_benchmark_payload: dict[str, object],
+) -> None:
+    verifier = _script_module("verify_action_value_evidence")
+    expected = _evidence_payload(default_benchmark_payload)
+    changed = deepcopy(default_benchmark_payload)
+    changed["all_passed"] = not changed["all_passed"]
+    calls = iter((deepcopy(default_benchmark_payload), changed))
+    monkeypatch.setattr(verifier, "_load_committed_evidence", lambda: expected)
+    monkeypatch.setattr(verifier, "_verify_source_commit_ancestor", lambda source: None)
+    monkeypatch.setattr(verifier, "run_action_value_benchmark", lambda: next(calls))
+
+    with pytest.raises(RuntimeError, match="not byte-stable"):
+        verifier.verify_action_value_evidence()
+
+
+def test_verifier_accepts_truthful_failed_gate_without_rewriting_it(
+    monkeypatch: pytest.MonkeyPatch,
+    default_benchmark_payload: dict[str, object],
+) -> None:
+    verifier = _script_module("verify_action_value_evidence")
+    expected = _evidence_payload(default_benchmark_payload)
+    assert expected["all_passed"] is False
+    monkeypatch.setattr(verifier, "_load_committed_evidence", lambda: deepcopy(expected))
+    monkeypatch.setattr(verifier, "_verify_source_commit_ancestor", lambda source: None)
+    monkeypatch.setattr(
+        verifier,
+        "run_action_value_benchmark",
+        lambda: deepcopy(default_benchmark_payload),
+    )
+
+    projected = verifier.verify_action_value_evidence()
+
+    assert projected["all_passed"] is False
+    assert expected["all_passed"] is False
