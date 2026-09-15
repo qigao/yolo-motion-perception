@@ -64,7 +64,11 @@ class EligibilityTraceActionValue(NormalizedActionValue):
             candidate[pending.action_index] += (
                 pending.feature / pending.denominator
             )
-        if not np.all(np.isfinite(candidate)):
+        trace_limit = np.finfo(np.float64).max
+        if (
+            not np.all(np.isfinite(candidate))
+            or np.any(np.abs(candidate) >= trace_limit)
+        ):
             self._pending = None
             raise ValueError("eligibility trace update would overflow")
         self._eligibility = candidate

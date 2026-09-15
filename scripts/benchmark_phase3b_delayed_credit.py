@@ -52,7 +52,7 @@ def write_evidence(payload: dict[str, object], path: Path, root: Path | None = N
     approved = (resolved_root / _APPROVED).resolve()
     target = path.resolve()
     if target != approved:
-        raise ValueError("evidence path must be docs/experiments/phase-3b-delayed-credit.json")
+        raise ValueError("evidence path is not approved: expected docs/experiments/phase-3b-delayed-credit.json")
     if target.is_symlink():
         raise ValueError("evidence path must not be a symlink")
     target.parent.mkdir(parents=True, exist_ok=True)
