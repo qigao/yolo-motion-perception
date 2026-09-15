@@ -225,18 +225,7 @@ def _cadence_and_periodicity(
         score = float(np.mean(correlations)) if correlations else 0.0
         lag_scores.append((lag, score))
 
-    peak: tuple[int, float] | None = None
-    for index in range(1, len(lag_scores) - 1):
-        previous = lag_scores[index - 1][1]
-        current = lag_scores[index][1]
-        following = lag_scores[index + 1][1]
-        if current >= previous and current >= following:
-            peak = lag_scores[index]
-            break
-    if peak is None:
-        peak = max(lag_scores, key=lambda item: item[1])
-
-    lag, score = peak
+    lag, score = max(lag_scores, key=lambda item: item[1])
     periodicity = float(np.clip(score, 0.0, 1.0))
     if periodicity <= 0.0:
         return 0.0, 0.0
