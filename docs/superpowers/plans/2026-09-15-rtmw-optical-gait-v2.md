@@ -160,7 +160,7 @@ class BodyPart(str, Enum):
 @dataclass(frozen=True)
 class BodyRegion:
     part: BodyPart
-    segments: tuple[tuple[np.ndarray, np.ndarray], ...]
+    segments: tuple[tuple[np.ndarray, np.ndarray], ...]  # pixel coordinates
     radius_px: float
     confidence: float
 
@@ -180,13 +180,13 @@ def build_body_regions(
 def rasterize_region(region: BodyRegion, frame_shape: tuple[int, int]) -> np.ndarray: ...
 ```
 
-Use COCO WholeBody indices: shoulders `5,6`, hips `11,12`, knees `13,14`, ankles `15,16`, left foot `17,18,19`, right foot `20,21,22`. Region radius is `max(1.0, capsule_width_ratio * person_height_px)`.
+Use COCO WholeBody indices: shoulders `5,6`, hips `11,12`, knees `13,14`, ankles `15,16`, left foot `17,18,19`, right foot `20,21,22`. `build_body_regions()` converts normalized pose coordinates to frame pixels before storing segments. Region radius is `max(1.0, capsule_width_ratio * person_height_px)`.
 
-- [ ] **Step 1: Write RED tests** for all seven region names, confidence rejection, scale-relative capsule width, left/right separation, and deterministic raster masks.
+- [ ] **Step 1: Write RED tests** for all seven region names, confidence rejection, normalized-to-pixel conversion, scale-relative capsule width, left/right separation, and deterministic raster masks.
 - [ ] **Step 2: Run** `PYTHONPATH=src pytest tests/test_pose_regions.py -v` and verify RED.
 - [ ] **Step 3: Implement COCO-WholeBody mapping and NumPy-only capsule rasterization** using point-to-segment distance; do not require OpenCV in geometry code.
 - [ ] **Step 4: Re-run and require GREEN.**
-- [ ] **Step 5: Add a bilateral-support assertion:** if the right ankle/knee confidence is below threshold, right calf/foot are absent rather than fabricated.
+- [ ] **Step 5: Add a partial-support assertion:** if the right ankle/knee confidence is below threshold, right calf/foot are absent rather than fabricated, while valid left-side regions remain available.
 - [ ] **Step 6: Commit:** `feat: derive locomotion regions from whole-body pose`.
 
 ### Task 3: Add reference dense flow and explicit camera-motion compensation
@@ -276,14 +276,14 @@ def estimate_articulated_flow(
 Algorithm order is fixed:
 
 1. Compute `person_height_px = track.height * current_pose.frame_height`; return `None` below the configured minimum.
-2. Rasterize torso and region masks.
+2. Rasterize torso and every available body-region mask.
 3. Compute robust median compensated torso flow over valid torso pixels.
-4. Subtract torso flow from each region's vectors.
+4. Subtract torso flow from each available region's vectors.
 5. Normalize residual displacement by `person_height_px`.
 6. Compare pose joint displacement against local compensated flow; convert disagreement into `pose_flow_agreement` and aggregate `quality`.
-7. Return `None` if torso or bilateral support does not meet validity gates.
+7. Return `None` only when the person is too small, torso support is insufficient, timestamps/track IDs disagree, or no usable articulated region remains. Missing one leg does **not** discard the interval: available per-leg evidence is retained and the later gait classifier is responsible for failing closed when bilateral support is insufficient.
 
-- [ ] **Step 1: Write RED fixtures** for rigid translation, walking-in-place, translation+alternating legs, identical gait at 50px and 250px person heights, pose-jump disagreement, and too-small targets.
+- [ ] **Step 1: Write RED fixtures** for rigid translation, walking-in-place, translation+alternating legs, identical gait at 50px and 250px person heights, pose-jump disagreement, one-leg occlusion with retained opposite-leg evidence, and too-small targets.
 - [ ] **Step 2: Run** `PYTHONPATH=src pytest tests/test_articulated_flow.py -v` and verify RED.
 - [ ] **Step 3: Implement robust regional sampling and torso subtraction.** Pure rigid translation must produce near-zero normalized limb residual energy.
 - [ ] **Step 4: Implement scale normalization and pose/flow agreement.** Equivalent synthetic gait at 50px/250px must agree within an explicit test tolerance of `abs(delta_energy) <= 0.01`.
@@ -317,6 +317,7 @@ class GaitConfig:
     standing_energy_threshold: float = 0.008
     min_periodicity: float = 0.55
     min_bilateral_correlation: float = 0.45
+    min_leg_support_fraction: float = 0.70
     walking_cadence_min_hz: float = 0.7
     walking_cadence_max_hz: float = 2.4
     running_cadence_min_hz: float = 2.2
@@ -325,6 +326,8 @@ class GaitConfig:
 class GaitEvidence:
     sample_count: int
     duration: float
+    left_support_fraction: float
+    right_support_fraction: float
     left_energy: float
     right_energy: float
     periodicity: float
@@ -345,12 +348,12 @@ def estimate_gait(
 def classify_gait(evidence: GaitEvidence, config: GaitConfig) -> LocomotionState: ...
 ```
 
-Build left/right signals from thigh/calf/foot residual vectors. Derive a dominant 2D motion axis from the window, project each leg signal onto it, then use normalized autocorrelation for periodicity and left/right cross-correlation for phase. Search gait periods only inside the broad configured cadence range so zero-lag drift does not become a gait period.
+Build left/right signals from whichever thigh/calf/foot residuals are present. Derive a dominant 2D motion axis from the window, project each leg signal onto it, then use normalized autocorrelation for periodicity and left/right cross-correlation for phase. Track left/right support fractions independently. Search gait periods only inside the broad configured cadence range so zero-lag drift does not become a gait period.
 
 - [ ] **Step 1: Write RED deterministic signal tests** at 20Hz sample rate for: standing noise, 1.5Hz antiphase walking, 3.0Hz running, translation-only zero residual, low-quality history, irregular/non-periodic leg motion, and one-leg missing support.
 - [ ] **Step 2: Run** `PYTHONPATH=src pytest tests/test_gait.py tests/test_gait_state.py -v` and verify RED.
-- [ ] **Step 3: Implement evidence extraction** with NumPy autocorrelation/cross-correlation and explicit bounded lag search.
-- [ ] **Step 4: Implement fail-closed classification.** Any insufficient history/quality/bilateral support is `UNKNOWN`; low valid articulated energy is `STANDING`; periodic bilateral signals choose `WALKING`/`RUNNING` from cadence/amplitude rules.
+- [ ] **Step 3: Implement evidence extraction** with NumPy autocorrelation/cross-correlation, explicit support fractions, and explicit bounded lag search.
+- [ ] **Step 4: Implement fail-closed classification.** Any insufficient history/quality or either leg support fraction below `min_leg_support_fraction` is `UNKNOWN`; low valid articulated energy is `STANDING`; periodic bilateral signals choose `WALKING`/`RUNNING` from cadence/amplitude rules.
 - [ ] **Step 5: Re-run and require GREEN.** Assert 1.5Hz fixture cadence is within `±0.15Hz`; 3.0Hz within `±0.20Hz`.
 - [ ] **Step 6: Commit:** `feat: classify locomotion from bilateral gait signals`.
 
