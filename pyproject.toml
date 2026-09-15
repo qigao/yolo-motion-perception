@@ -23,6 +23,9 @@ vision = [
 optical = [
   "opencv-python>=4.9",
 ]
+rtmw = [
+  "mmpose>=1.3",
+]
 dev = [
   "pytest>=8.0",
   "ruff>=0.8",
