@@ -240,8 +240,11 @@ and explained in
 [phase-3a-failure-analysis.md](docs/experiments/phase-3a-failure-analysis.md).
 Its reservoir, action-RNG, and fixture arms all retain a `200/200` supervised
 reference while TD(0) varies, supporting a realization- and sampling-sensitive
-readout/credit-acquisition explanation. The next approved comparison is TD(0)
-versus an eligibility-trace/TD(lambda) rule on the same frozen lineages.
+readout/credit-acquisition explanation. The subsequent
+[TD(0) versus TD(lambda) comparison](docs/experiments/phase-3a-credit-comparison.json)
+keeps the action lineages identical: it improves seed 29/delay 5 modestly but
+does not pass the fixed gate and worsens seed 7 overall. It is evidence for
+the attribution, not a replacement learner.
 
 ## Package layout
 
@@ -256,7 +259,8 @@ src/neural_state_machine/
 ├── memory_task.py   immutable delayed-cue protocol
 ├── memory_benchmark.py  Phase 2B reward-learning baseline
 ├── memory_probe.py  Phase 2A frozen linear measurement
-└── phase3a_failure_attribution.py  Phase 3A diagnostic variance arms
+├── phase3a_failure_attribution.py  Phase 3A diagnostic variance arms
+└── phase3a_credit_compare.py  TD(0)/TD(lambda) diagnostic comparison
 ```
 
 ## What the result means

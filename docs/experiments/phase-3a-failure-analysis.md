@@ -134,20 +134,24 @@ reward-only perturbation.
 
 ## Follow-up experiment
 
-The next discriminating step is now a pre-registered credit-algorithm
-comparison. Keep the frozen baseline fixtures, recurrent policy, action RNG,
-and reward rule fixed, then compare action-local TD(0) against an eligibility
-trace or TD(lambda) implementation. Use the supervised reference as an upper
-baseline under this feature family, not as a formal causal ceiling.
+The pre-registered TD(0) versus persistent eligibility-trace comparison was
+also run on the same three lineages. It is recorded in
+`docs/experiments/phase-3a-credit-comparison.json` (SHA-256
+`563987000e8214a18a7e1b967aa3503cf0a6d25722273b3f8706c8d6ee6d474b`). The two
+learners consume identical sampled actions and fixtures in every seed.
 
-1. Preserve the current Phase 3A gates and all evidence bytes.
-2. Measure TD(0) and the alternative on the same lineages and report the full
-   per-delay accuracy and Q-margin distributions.
-3. Treat improvement as attribution evidence only if the supervised reference
-   remains 200/200 and the credit alternative improves the failed delays across
-   the pre-registered seed set.
-4. If the supervised reference degrades, stop credit-algorithm conclusions and
-   investigate the recurrent memory substrate instead.
+| Seed | TD(0) post | TD(0) d4 / d5 | TD(lambda) post | TD(lambda) d4 / d5 |
+|---:|---:|---:|---:|---:|
+| 7 | 181/200 | 28/40 / 34/40 | 175/200 | 29/40 / 39/40 |
+| 17 | 199/200 | 40/40 / 39/40 | 199/200 | 40/40 / 39/40 |
+| 29 | 177/200 | 37/40 / 20/40 | 179/200 | 35/40 / 24/40 |
+
+The trace improves seed 29/delay 5 by four cases but remains below the fixed
+gate, and it lowers seed 7's overall result while introducing a delay-3 miss.
+Therefore TD(lambda) is not a general fix under this protocol. The evidence
+supports the narrower attribution—credit/readout dynamics interact with the
+realization—but does not justify promoting a new learner or changing the
+frozen Phase 3A acceptance threshold.
 
 The oracle must remain outside the acceptance benchmark: it is a causal
 diagnostic, not a label-free agent policy. No current threshold, seed, reward,

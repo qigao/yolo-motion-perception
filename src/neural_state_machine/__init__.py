@@ -34,6 +34,14 @@ from .phase3a_failure_attribution import (
     attribution_payload,
     run_failure_attribution,
 )
+from .phase3a_credit_compare import (
+    CreditComparison,
+    EligibilityTraceActionValue,
+    credit_comparison_benchmark_payload,
+    credit_comparison_payload,
+    run_credit_comparison,
+    run_credit_comparison_benchmark,
+)
 from .policy import PolicyDecision, RecurrentPolicy
 from .reward_learning import (
     RewardLearningConfig,
@@ -60,6 +68,7 @@ __all__ = [
     "ActionValueExperimentResult",
     "ActionValueUpdate",
     "AttributionMeasurement",
+    "CreditComparison",
     "Cue",
     "DelayedCueEpisode",
     "DelayedCueTask",
@@ -75,6 +84,7 @@ __all__ = [
     "MemoryProbeResult",
     "NeuralDecision",
     "NormalizedActionValue",
+    "EligibilityTraceActionValue",
     "PolicyDecision",
     "ProbeAccuracy",
     "RecurrentController",
@@ -87,6 +97,8 @@ __all__ = [
     "ToyGame",
     "context_separation",
     "attribution_payload",
+    "credit_comparison_payload",
+    "credit_comparison_benchmark_payload",
     "encode_observation",
     "fit_linear_probe",
     "replay_equal",
@@ -94,6 +106,8 @@ __all__ = [
     "run_action_value_benchmark",
     "run_action_value_experiment",
     "run_failure_attribution",
+    "run_credit_comparison",
+    "run_credit_comparison_benchmark",
     "run_learning_diagnostics",
     "run_learning_diagnostics_benchmark",
     "run_memory_probe",
