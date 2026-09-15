@@ -43,9 +43,9 @@ SCENARIOS = {
         "end_frame": 105,
         "expected": "walking",
     },
-    "running": {
-        "filename": "person15_running_d1_uncomp.avi",
-        "end_frame": 50,
+    "jogging": {
+        "filename": "person15_jogging_d1_uncomp.avi",
+        "end_frame": 75,
         "expected": "running",
     },
 }
