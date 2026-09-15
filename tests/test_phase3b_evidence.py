@@ -1,11 +1,16 @@
 import copy
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
 from neural_state_machine.phase3b_delayed_benchmark import DelayedCreditConfig
-from scripts.benchmark_phase3b_delayed_credit import build_payload, write_evidence
+from scripts.benchmark_phase3b_delayed_credit import (
+    _registered_behavior_passed,
+    build_payload,
+    write_evidence,
+)
 from scripts.verify_phase3b_delayed_credit import _portable_projection, _validate
 
 
@@ -38,6 +43,17 @@ def test_phase3b_payload_uses_schema_v2_and_arm_a_only(tmp_path: Path) -> None:
     assert payload["reward_delays"] == [0, 1, 3, 5]
     assert {row["arm"] for row in payload["results"]} == {"td0"}
     _validate(payload)
+
+
+def test_registered_behavior_ignores_zero_delay_continuity_control() -> None:
+    results = (
+        SimpleNamespace(reward_delay=0, behavior_passed=False),
+        SimpleNamespace(reward_delay=1, behavior_passed=True),
+        SimpleNamespace(reward_delay=3, behavior_passed=True),
+        SimpleNamespace(reward_delay=5, behavior_passed=True),
+    )
+
+    assert _registered_behavior_passed(results) is True
 
 
 def test_writer_refuses_protocol_invalid_payload(tmp_path: Path) -> None:
