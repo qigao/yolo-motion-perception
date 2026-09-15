@@ -30,6 +30,7 @@ _POSE_FLOW_NEIGHBORHOOD_RATIO = 0.02
 _POSE_FLOW_ERROR_QUANTILE = 0.25
 _DIAGNOSTIC_SCENARIOS = {
     "walking": SCENARIOS["walking"],
+    "jogging": SCENARIOS["jogging"],
     "running": {
         "filename": "person15_running_d1_uncomp.avi",
         "end_frame": 50,
