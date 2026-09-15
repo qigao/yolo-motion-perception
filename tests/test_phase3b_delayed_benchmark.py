@@ -27,20 +27,25 @@ def test_zero_reward_delay_matches_phase3a_continuity_boundary() -> None:
     legacy = run_action_value_experiment(7, config.action_value_config)
     delayed = run_delayed_credit(7, 0, "td0", config)
 
+    assert delayed.actions == legacy.normal_actions
+    assert delayed.action_digest == legacy.normal_action_digest
+    assert delayed.training_reward_digest == legacy.normal_reward_digest
     assert delayed.post_training == legacy.post_training
     assert delayed.state_reset == legacy.state_reset
     assert delayed.per_delay == legacy.per_delay
     assert delayed.reset_per_delay == legacy.reset_per_delay
-    assert delayed.action_digest == legacy.normal_action_digest
     assert delayed.training_fixture_digest == legacy.training_fixture_digest
     assert delayed.evaluation_fixture_digest == legacy.evaluation_fixture_digest
     assert delayed.parameter_digest == legacy.normal_parameter_digest
     assert delayed.queue_deliveries == config.training_episodes
+    assert delayed.timeline.terminal_drain_count == 0
+    assert delayed.timeline.max_pending_after_delivery == 0
+    assert delayed.timeline.lag_histogram == ((0, config.training_episodes),)
     assert delayed.repeatable is True
 
 
 @pytest.mark.parametrize("reward_delay", [1, 3, 5])
-def test_delayed_td0_delivers_one_reward_per_training_episode(reward_delay: int) -> None:
+def test_delayed_td0_uses_real_overlapping_decisions(reward_delay: int) -> None:
     config = DelayedCreditConfig(
         training_episodes=100,
         evaluation_blocks=2,
@@ -50,7 +55,22 @@ def test_delayed_td0_delivers_one_reward_per_training_episode(reward_delay: int)
     assert isinstance(result, DelayedCreditResult)
     assert result.queue_deliveries == 100
     assert result.pending_feedback is False
+    assert result.timeline.terminal_drain_count == reward_delay
+    assert result.timeline.max_pending_before_delivery == reward_delay + 1
+    assert result.timeline.max_pending_after_delivery == reward_delay
+    assert result.timeline.lag_histogram == ((reward_delay, 100),)
+    assert result.timeline.decisions_with_prior_feedback_pending > 0
     assert result.repeatable is True
+
+
+def test_td_lambda_is_blocked_under_corrected_protocol() -> None:
+    config = DelayedCreditConfig(
+        training_episodes=100,
+        evaluation_blocks=2,
+        checkpoint_interval=50,
+    )
+    with pytest.raises(ValueError, match="TD.*lambda.*blocked"):
+        run_delayed_credit(7, 1, "td_lambda", config)
 
 
 def test_delayed_benchmark_rejects_invalid_seed_order_and_arm() -> None:
