@@ -6,7 +6,7 @@ import pytest
 
 from neural_state_machine.phase3b_delayed_benchmark import DelayedCreditConfig
 from scripts.benchmark_phase3b_delayed_credit import build_payload, write_evidence
-from scripts.verify_phase3b_delayed_credit import _validate
+from scripts.verify_phase3b_delayed_credit import _portable_projection, _validate
 
 
 def _small_payload(tmp_path: Path) -> dict[str, object]:
@@ -64,6 +64,32 @@ def test_writer_is_deterministic_for_protocol_valid_payload(tmp_path: Path) -> N
 
     assert target.read_bytes() == first
     assert json.loads(first)["schema_version"] == 2
+
+
+def test_portable_projection_ignores_environment_local_parameter_digests(
+    tmp_path: Path,
+) -> None:
+    payload = _small_payload(tmp_path)
+    other = copy.deepcopy(payload)
+
+    for index, result in enumerate(other["results"]):
+        local_digest = ("a" if index % 2 == 0 else "b") * 64
+        result["parameter_digest"] = local_digest
+        result["shuffled_parameter_digest"] = ("c" if index % 2 == 0 else "d") * 64
+        for checkpoint in result["normal_checkpoints"]:
+            checkpoint["parameter_digest"] = "e" * 64
+        for checkpoint in result["shuffled_checkpoints"]:
+            checkpoint["parameter_digest"] = "f" * 64
+
+    assert _portable_projection(payload) == _portable_projection(other)
+
+
+def test_portable_projection_keeps_protocol_and_behavior_fields(tmp_path: Path) -> None:
+    payload = _small_payload(tmp_path)
+    other = copy.deepcopy(payload)
+    other["results"][0]["normal_timeline"]["terminal_drain_count"] += 1
+
+    assert _portable_projection(payload) != _portable_projection(other)
 
 
 @pytest.mark.parametrize(
