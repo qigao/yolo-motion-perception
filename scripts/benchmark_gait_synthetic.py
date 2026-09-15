@@ -238,28 +238,28 @@ def run_benchmark() -> dict[str, dict[str, object]]:
         raise RuntimeError("synthetic camera translation was not removed")
 
     return {
-        "standing": _summary(_run_gait(frequency_hz=1.2, amplitude=0.002), _run_v1()),
-        "walking_in_place": _summary(_run_gait(frequency_hz=1.5, amplitude=0.04), _run_v1()),
+        "standing": _summary(_run_gait(frequency_hz=0.6, amplitude=0.002), _run_v1()),
+        "walking_in_place": _summary(_run_gait(frequency_hz=0.75, amplitude=0.04), _run_v1()),
         "walking_transverse": _summary(
-            _run_gait(frequency_hz=1.5, amplitude=0.04),
+            _run_gait(frequency_hz=0.75, amplitude=0.04),
             _run_v1(vx=0.08),
         ),
         "walking_approaching": _summary(
-            _run_gait(frequency_hz=1.5, amplitude=0.04),
+            _run_gait(frequency_hz=0.75, amplitude=0.04),
             _run_v1(expansion_rate=0.5),
         ),
         "walking_receding": _summary(
-            _run_gait(frequency_hz=1.5, amplitude=0.04),
+            _run_gait(frequency_hz=0.75, amplitude=0.04),
             _run_v1(expansion_rate=-0.5),
         ),
-        "running": _summary(_run_gait(frequency_hz=3.0, amplitude=0.06), _run_v1()),
+        "running": _summary(_run_gait(frequency_hz=1.5, amplitude=0.06), _run_v1()),
         "rigid_translation_control": _summary(
-            _run_gait(frequency_hz=1.5, amplitude=0.0, torso_dx=6.0, torso_dy=2.0),
+            _run_gait(frequency_hz=0.75, amplitude=0.0, torso_dx=6.0, torso_dy=2.0),
             _run_v1(vx=0.08),
         ),
         "too_small_unknown": _too_small_unknown(),
         "camera_translation_compensated": _summary(
-            _run_gait(frequency_hz=1.5, amplitude=0.04),
+            _run_gait(frequency_hz=0.75, amplitude=0.04),
             _run_v1(),
             camera_compensated=camera_compensated,
         ),
