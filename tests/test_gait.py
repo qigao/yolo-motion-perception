@@ -10,7 +10,7 @@ DT = 1.0 / SAMPLE_RATE_HZ
 
 
 def make_history(
-    frequency_hz: float,
+    stride_cycle_hz: float,
     *,
     seconds: float = 2.0,
     amplitude: float = 0.04,
@@ -23,7 +23,7 @@ def make_history(
     for index in range(count):
         start = index * DT
         end = (index + 1) * DT
-        phase = 2.0 * math.pi * frequency_hz * end
+        phase = 2.0 * math.pi * stride_cycle_hz * end
         if irregular:
             left = amplitude * math.sin(phase + 0.37 * index * index)
         else:
@@ -82,8 +82,8 @@ def config() -> GaitConfig:
     )
 
 
-def test_estimate_gait_recovers_antiphase_walking_cadence():
-    evidence = estimate_gait(make_history(1.5), config())
+def test_estimate_gait_reports_bilateral_step_cadence_for_walking():
+    evidence = estimate_gait(make_history(0.75), config())
 
     assert evidence.sample_count == 40
     assert evidence.duration == pytest.approx(2.0, abs=1e-6)
@@ -92,11 +92,11 @@ def test_estimate_gait_recovers_antiphase_walking_cadence():
     assert evidence.cadence_hz == pytest.approx(1.5, abs=0.15)
     assert evidence.periodicity >= 0.55
     assert evidence.bilateral_correlation >= 0.45
-    assert abs(abs(evidence.phase_lag_seconds) - (0.5 / 1.5)) <= 0.08
+    assert abs(abs(evidence.phase_lag_seconds) - (1.0 / 1.5)) <= 0.08
 
 
-def test_estimate_gait_recovers_running_cadence():
-    evidence = estimate_gait(make_history(3.0, amplitude=0.06), config())
+def test_estimate_gait_reports_bilateral_step_cadence_for_running():
+    evidence = estimate_gait(make_history(1.5, amplitude=0.06), config())
 
     assert evidence.cadence_hz == pytest.approx(3.0, abs=0.20)
     assert evidence.periodicity >= 0.55
@@ -104,7 +104,7 @@ def test_estimate_gait_recovers_running_cadence():
 
 
 def test_translation_only_zero_residual_has_low_articulated_energy():
-    evidence = estimate_gait(make_history(1.5, amplitude=0.0), config())
+    evidence = estimate_gait(make_history(0.75, amplitude=0.0), config())
 
     assert evidence.left_support_fraction == pytest.approx(1.0)
     assert evidence.right_support_fraction == pytest.approx(1.0)
@@ -114,7 +114,7 @@ def test_translation_only_zero_residual_has_low_articulated_energy():
 
 
 def test_one_leg_missing_tracks_support_fraction_without_fabrication():
-    evidence = estimate_gait(make_history(1.5, right_support=False), config())
+    evidence = estimate_gait(make_history(0.75, right_support=False), config())
 
     assert evidence.left_support_fraction == pytest.approx(1.0)
     assert evidence.right_support_fraction == pytest.approx(0.0)
@@ -123,7 +123,7 @@ def test_one_leg_missing_tracks_support_fraction_without_fabrication():
 
 
 def test_irregular_leg_motion_does_not_look_strongly_periodic():
-    evidence = estimate_gait(make_history(1.5, irregular=True), config())
+    evidence = estimate_gait(make_history(0.75, irregular=True), config())
 
     assert evidence.periodicity < config().min_periodicity
 
