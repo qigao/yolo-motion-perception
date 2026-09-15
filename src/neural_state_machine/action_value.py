@@ -63,6 +63,10 @@ class NormalizedActionValue:
         if not np.all(np.isfinite(hidden)):
             raise ValueError("hidden_state must contain only finite values")
         feature = np.concatenate((hidden, np.array([1.0], dtype=np.float64)))
+        with np.errstate(over="ignore", invalid="ignore"):
+            denominator = float(np.dot(feature, feature))
+        if not math.isfinite(denominator) or denominator <= 0.0:
+            raise ValueError("hidden_state magnitude is too large for float64 normalization")
         feature.flags.writeable = False
         return feature
 
@@ -126,9 +130,12 @@ class NormalizedActionValue:
         reward_value = validated_finite_scalar(reward, "reward")
         pending = self._pending
         td_error = reward_value - pending.prediction
-        self._weights[pending.action_index] += (
-            self.step_size * td_error * pending.feature / pending.denominator
-        )
+        with np.errstate(over="ignore", invalid="ignore", divide="ignore"):
+            delta = self.step_size * td_error * pending.feature / pending.denominator
+            candidate = self._weights[pending.action_index] + delta
+        if not np.all(np.isfinite(candidate)):
+            raise ValueError("finite reward would overflow action-value weights")
+        self._weights[pending.action_index] = candidate
         self._pending = None
         return ActionValueUpdate(
             action_index=pending.action_index,
