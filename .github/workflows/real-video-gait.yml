@@ -8,7 +8,6 @@ on:
     paths:
       - .github/workflows/real-video-gait.yml
       - scripts/validate_real_video_gait.py
-      - scripts/diagnose_real_video_gait.py
       - src/yolo_motion/articulated_flow.py
       - src/yolo_motion/camera_motion.py
       - src/yolo_motion/flow_backend.py
@@ -48,10 +47,6 @@ jobs:
           python scripts/validate_real_video_gait.py \
             --output-dir runs/real-video-gait \
             --stride 1
-
-      - name: Capture raw articulated gait evidence
-        if: always()
-        run: python scripts/diagnose_real_video_gait.py
 
       - name: Upload real-video evidence
         if: always()
