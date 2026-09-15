@@ -26,3 +26,5 @@ jobs:
         run: ruff check .
       - name: Synthetic benchmark
         run: python scripts/benchmark_synthetic.py
+      - name: Gait synthetic benchmark
+        run: python scripts/benchmark_gait_synthetic.py
