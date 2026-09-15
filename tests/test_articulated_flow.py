@@ -3,7 +3,12 @@ import pytest
 
 from yolo_motion.articulated_flow import ArticulatedFlowConfig, estimate_articulated_flow
 from yolo_motion.flow_types import FlowObservation
-from yolo_motion.pose_regions import BodyPart, PoseRegionConfig, build_body_regions, rasterize_region
+from yolo_motion.pose_regions import (
+    BodyPart,
+    PoseRegionConfig,
+    build_body_regions,
+    rasterize_region,
+)
 from yolo_motion.pose_types import PoseLayout, PoseObservation
 from yolo_motion.types import TrackObservation
 

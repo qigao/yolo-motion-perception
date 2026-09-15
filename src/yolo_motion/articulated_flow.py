@@ -6,7 +6,11 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from .flow_types import ArticulatedFlowEvidence, FlowObservation, RegionFlowEvidence
+from .flow_types import (
+    ArticulatedFlowEvidence,
+    FlowObservation,
+    RegionFlowEvidence,
+)
 from .pose_regions import BodyPart, BodyRegion, rasterize_region
 from .pose_types import PoseObservation
 from .types import TrackObservation
@@ -110,7 +114,10 @@ def _validate_alignment(
 ) -> None:
     if previous_pose.track_id != track.track_id or current_pose.track_id != track.track_id:
         raise ValueError("track and pose track IDs must agree")
-    if previous_pose.frame_width != current_pose.frame_width or previous_pose.frame_height != current_pose.frame_height:
+    if (
+        previous_pose.frame_width != current_pose.frame_width
+        or previous_pose.frame_height != current_pose.frame_height
+    ):
         raise ValueError("pose frame dimensions must agree")
     if flow.dx.shape != (current_pose.frame_height, current_pose.frame_width):
         raise ValueError("flow shape must match pose frame dimensions")
