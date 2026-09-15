@@ -26,7 +26,10 @@ def reward_block_multisets_equal(
         raise ValueError("rewards must be tuples")
     if len(normal) != len(shuffled) or len(normal) % block_size:
         return False
-    if any(not isinstance(value, (int, float)) or not math.isfinite(float(value)) for value in normal + shuffled):
+    if any(
+        not isinstance(value, (int, float)) or not math.isfinite(float(value))
+        for value in normal + shuffled
+    ):
         raise ValueError("rewards must contain finite scalars")
     return all(
         Counter(normal[start : start + block_size])
@@ -40,7 +43,10 @@ def validate_queue_counts(
     delivered_count: int,
     pending_count: int,
 ) -> None:
-    if any(type(value) is not int or value < 0 for value in (action_count, delivered_count, pending_count)):
+    if any(
+        type(value) is not int or value < 0
+        for value in (action_count, delivered_count, pending_count)
+    ):
         raise ValueError("queue counts must be non-negative integers")
     if delivered_count != action_count:
         raise ValueError("queue delivery count must equal action count")

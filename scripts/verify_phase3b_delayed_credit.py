@@ -43,7 +43,11 @@ def _validate(payload: dict[str, object]) -> None:
     if payload.get("decision_status") != "diagnostic-only-before-full-gate":
         raise RuntimeError("wrong decision status")
     frozen = payload.get("frozen_phase3a_sha256")
-    if not isinstance(frozen, str) or len(frozen) != 64 or any(c not in "0123456789abcdef" for c in frozen):
+    if (
+        not isinstance(frozen, str)
+        or len(frozen) != 64
+        or any(c not in "0123456789abcdef" for c in frozen)
+    ):
         raise RuntimeError("invalid frozen Phase 3A digest")
     results = payload.get("results")
     if not isinstance(results, list) or not results:
@@ -52,7 +56,14 @@ def _validate(payload: dict[str, object]) -> None:
     for result in results:
         if not isinstance(result, dict):
             raise RuntimeError("each result must be an object")
-        for key in ("seed", "arm", "reward_delay", "post_training", "queue_deliveries", "repeatable"):
+        for key in (
+            "seed",
+            "arm",
+            "reward_delay",
+            "post_training",
+            "queue_deliveries",
+            "repeatable",
+        ):
             if key not in result:
                 raise RuntimeError(f"missing result field: {key}")
         if result["arm"] not in ("td0", "td_lambda"):
@@ -76,7 +87,11 @@ def _validate(payload: dict[str, object]) -> None:
             if any(type(count.get(field)) is not int for field in ("correct", "total")):
                 raise RuntimeError(f"invalid count fields: {key}")
             accuracy = count.get("accuracy")
-            if isinstance(accuracy, bool) or not isinstance(accuracy, (int, float)) or not math.isfinite(float(accuracy)):
+            if (
+                isinstance(accuracy, bool)
+                or not isinstance(accuracy, (int, float))
+                or not math.isfinite(float(accuracy))
+            ):
                 raise RuntimeError(f"invalid accuracy: {key}")
     if {arm for _, arm, _ in seen} != {"td0", "td_lambda"}:
         raise RuntimeError("both learner arms are required")

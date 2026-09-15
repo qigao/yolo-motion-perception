@@ -15,7 +15,11 @@ def test_phase3b_payload_is_explicitly_diagnostic_only(tmp_path: Path) -> None:
     payload = build_payload(
         tmp_path,
         seeds=(7,),
-        config=DelayedCreditConfig(training_episodes=100, evaluation_blocks=2, checkpoint_interval=50),
+        config=DelayedCreditConfig(
+            training_episodes=100,
+            evaluation_blocks=2,
+            checkpoint_interval=50,
+        ),
     )
     assert payload["experiment"] == "phase-3b-delayed-credit"
     assert payload["diagnostic_only"] is True
