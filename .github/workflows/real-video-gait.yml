@@ -35,7 +35,7 @@ jobs:
         run: |
           python scripts/validate_real_video_gait.py \
             --output-dir runs/real-video-gait \
-            --stride 2
+            --stride 1
 
       - name: Upload real-video evidence
         if: always()
