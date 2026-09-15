@@ -205,10 +205,10 @@ def _cadence_and_periodicity(
     if max_frequency <= config.walking_cadence_min_hz:
         return 0.0, 0.0
 
-    min_lag = max(1, int(math.floor(sample_rate / max_frequency)))
+    min_lag = max(1, math.floor(sample_rate / max_frequency))
     max_lag = min(
         len(left) - 3,
-        int(math.ceil(sample_rate / config.walking_cadence_min_hz)),
+        math.ceil(sample_rate / config.walking_cadence_min_hz),
     )
     if max_lag <= min_lag:
         return 0.0, 0.0
@@ -255,8 +255,8 @@ def _bilateral_phase(
         return 0.0, 0.0
 
     half_period = 0.5 / cadence_hz
-    min_lag = max(1, int(math.floor(0.60 * half_period / dt)))
-    max_lag = min(len(left) - 3, int(math.ceil(1.40 * half_period / dt)))
+    min_lag = max(1, math.floor(0.60 * half_period / dt))
+    max_lag = min(len(left) - 3, math.ceil(1.40 * half_period / dt))
     if max_lag < min_lag:
         return 0.0, 0.0
 
@@ -298,15 +298,25 @@ def estimate_gait(
 
     axis = _dominant_axis(axis_vectors)
     left_signal = np.array(
-        [float(vector @ axis) if supported else np.nan for vector, supported in zip(left_vectors, left_supported)],
+        [
+            float(vector @ axis) if supported else np.nan
+            for vector, supported in zip(left_vectors, left_supported)
+        ],
         dtype=float,
     )
     right_signal = np.array(
-        [float(vector @ axis) if supported else np.nan for vector, supported in zip(right_vectors, right_supported)],
+        [
+            float(vector @ axis) if supported else np.nan
+            for vector, supported in zip(right_vectors, right_supported)
+        ],
         dtype=float,
     )
 
-    left_norms = [float(np.linalg.norm(vector)) for vector, supported in zip(left_vectors, left_supported) if supported]
+    left_norms = [
+        float(np.linalg.norm(vector))
+        for vector, supported in zip(left_vectors, left_supported)
+        if supported
+    ]
     right_norms = [
         float(np.linalg.norm(vector))
         for vector, supported in zip(right_vectors, right_supported)
