@@ -28,6 +28,14 @@ OUTPUT_DIR = Path("runs/real-video-gait")
 _POSE_DIAGNOSTIC_INDICES = (5, 6, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22)
 _POSE_FLOW_NEIGHBORHOOD_RATIO = 0.02
 _POSE_FLOW_ERROR_QUANTILE = 0.25
+_DIAGNOSTIC_SCENARIOS = {
+    "walking": SCENARIOS["walking"],
+    "running": {
+        "filename": "person15_running_d1_uncomp.avi",
+        "end_frame": 50,
+        "expected": "running",
+    },
+}
 
 
 def _articulated_to_dict(articulated) -> dict[str, object]:
@@ -275,8 +283,7 @@ def main() -> int:
     )
     adapter = RtmwPoseAdapter(RtmLibCropInferencer(pose_model))
 
-    for name in ("walking", "running"):
-        scenario = SCENARIOS[name]
+    for name, scenario in _DIAGNOSTIC_SCENARIOS.items():
         filename = str(scenario["filename"])
         video_path = videos_dir / filename
         _download(f"{KTH_BASE}/{filename}", video_path)
