@@ -63,6 +63,27 @@ def test_delayed_td0_uses_real_overlapping_decisions(reward_delay: int) -> None:
     assert result.repeatable is True
 
 
+def test_shuffled_control_changes_rewards_not_actions_or_timing() -> None:
+    config = DelayedCreditConfig(
+        training_episodes=100,
+        evaluation_blocks=2,
+        checkpoint_interval=50,
+    )
+    result = run_delayed_credit(7, 3, "td0", config)
+
+    assert result.normal_action_digest == result.shuffled_action_digest
+    assert (
+        result.normal_timeline.delivery_timeline_digest
+        == result.shuffled_timeline.delivery_timeline_digest
+    )
+    assert result.normal_timeline.lag_histogram == result.shuffled_timeline.lag_histogram
+    assert result.reward_block_multisets_equal is True
+    assert (
+        result.normal_reward_assignment_digest
+        != result.shuffled_reward_assignment_digest
+    )
+
+
 def test_td_lambda_is_blocked_under_corrected_protocol() -> None:
     config = DelayedCreditConfig(
         training_episodes=100,
