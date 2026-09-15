@@ -39,3 +39,23 @@ jobs:
 
       - name: Phase 3B Ruff
         run: ruff check src/neural_state_machine/delayed_credit.py src/neural_state_machine/phase3b_delayed_benchmark.py src/neural_state_machine/phase3b_learners.py src/neural_state_machine/phase3b_controls.py scripts/benchmark_phase3b_delayed_credit.py scripts/verify_phase3b_delayed_credit.py tests/test_delayed_credit.py tests/test_phase3b_delayed_benchmark.py tests/test_phase3b_learners.py tests/test_phase3b_controls.py tests/test_phase3b_evidence.py
+
+  phase3b-diagnostic:
+    needs: standalone
+    if: ${{ needs.standalone.result == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install project
+        run: python -m pip install -e '.[dev]'
+      - name: Run full Phase 3B diagnostic measurement
+        run: python scripts/benchmark_phase3b_delayed_credit.py --evidence docs/experiments/phase-3b-delayed-credit.json
+      - name: Emit diagnostic artifact
+        run: |
+          echo PHASE3B_JSON_BEGIN
+          cat docs/experiments/phase-3b-delayed-credit.json
+          echo PHASE3B_JSON_END
