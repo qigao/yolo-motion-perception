@@ -1,0 +1,47 @@
+name: real-video-gait
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/rtmw-optical-gait-v2
+    paths:
+      - .github/workflows/real-video-gait.yml
+      - scripts/validate_real_video_gait.py
+
+permissions:
+  contents: read
+
+jobs:
+  real-video-gait:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+
+      - name: Install real-video runtime
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[vision,optical]'
+          python -m pip install rtmlib
+
+      - name: Run KTH RTMW gait acceptance
+        run: |
+          python scripts/validate_real_video_gait.py \
+            --output-dir runs/real-video-gait \
+            --stride 2
+
+      - name: Upload real-video evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: real-video-gait-${{ github.sha }}
+          path: runs/real-video-gait
+          if-no-files-found: warn
+          retention-days: 30
