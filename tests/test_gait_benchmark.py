@@ -3,7 +3,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-
 EXPECTED_LOCOMOTION = {
     "standing": "standing",
     "walking_in_place": "walking",
