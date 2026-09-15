@@ -4,12 +4,14 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import math
 from pathlib import Path
 
-from benchmark_phase3b_delayed_credit import _APPROVED, build_payload
+try:
+    from scripts.benchmark_phase3b_delayed_credit import _APPROVED, build_payload
+except ModuleNotFoundError:  # Direct execution from the scripts directory.
+    from benchmark_phase3b_delayed_credit import _APPROVED, build_payload
 
 
 def _repository_root() -> Path:
@@ -46,6 +48,7 @@ def _validate(payload: dict[str, object]) -> None:
     results = payload.get("results")
     if not isinstance(results, list) or not results:
         raise RuntimeError("results must be a non-empty list")
+    seen: set[tuple[int, str, int]] = set()
     for result in results:
         if not isinstance(result, dict):
             raise RuntimeError("each result must be an object")
@@ -62,6 +65,10 @@ def _validate(payload: dict[str, object]) -> None:
             raise RuntimeError("invalid queue count")
         if type(result["repeatable"]) is not bool:
             raise RuntimeError("invalid repeatability flag")
+        key = (result["seed"], result["arm"], result["reward_delay"])
+        if key in seen:
+            raise RuntimeError("duplicate result key")
+        seen.add(key)
         for key in ("post_training", "pre_training", "state_reset"):
             count = result.get(key)
             if not isinstance(count, dict):
@@ -71,6 +78,8 @@ def _validate(payload: dict[str, object]) -> None:
             accuracy = count.get("accuracy")
             if isinstance(accuracy, bool) or not isinstance(accuracy, (int, float)) or not math.isfinite(float(accuracy)):
                 raise RuntimeError(f"invalid accuracy: {key}")
+    if {arm for _, arm, _ in seen} != {"td0", "td_lambda"}:
+        raise RuntimeError("both learner arms are required")
 
 
 def verify_phase3b_delayed_credit(path: Path | None = None) -> dict[str, object]:

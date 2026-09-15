@@ -35,7 +35,11 @@ def build_payload(
     config: DelayedCreditConfig | None = None,
 ) -> dict[str, object]:
     resolved_root = _repository_root() if root is None else root
-    results = run_delayed_credit_benchmark(seeds, config)
+    results = tuple(
+        result
+        for arm in ("td0", "td_lambda")
+        for result in run_delayed_credit_benchmark(seeds, config, arm=arm)
+    )
     payload = delayed_credit_payload(results)
     payload["frozen_phase3a_sha256"] = _frozen_phase3a_sha256(resolved_root)
     payload["all_passed"] = False
