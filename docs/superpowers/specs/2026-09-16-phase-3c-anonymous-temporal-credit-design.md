@@ -189,8 +189,10 @@ The environment advances delivery-only steps until every latent reward has been 
 
 - no action is selected;
 - no new eligibility contribution is added;
-- the learner may receive the aggregate scalar for each drain step;
-- eligibility decay is **decision-based**, not wall-clock based, so no additional trace decay occurs when no real decision occurs.
+- the learner still receives exactly one aggregate scalar for every drain step;
+- eligibility decay is **decision-based**, not wall-clock based, so no additional trace decay occurs when no real decision occurs;
+- Arm A has no current decision credit during drain, so drain feedback is an explicit no-op for its parameters while still being recorded as observed feedback;
+- Arm B applies drain feedback to its persistent pre-drain eligibility/prediction trace without adding or decaying trace state.
 
 The final audit state must satisfy:
 
@@ -200,7 +202,7 @@ latent rewards delivered == real actions selected
 sum(all aggregate feedback) == sum(all latent rewards)
 ```
 
-The tail is reported separately because the final actions cannot have their full registered number of later real decisions before delivery.
+The tail is reported separately because the final actions cannot have their full registered number of later real decisions before delivery. Arm A's no-op drain behavior is part of its registered absence of historical credit, not an environment omission.
 
 ## 5. Learner information boundary
 
@@ -272,7 +274,7 @@ delta_t      = F_t - prediction_t
 W[a_t]      += alpha * delta_t * phi_t / ||phi_t||^2
 ```
 
-It stores no queue of earlier decisions.
+It stores no queue of earlier decisions. At terminal drain, where no current decision exists, aggregate feedback is observed/audited but produces no parameter update.
 
 This arm is the mechanism-negative baseline. Under anonymous delayed feedback, the current action is generally not the source of the observed feedback.
 
@@ -309,7 +311,19 @@ delta_t = F_t - P
 W       <- W + alpha * delta_t * E
 ```
 
-Feedback does not identify or remove a particular historical action. The trace persists across feedback events and changes only when a new real decision is selected or at an explicit run/trial reset required by the registered protocol.
+Feedback does not identify or remove a particular historical action.
+
+Trace reset semantics are fixed as follows:
+
+- initialize `E = 0` and `P = 0` exactly once at the start of each independent training run/arm/control replay;
+- do **not** reset at delayed-cue fixture boundaries;
+- do **not** reset when a latent reward is generated;
+- do **not** reset when aggregate feedback is received;
+- do **not** reset on a collision or out-of-order delivery;
+- do **not** decay or reset during terminal-drain steps because no real decision occurs;
+- clear the trace only after the run has fully drained and ended.
+
+Thus the trace is global across the registered training stream. This explicitly avoids the episode-reset ambiguity that blocked eligibility-trace interpretation in corrected Phase 3B.
 
 This mechanism is called **Normalized Anonymous Eligibility Credit** in Phase 3C. It must not be described as a full standard TD(lambda) implementation unless a later design proves semantic equivalence.
 
@@ -509,7 +523,7 @@ Gate P requires:
 
 1. exact immediate Phase 3A continuity for both arms at `delay=0, rho=0`;
 2. delay schedule generated before actions and independent of actions/rewards;
-3. delay support exactly `[1,3,5]` in the anonymous condition;
+3. every anonymous delay is in `[1,3,5]` and each registered delay value occurs at least once per seed schedule;
 4. at least one genuine out-of-order delivery inversion per registered seed;
 5. at least one genuine multi-source collision per registered seed;
 6. one scalar learner feedback value per real decision step, including zero;
@@ -520,11 +534,13 @@ Gate P requires:
 11. every latent reward record is delivered exactly once;
 12. aggregate conservation holds;
 13. terminal drain empties the internal queue without synthetic actions;
-14. action lineage is identical between matched arms;
-15. delay schedule/due-step/multiplicity lineage is identical between matched arms;
-16. repeated run with identical seed/configuration is portable-repeatable under the established evidence rules;
-17. all learner state and updates remain finite;
-18. trace coefficients at registered ages match the formal recurrence within the explicitly specified floating-point tolerance used only for Python conformance, never as a replacement for the Lean theorem.
+14. terminal-drain Arm A no-op and Arm B persistent-trace semantics match Section 4.5 exactly;
+15. action lineage is identical between matched arms;
+16. delay schedule/due-step/multiplicity lineage is identical between matched arms;
+17. repeated run with identical seed/configuration is portable-repeatable under the established evidence rules;
+18. all learner state and updates remain finite;
+19. trace reset occurs only at registered run boundaries and never at fixture/reward/collision boundaries;
+20. trace coefficients at registered ages match the formal recurrence within the explicitly specified floating-point tolerance used only for Python conformance, never as a replacement for the Lean theorem.
 
 A Gate P failure means **harness invalid**. Accuracy from that run is not Phase 3C evidence.
 
@@ -605,6 +621,7 @@ The eventual immutable Phase 3C evidence must include at least:
 - aggregate-conservation result;
 - learner-visible call-stream digest;
 - source-relabeling and hidden-multiplicity non-interference results;
+- trace-reset audit;
 - trace-coefficient conformance probes;
 - same-environment parameter digests;
 - post/reset/shuffled counts;
@@ -643,11 +660,11 @@ Do not combine protocol scheduling, learner state, evidence serialization, and a
 
 After this design is reviewed and approved:
 
-1. extend the Lean TemporalCredit model for Gate F and obtain exact-head proof CI;
-2. write the Phase 3C implementation plan before Python production code;
-3. add RED tests for anonymous API non-interference, out-of-order delivery, collisions, conservation, and exact immediate continuity;
+1. write and commit the detailed Phase 3C implementation plan spanning the Lean Gate F work and the Python protocol/learner work;
+2. execute the Lean TemporalCredit extension for Gate F and obtain exact-head proof CI;
+3. add RED Python tests for anonymous API non-interference, out-of-order delivery, collisions, conservation, trace-reset semantics, drain semantics, and exact immediate continuity;
 4. implement the hidden schedule and aggregate-feedback protocol without learner changes;
-5. make Gate P pass before adding behavioral interpretation;
+5. make Gate P protocol mechanics pass before adding behavioral interpretation;
 6. implement Arm A current-step baseline;
 7. implement Arm B normalized anonymous eligibility credit;
 8. prove Python/formal conformance probes and immediate Phase 3A continuity;
@@ -688,4 +705,4 @@ This design phase is complete when:
 4. the existing Phase 3B branch/evidence remains unchanged;
 5. the formal insufficiency of Lean v1 is explicit;
 6. Gate F, Gate P, and Gate B are separated and fail closed;
-7. randomness, learner-visible data, delay semantics, aggregation, controls, thresholds, and interpretation are pre-registered before implementation.
+7. randomness, learner-visible data, delay semantics, aggregation, trace reset/drain semantics, controls, thresholds, and interpretation are pre-registered before implementation.
