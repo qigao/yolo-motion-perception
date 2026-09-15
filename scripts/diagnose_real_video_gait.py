@@ -5,6 +5,7 @@ from dataclasses import asdict
 from pathlib import Path
 
 import cv2
+import numpy as np
 from rtmlib import RTMPose
 from ultralytics import YOLO
 from validate_real_video_gait import (
@@ -25,6 +26,8 @@ from yolo_motion.ultralytics_adapter import observations_from_result
 
 OUTPUT_DIR = Path("runs/real-video-gait")
 _POSE_DIAGNOSTIC_INDICES = (5, 6, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22)
+_POSE_FLOW_NEIGHBORHOOD_RATIO = 0.02
+_POSE_FLOW_ERROR_QUANTILE = 0.25
 
 
 def _articulated_to_dict(articulated) -> dict[str, object]:
@@ -54,6 +57,58 @@ def _pose_to_dict(pose) -> dict[str, object]:
         }
         for index in _POSE_DIAGNOSTIC_INDICES
     }
+
+
+def _pose_flow_errors(previous_pose, current_pose, flow, person_height_px: float):
+    height, width = flow.dx.shape
+    radius_px = max(1, round(_POSE_FLOW_NEIGHBORHOOD_RATIO * person_height_px))
+    output: dict[str, object] = {}
+
+    for index in _POSE_DIAGNOSTIC_INDICES:
+        if previous_pose.confidence[index] <= 0.0 or current_pose.confidence[index] <= 0.0:
+            continue
+
+        previous_x = float(previous_pose.xy[index, 0] * previous_pose.frame_width)
+        previous_y = float(previous_pose.xy[index, 1] * previous_pose.frame_height)
+        current_x = float(current_pose.xy[index, 0] * current_pose.frame_width)
+        current_y = float(current_pose.xy[index, 1] * current_pose.frame_height)
+        pose_dx = current_x - previous_x
+        pose_dy = current_y - previous_y
+
+        cx = int(np.clip(round(previous_x), 0, width - 1))
+        cy = int(np.clip(round(previous_y), 0, height - 1))
+        x0 = max(0, cx - radius_px)
+        x1 = min(width, cx + radius_px + 1)
+        y0 = max(0, cy - radius_px)
+        y1 = min(height, cy + radius_px + 1)
+
+        yy, xx = np.ogrid[y0:y1, x0:x1]
+        local_mask = (
+            (xx - previous_x) ** 2 + (yy - previous_y) ** 2
+            <= radius_px * radius_px
+        )
+        if flow.valid is not None:
+            local_mask &= flow.valid[y0:y1, x0:x1]
+        if not np.any(local_mask):
+            continue
+
+        local_dx = flow.dx[y0:y1, x0:x1][local_mask]
+        local_dy = flow.dy[y0:y1, x0:x1][local_mask]
+        errors = np.hypot(local_dx - pose_dx, local_dy - pose_dy)
+        if errors.size == 0 or not np.isfinite(errors).all():
+            continue
+
+        raw_error = float(np.quantile(errors, _POSE_FLOW_ERROR_QUANTILE))
+        output[str(index)] = {
+            "normalized_error": raw_error / person_height_px,
+            "raw_error_px": raw_error,
+            "pose_dx": pose_dx,
+            "pose_dy": pose_dy,
+            "previous_confidence": float(previous_pose.confidence[index]),
+            "current_confidence": float(current_pose.confidence[index]),
+        }
+
+    return output
 
 
 def _diagnose_scenario(
@@ -157,9 +212,10 @@ def _diagnose_scenario(
                         camera_config,
                     )
                     compensated = compensate_flow(flow, camera)
+                    person_height_px = observation.height * current_pose.frame_height
                     regions = build_body_regions(
                         previous_pose,
-                        observation.height * current_pose.frame_height,
+                        person_height_px,
                         region_config,
                     )
                     articulated = estimate_articulated_flow(
@@ -188,6 +244,12 @@ def _diagnose_scenario(
                                         "confidence": observation.confidence,
                                     },
                                     "pose": _pose_to_dict(current_pose),
+                                    "pose_flow_errors": _pose_flow_errors(
+                                        previous_pose,
+                                        current_pose,
+                                        compensated,
+                                        person_height_px,
+                                    ),
                                     "evidence": _articulated_to_dict(articulated),
                                 },
                                 sort_keys=True,
