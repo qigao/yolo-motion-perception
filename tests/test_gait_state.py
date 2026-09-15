@@ -47,7 +47,7 @@ def test_one_leg_missing_fails_closed_to_unknown():
 
 
 def test_irregular_nonperiodic_motion_fails_closed_to_unknown():
-    evidence = estimate_gait(make_history(0.75, irregular=True), config())
+    evidence = estimate_gait(make_history(1.5, irregular=True), config())
     assert classify_gait(evidence, config()) is LocomotionState.UNKNOWN
 
 
