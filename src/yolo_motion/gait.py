@@ -228,7 +228,7 @@ def _stride_cycle_and_periodicity(
 
     min_lag = max(1, math.floor(sample_rate / max_cycle_frequency))
     max_lag = min(
-        len(left) - 3,
+        len(left) - config.min_samples,
         math.ceil(sample_rate / min_cycle_frequency),
     )
     if max_lag <= min_lag:
