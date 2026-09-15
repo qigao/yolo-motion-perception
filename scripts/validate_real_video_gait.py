@@ -198,8 +198,10 @@ def _run_scenario(
                     observations_from_result(tracked, timestamp, frame.shape[:2])
                 )
                 if observation is None:
-                    gait_pipeline.drop_stale(set())
-                    motion_pipeline.drop_stale(set())
+                    # A missing detector result is not proof that BoT-SORT has ended
+                    # the track. Keep temporal histories until a later tracker result
+                    # identifies the active ID, but never compute optical flow across
+                    # the missing frame.
                     previous_samples.clear()
                     continue
 
