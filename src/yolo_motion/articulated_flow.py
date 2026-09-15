@@ -129,9 +129,7 @@ def _pose_flow_agreement(
         if error is None:
             continue
         normalized_error = error / person_height_px
-        agreements.append(
-            float(np.clip(1.0 - normalized_error / max_error_norm, 0.0, 1.0))
-        )
+        agreements.append(1.0 if normalized_error <= max_error_norm else 0.0)
 
     if not agreements:
         return 0.0
