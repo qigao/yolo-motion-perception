@@ -104,30 +104,50 @@ This does not prove that TD(0) is the only cause, nor that an eligibility trace
 will solve the problem. It does establish that a credit/readout experiment is
 justified before changing the recurrent memory substrate.
 
-## Smallest discriminating next experiment
+## Executed diagnostic arms
 
-Use the already committed Phase 2C supervised geometry as a supervised
-reference (an upper baseline under this feature family, not a formal causal
-ceiling), then add a diagnostic-only variance decomposition with separate arms:
+The diagnostic-only variance decomposition was then run with the same fixed
+configuration. It produced the independent artifact
+`docs/experiments/phase-3a-failure-attribution.json` (SHA-256
+`84b9a85efc5022411ad3e8ee886419d8ad47393186d3d31148bdd3f50ce3452b`). The
+baseline reproduces the frozen seed-7 result, and every arm retains a 200/200
+supervised reference, including delay 5 at 40/40.
 
-1. **Baseline arm:** keep fixtures, seeds, recurrent policies, action schedules,
-   and reward permutation fixed. Reconstruct the same post-training hidden
-   states and compare the Phase 2C supervised reference with the Phase 3A
-   action-value readout by delay.
-2. **Reservoir arm:** vary only the reservoir seed; keep fixtures and action RNG
-   fixed, regenerate hidden states, and report Q-margin and accuracy
-   distributions.
-3. **Action-RNG arm:** vary only action RNG; keep reservoir and fixtures fixed,
-   let rewards follow the resulting actions, and report the same distributions.
-4. **Fixture arm:** vary only the fixture realization; keep reservoir and action
-   RNG fixed, regenerate hidden states/rewards, and report the same
-   distributions.
-5. If the supervised reference stays high while TD(0) remains unstable, compare
-   action-local TD(0) with an explicitly pre-registered credit alternative
-   (for example an eligibility trace or TD(lambda)).
-6. Only if the supervised reference also degrades in a new fixture/control
-   should
-   the recurrent memory substrate become the next target.
+| Arm | Changed lineage | TD(0) post-training | TD(0) delay 4 | TD(0) delay 5 | Supervised reference |
+|---|---|---:|---:|---:|---:|
+| baseline | none (seed 7) | 181/200 | 28/40 | 34/40 | 200/200 |
+| reservoir-17 | reservoir | 200/200 | 40/40 | 40/40 | 200/200 |
+| reservoir-29 | reservoir | 177/200 | 37/40 | 20/40 | 200/200 |
+| action-RNG-17 | action sampling/reward trajectory | 171/200 | 25/40 | 27/40 | 200/200 |
+| action-RNG-29 | action sampling/reward trajectory | 181/200 | 29/40 | 33/40 | 200/200 |
+| fixture-17 | fixture realization | 177/200 | 31/40 | 28/40 | 200/200 |
+| fixture-29 | fixture realization | 177/200 | 31/40 | 36/40 | 200/200 |
+
+The arms preserve the intended controls: reservoir and fixture changes retain
+the baseline action sequence, action-RNG changes alter both sampled actions and
+the resulting reward trajectory, and fixture changes regenerate the hidden
+states. Thus the probe does not support a pure recurrent-memory explanation;
+it supports a realization- and sampling-sensitive interaction between weak raw
+geometry and action-local TD(0) credit acquisition. The action-RNG arm measures
+the joint effect of behavior sampling and its induced rewards, not an isolated
+reward-only perturbation.
+
+## Follow-up experiment
+
+The next discriminating step is now a pre-registered credit-algorithm
+comparison. Keep the frozen baseline fixtures, recurrent policy, action RNG,
+and reward rule fixed, then compare action-local TD(0) against an eligibility
+trace or TD(lambda) implementation. Use the supervised reference as an upper
+baseline under this feature family, not as a formal causal ceiling.
+
+1. Preserve the current Phase 3A gates and all evidence bytes.
+2. Measure TD(0) and the alternative on the same lineages and report the full
+   per-delay accuracy and Q-margin distributions.
+3. Treat improvement as attribution evidence only if the supervised reference
+   remains 200/200 and the credit alternative improves the failed delays across
+   the pre-registered seed set.
+4. If the supervised reference degrades, stop credit-algorithm conclusions and
+   investigate the recurrent memory substrate instead.
 
 The oracle must remain outside the acceptance benchmark: it is a causal
 diagnostic, not a label-free agent policy. No current threshold, seed, reward,

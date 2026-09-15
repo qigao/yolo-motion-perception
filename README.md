@@ -218,6 +218,31 @@ mean Phase 2B behavior passed or that floating-point JSON bytes match across
 platforms. The frozen Phase 2B evidence is not rewritten. Any next phase or
 new learning mechanism requires a new design review.
 
+## Phase 3A — normalized action-value credit
+
+Phase 3A replaces the supervised diagnostic readout with a zero-initialized
+normalized action-value table. Feedback is immediate after the sampled action;
+the delays below are cue-to-decision delays, not delayed rewards. The frozen
+acceptance artifact is
+[phase-3a-action-value.json](docs/experiments/phase-3a-action-value.json),
+SHA-256
+`897f1917d3d950f64439ffc0c80aa83aa4c5b940cc5bf41dfbbb89f422da0295`.
+
+The fixed gate is false for seeds 7 and 29 and passes for seed 17: the misses
+are concentrated at longer cue delays (`28/40` at seed 7/delay 4 and `20/40`
+at seed 29/delay 5). The frozen Phase 2C supervised reference remains `40/40`
+at every delay for all three seeds, so the result is not evidence that the
+recurrent cue memory disappeared.
+
+The read-only attribution probe is recorded in
+[phase-3a-failure-attribution.json](docs/experiments/phase-3a-failure-attribution.json)
+and explained in
+[phase-3a-failure-analysis.md](docs/experiments/phase-3a-failure-analysis.md).
+Its reservoir, action-RNG, and fixture arms all retain a `200/200` supervised
+reference while TD(0) varies, supporting a realization- and sampling-sensitive
+readout/credit-acquisition explanation. The next approved comparison is TD(0)
+versus an eligibility-trace/TD(lambda) rule on the same frozen lineages.
+
 ## Package layout
 
 ```text
@@ -230,7 +255,8 @@ src/neural_state_machine/
 ├── benchmark.py     reproducible research benchmark
 ├── memory_task.py   immutable delayed-cue protocol
 ├── memory_benchmark.py  Phase 2B reward-learning baseline
-└── memory_probe.py  Phase 2A frozen linear measurement
+├── memory_probe.py  Phase 2A frozen linear measurement
+└── phase3a_failure_attribution.py  Phase 3A diagnostic variance arms
 ```
 
 ## What the result means

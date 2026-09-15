@@ -29,6 +29,11 @@ from .memory_probe import (
     run_memory_probe_benchmark,
 )
 from .memory_task import Cue, DelayedCueEpisode, DelayedCueTask
+from .phase3a_failure_attribution import (
+    AttributionMeasurement,
+    attribution_payload,
+    run_failure_attribution,
+)
 from .policy import PolicyDecision, RecurrentPolicy
 from .reward_learning import (
     RewardLearningConfig,
@@ -54,6 +59,7 @@ __all__ = [
     "ActionValueCheckpoint",
     "ActionValueExperimentResult",
     "ActionValueUpdate",
+    "AttributionMeasurement",
     "Cue",
     "DelayedCueEpisode",
     "DelayedCueTask",
@@ -80,12 +86,14 @@ __all__ = [
     "StepResult",
     "ToyGame",
     "context_separation",
+    "attribution_payload",
     "encode_observation",
     "fit_linear_probe",
     "replay_equal",
     "run_episode",
     "run_action_value_benchmark",
     "run_action_value_experiment",
+    "run_failure_attribution",
     "run_learning_diagnostics",
     "run_learning_diagnostics_benchmark",
     "run_memory_probe",
