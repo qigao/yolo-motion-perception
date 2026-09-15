@@ -28,13 +28,13 @@ def gait_observation(
     track_id: int,
     index: int,
     *,
-    frequency_hz: float = 1.5,
+    stride_cycle_hz: float = 0.75,
     amplitude: float = 0.04,
     quality: float = 0.95,
 ) -> ArticulatedFlowEvidence:
     start = index * DT
     end = (index + 1) * DT
-    left = amplitude * math.sin(2.0 * math.pi * frequency_hz * end)
+    left = amplitude * math.sin(2.0 * math.pi * stride_cycle_hz * end)
     right = -left
     region_flow = {
         "left_thigh": RegionFlowEvidence(left * 0.55, 0.0, abs(left * 0.55), 1.0),
