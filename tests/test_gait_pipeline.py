@@ -90,7 +90,7 @@ def test_pipeline_keeps_independent_histories_per_tracker_id():
     assert pipeline.track_ids() == {11, 22}
 
 
-def test_pipeline_returns_none_until_minimum_temporal_history_is_met():
+def test_pipeline_emits_unknown_at_minimum_history_then_walking_with_cycle_support():
     pipeline = OpticalGaitPipeline(gait_config())
 
     result = None
@@ -99,6 +99,11 @@ def test_pipeline_returns_none_until_minimum_temporal_history_is_met():
     assert result is None
 
     result = pipeline.update(gait_observation(5, 15))
+    assert result is not None
+    assert result.state is LocomotionState.UNKNOWN
+
+    for index in range(16, 40):
+        result = pipeline.update(gait_observation(5, index))
     assert result is not None
     assert result.state is LocomotionState.WALKING
 
