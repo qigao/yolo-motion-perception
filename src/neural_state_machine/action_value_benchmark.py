@@ -258,7 +258,6 @@ def _train(
     checkpoints: list[ActionValueCheckpoint] = []
     block_hidden: list[np.ndarray] = []
     block_correct: list[int] = []
-    block_matched: list[int] = []
     block_td_errors: list[float] = []
 
     for episode_index, episode in enumerate(fixtures, start=1):
@@ -274,14 +273,12 @@ def _train(
 
         # Scoring metadata is intentionally observed only after scalar feedback.
         correct_action = episode.correct_action_index
-        _delay = episode.delay_steps
         hidden_copy = np.array(hidden, dtype=np.float64, copy=True)
         hidden_copy.flags.writeable = False
         actions.append(action)
         rewards.append(reward)
         block_hidden.append(hidden_copy)
         block_correct.append(correct_action)
-        block_matched.append(int(action == correct_action))
         block_td_errors.append(float(update.td_error))
 
         if episode_index % config.checkpoint_interval == 0:
@@ -291,16 +288,14 @@ def _train(
                     episode_index,
                     block_hidden,
                     block_correct,
-                    block_matched,
                     block_td_errors,
                 )
             )
             block_hidden = []
             block_correct = []
-            block_matched = []
             block_td_errors = []
 
-    if block_hidden or block_correct or block_matched or block_td_errors:
+    if block_hidden or block_correct or block_td_errors:
         raise RuntimeError("training ended with an incomplete checkpoint interval")
     if learner.has_pending_feedback:
         raise RuntimeError("learner retained pending feedback after training")
@@ -323,7 +318,6 @@ def _collect_checkpoint(
     episode: int,
     hidden_states: list[np.ndarray],
     correct_actions: list[int],
-    matches: list[int],
     td_errors: list[float],
 ) -> ActionValueCheckpoint:
     if learner.has_pending_feedback:
@@ -331,9 +325,11 @@ def _collect_checkpoint(
     parameters_before = learner.parameter_snapshot()
     digest_before = learner.parameter_digest()
     margins = []
+    greedy_matches = []
     for hidden, correct in zip(hidden_states, correct_actions, strict=True):
         decision = learner.select_greedy(hidden, (0, 1))
         other = 1 - correct
+        greedy_matches.append(int(decision.action_index == correct))
         margins.append(float(decision.action_values[correct] - decision.action_values[other]))
     parameters_after = learner.parameter_snapshot()
     if (
@@ -347,7 +343,7 @@ def _collect_checkpoint(
     td_array = np.asarray(td_errors, dtype=np.float64)
     return ActionValueCheckpoint(
         episode=episode,
-        accuracy=AccuracyCount(sum(matches), len(matches)),
+        accuracy=AccuracyCount(sum(greedy_matches), len(greedy_matches)),
         margin_mean=float(np.mean(margin_array)),
         margin_p10=float(np.percentile(margin_array, 10)),
         margin_minimum=float(np.min(margin_array)),

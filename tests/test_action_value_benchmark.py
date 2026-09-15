@@ -689,6 +689,90 @@ def test_checkpoints_cover_only_completed_intervals_without_mutation() -> None:
     )
 
 
+class _DivergentCheckpointPolicy:
+    def __init__(self) -> None:
+        self._cue = 0
+
+    def reset_state(self) -> None:
+        self._cue = 0
+
+    def advance(self, stimulus: np.ndarray) -> np.ndarray:
+        if stimulus[0] == 1.0:
+            self._cue = 0
+        elif stimulus[1] == 1.0:
+            self._cue = 1
+        hidden = np.asarray([float(self._cue)], dtype=np.float64)
+        hidden.flags.writeable = False
+        return hidden
+
+
+class _DivergentCheckpointLearner:
+    def __init__(self) -> None:
+        self._pending = False
+
+    @property
+    def has_pending_feedback(self) -> bool:
+        return self._pending
+
+    def select_for_training(
+        self,
+        hidden: np.ndarray,
+        legal: tuple[int, int],
+        rng: np.random.Generator,
+    ) -> SimpleNamespace:
+        assert legal == (0, 1)
+        assert isinstance(rng, np.random.Generator)
+        self._pending = True
+        return SimpleNamespace(action_index=1 - int(hidden[0]))
+
+    def learn(self, reward: float) -> ActionValueUpdate:
+        assert type(reward) is float
+        self._pending = False
+        return ActionValueUpdate(0, 0.0, reward, reward)
+
+    def parameter_snapshot(self) -> np.ndarray:
+        snapshot = np.zeros((2, 2), dtype=np.float64)
+        snapshot.flags.writeable = False
+        return snapshot
+
+    def parameter_digest(self) -> str:
+        return "checkpoint-parameters"
+
+    def select_greedy(
+        self, hidden: np.ndarray, legal: tuple[int, int]
+    ) -> SimpleNamespace:
+        assert legal == (0, 1)
+        correct = int(hidden[0])
+        values = np.zeros(2, dtype=np.float64)
+        values[correct] = 1.0
+        return SimpleNamespace(action_index=correct, action_values=values)
+
+
+def test_checkpoint_accuracy_uses_post_block_greedy_decisions() -> None:
+    config = ActionValueBenchmarkConfig(
+        hidden_size=1,
+        training_episodes=10,
+        evaluation_blocks=1,
+        checkpoint_interval=10,
+    )
+    fixtures = _build_fixture_bundle(31, config).training
+
+    trace = _train_normal(
+        _DivergentCheckpointPolicy(),
+        _DivergentCheckpointLearner(),
+        DelayedCueTask(),
+        fixtures,
+        np.random.default_rng(37),
+        config,
+    )
+
+    assert all(
+        sampled != episode.correct_action_index
+        for sampled, episode in zip(trace.actions, fixtures, strict=True)
+    )
+    assert trace.checkpoints[0].accuracy == AccuracyCount(10, 10)
+
+
 def test_run_once_assembles_independent_frozen_fair_paths(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
