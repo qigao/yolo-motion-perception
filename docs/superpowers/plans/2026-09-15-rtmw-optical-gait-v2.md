@@ -498,3 +498,17 @@ No benchmark result may be reported as metric depth, physical velocity, persiste
 - Missing bilateral pose/flow support cannot become walking/running.
 - Far/near synthetic gait invariance and camera-translation invariance are explicitly tested.
 - PR remains Draft until real-video evidence is attached to #1 / PR #2.
+
+## Execution evidence — 2026-09-15
+
+Code and deterministic verification are complete through Task 8 on implementation head `1e383ab79bcaa76399ef15cfa65e8ac890c6d5ab`.
+
+- GitHub Actions run `34959225584` executed the PR merge ref for Python 3.10, 3.11, and 3.12. All three jobs passed.
+- Python 3.11 evidence: `148 passed`; `ruff check .` reported `All checks passed!`; `scripts/benchmark_synthetic.py` exited 0; `scripts/benchmark_gait_synthetic.py` exited 0; the scope scan exited 0 with no forbidden dependency markers.
+- The V2 deterministic benchmark reported `walking_in_place` as `walking + stationary/stable`, `walking_approaching` as `walking + approaching`, `walking_receding` as `walking + receding`, `running` as `running`, `too_small_unknown` as `unknown`, rigid translation as `standing`, and the camera-translation case as `walking` with `camera_compensated: true`.
+- The PR changed-file audit contains no modifications to the existing V1 `motion.py`, `pipeline.py`, `state.py`, `types.py`, `benchmark.py`, or `tests/test_benchmark.py`; the V1 public estimator implementation and original deterministic benchmark were not weakened by this PR.
+- CI now permanently gates the V1 benchmark, V2 gait benchmark, and the FlyWire/SNN/ROS2 scope boundary on all three supported Python versions.
+- Default CI installs `.[dev,optical]` only; it does not install MMPose/RTMW or download model weights.
+- A clean local checkout was attempted for the plan's local-gate step, but the execution container could not resolve `github.com`. Therefore the local-checkout item is **not** claimed as locally verified. The same test/lint/benchmark commands were instead executed successfully by GitHub Actions from a clean PR checkout.
+
+The remaining acceptance item is the **real-video evidence gate**. No real RTMW locomotion run has been fabricated or inferred from synthetic tests. PR #2 remains Draft until standing, walking, and running/jogging evidence with the required tracker/model/backend/config provenance is attached.
