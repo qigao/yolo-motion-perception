@@ -15,7 +15,6 @@ from .pose_regions import BodyPart, BodyRegion, rasterize_region
 from .pose_types import PoseObservation
 from .types import TrackObservation
 
-
 _LOCOMOTION_KEYPOINTS = (5, 6, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22)
 
 
