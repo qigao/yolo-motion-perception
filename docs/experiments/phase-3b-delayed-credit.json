@@ -1,0 +1,4969 @@
+{
+  "all_passed": false,
+  "behavior_passed": false,
+  "config": {
+    "checkpoint_interval": 100,
+    "evaluation_episodes": 200,
+    "hidden_size": 64,
+    "recurrent_radius": 0.9,
+    "step_size": 0.1,
+    "training_decisions": 2000
+  },
+  "cue_to_decision_delays": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "decision_status": "protocol-valid-behavior-failed",
+  "experiment": "phase-3b-delayed-credit",
+  "frozen_phase3a_sha256": "897f1917d3d950f64439ffc0c80aa83aa4c5b940cc5bf41dfbbb89f422da0295",
+  "protocol_valid": true,
+  "results": [
+    {
+      "action_sequences_equal": true,
+      "arm": "td0",
+      "behavior_passed": false,
+      "evaluation_fixture_digest": "0cb49a228520ebbd80d7fb228b0bf2ffeff45568d8c8c85ee355a26d5968d40e",
+      "normal_action_digest": "c0c1b44f830eb4b9bec3a4ca357879d2db3df6158f05b397ad64d976698d9ce3",
+      "normal_checkpoints": [
+        {
+          "decision_count": 100,
+          "delivery_count": 100,
+          "parameter_digest": "1210f5547d42527810306465378dbbd186ddab1ac29a6b7502db96f1521d9b6f",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 200,
+          "delivery_count": 200,
+          "parameter_digest": "271d39943fa2bf3ef82fc786fabd26eacd6070ec7d5923c458f8577957c698a1",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 300,
+          "delivery_count": 300,
+          "parameter_digest": "a6a78d6605d3e88dd304fef9e08c89a33b87eb25e43be73ae660a47080eb4c7d",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 400,
+          "delivery_count": 400,
+          "parameter_digest": "86bdb3d2b122a9da6dde91114323188bac7d391a544e19cca417ca585bed1888",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 500,
+          "delivery_count": 500,
+          "parameter_digest": "f284549e3d91a8601f0c0eb1c94eb1db1183cc002eecf6ac859799f805956a6c",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 600,
+          "delivery_count": 600,
+          "parameter_digest": "bb5d146b672130830eed06e2fba332ae6ac97fb2d952fb7a56b54e59144807a6",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 700,
+          "delivery_count": 700,
+          "parameter_digest": "520c24978f3dcbfb511bdb687e6f77e65c77bf104e79035bfcaf4ce504ec9606",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 800,
+          "delivery_count": 800,
+          "parameter_digest": "2f2e679cccc76b9292713b951d531e62ea6054e4d83ed4c062bff26cd90aff2d",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 900,
+          "delivery_count": 900,
+          "parameter_digest": "098ba79cfb419e38a155ff9320710504385b5d440cf73d54faf729f414b17f68",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 1000,
+          "delivery_count": 1000,
+          "parameter_digest": "15638f5371ae549eb90e3f55c38996f270a219a0ba4633f0fab299fd4ccf3d04",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 1100,
+          "delivery_count": 1100,
+          "parameter_digest": "03bac4be3af226fdcafe66024056ace79090ec7a8ddb3a2dbc32e0af666e8976",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 1200,
+          "delivery_count": 1200,
+          "parameter_digest": "9ac77aa30d6deb0c7c7d357af11592691255e2408cbd3d5aafd43435627ed0e7",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 1300,
+          "delivery_count": 1300,
+          "parameter_digest": "68ae4b3cb217a1860c22ef62d1153215f0b7a7a14ff39d7a47408f4011edff90",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 1400,
+          "delivery_count": 1400,
+          "parameter_digest": "7e4ff1ee68d84953b6adaa6c8d8ce0f6b90751efa2e583d15eaa4d2655ce4b63",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 1500,
+          "delivery_count": 1500,
+          "parameter_digest": "d10db7eef172136a21fbf6b855840d85a0f31386c90fca6ad27fc68f22ff7471",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 1600,
+          "delivery_count": 1600,
+          "parameter_digest": "a62c61f14bb3b9225955a38ae4af2e9528feef3090a39a3df2d6b9a5e276e840",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 1700,
+          "delivery_count": 1700,
+          "parameter_digest": "7730cba545b5411597ac08ebe37ed0c3da91279a3e2e283e68c4b3030e083363",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 1800,
+          "delivery_count": 1800,
+          "parameter_digest": "af1311bdb672397860bd5f7093d74e0f1abd061e7c5b5827858737c8ce68dc27",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 1900,
+          "delivery_count": 1900,
+          "parameter_digest": "7ecc13cbce7a90305276220b743da7d180c40fea113ab24a0565a811ab9dc7ec",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 2000,
+          "delivery_count": 2000,
+          "parameter_digest": "e0d95d160998c57d25e23f8b300fe98685483f1aafb6fe0df7448f7e7945ce05",
+          "unresolved_credit_count": 0
+        }
+      ],
+      "normal_reward_assignment_digest": "96b73227db8edb095d76eaf1813921bc064d3fc8733a7272260f3dfc89ede87a",
+      "normal_timeline": {
+        "action_count": 2000,
+        "decisions_with_prior_feedback_pending": 0,
+        "delivery_count": 2000,
+        "delivery_timeline_digest": "794aae7e24a4b12c045900627326536962a4a66d3dd9d4a4069acc23d161426e",
+        "lag_histogram": [
+          {
+            "count": 2000,
+            "lag": 0
+          }
+        ],
+        "learner_unresolved_final": 0,
+        "max_pending_after_delivery": 0,
+        "max_pending_before_delivery": 1,
+        "queue_pending_final": 0,
+        "terminal_drain_count": 0
+      },
+      "parameter_digest": "e0d95d160998c57d25e23f8b300fe98685483f1aafb6fe0df7448f7e7945ce05",
+      "per_delay": [
+        {
+          "accuracy": 1.0,
+          "correct": 40,
+          "delay": 1,
+          "total": 40
+        },
+        {
+          "accuracy": 1.0,
+          "correct": 40,
+          "delay": 2,
+          "total": 40
+        },
+        {
+          "accuracy": 0.975,
+          "correct": 39,
+          "delay": 3,
+          "total": 40
+        },
+        {
+          "accuracy": 0.7,
+          "correct": 28,
+          "delay": 4,
+          "total": 40
+        },
+        {
+          "accuracy": 0.85,
+          "correct": 34,
+          "delay": 5,
+          "total": 40
+        }
+      ],
+      "post_training": {
+        "accuracy": 0.905,
+        "correct": 181,
+        "total": 200
+      },
+      "pre_training": {
+        "accuracy": 0.5,
+        "correct": 100,
+        "total": 200
+      },
+      "repeatable": true,
+      "reset_per_delay": [
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 1,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 2,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 3,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 4,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 5,
+          "total": 40
+        }
+      ],
+      "reward_block_multisets_equal": true,
+      "reward_delay": 0,
+      "seed": 7,
+      "shuffled_action_digest": "c0c1b44f830eb4b9bec3a4ca357879d2db3df6158f05b397ad64d976698d9ce3",
+      "shuffled_checkpoints": [
+        {
+          "decision_count": 100,
+          "delivery_count": 100,
+          "parameter_digest": "bc023877242c4c5ed13c566c0ee042607f40cff36fc02846dcf2222ae67a8165",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 200,
+          "delivery_count": 200,
+          "parameter_digest": "ffa44a2661183f7abace0889c25bf789479176dbeb3e534ca10de1200caa501b",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 300,
+          "delivery_count": 300,
+          "parameter_digest": "837eef2a21dbfef599d307327e8bbddfa721d0f98834fb5fcb259888cfd38b91",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 400,
+          "delivery_count": 400,
+          "parameter_digest": "3d772d0e67d41f7b8c0af0f448956ae330b5d8d8a939989360b748f842f328fb",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 500,
+          "delivery_count": 500,
+          "parameter_digest": "4013e92204fe5b8f5eeee5a6dfb105b334d682985f1b0c777ad1d797081ea8e9",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 600,
+          "delivery_count": 600,
+          "parameter_digest": "ba879b6b169c4f31896dbad2311d346a7bf46eaf3cd8c50a7bf1f0c0a9375604",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 700,
+          "delivery_count": 700,
+          "parameter_digest": "e51e8507b9602636262f88ac7b2342392cf44a33e6f0f16f400f08bec1ce0519",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 800,
+          "delivery_count": 800,
+          "parameter_digest": "f80c3e3addf05a54a3f7f16f66b4a33f7475273a39df38a11914eda32057f80c",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 900,
+          "delivery_count": 900,
+          "parameter_digest": "8a80b5f247aca4ba6e4ec4dc275ada7a7575822a10d7427d4d4685392b0b4654",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 1000,
+          "delivery_count": 1000,
+          "parameter_digest": "10a8ff79ecd00098f0bae19ff489b314dad921094eee842055fd3498c5cf9249",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 1100,
+          "delivery_count": 1100,
+          "parameter_digest": "ae94bed483391443d31ef1421094128560de3b52029d2a81bd3186ef2b86a02b",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 1200,
+          "delivery_count": 1200,
+          "parameter_digest": "7b8d08796be1ae467bc238b879e6f8bebd10a5103a0375fa6c92c2d6987c600a",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 1300,
+          "delivery_count": 1300,
+          "parameter_digest": "ea23606bc3855cd9a0119f9411bed5eadc013bd597aa00626e26e356e06cde8b",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 1400,
+          "delivery_count": 1400,
+          "parameter_digest": "924ec48a87674250f301372f976aed6a6b8ee847547117df698d97529f6976d6",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 1500,
+          "delivery_count": 1500,
+          "parameter_digest": "83c794aadbfe77e65d847e24385cf8b4faa9c47679861f6b4604910e22357d97",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 1600,
+          "delivery_count": 1600,
+          "parameter_digest": "dfa1b95d067875eb773a94a0c4da1bbcdc2fd4ea5b615acb46953f5fb1b117e9",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 1700,
+          "delivery_count": 1700,
+          "parameter_digest": "dd5ba9cfe89d2155c8d5429b71303ecb41d7ac7b9cc9cf23cb753a992cb8c0b1",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 1800,
+          "delivery_count": 1800,
+          "parameter_digest": "ac20221637e2694e2cf6c830178bde9c8ac072d7816fea3df97f1765332e54b0",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 1900,
+          "delivery_count": 1900,
+          "parameter_digest": "1388e4100f6dffe5f697ea0925cc370d69d8624070e6650739594538c9858468",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 2000,
+          "delivery_count": 2000,
+          "parameter_digest": "aa84acdcfb247d67162d02b2f5a76e2a3c47d23643e52264657fc89e7c7b4d28",
+          "unresolved_credit_count": 0
+        }
+      ],
+      "shuffled_control": {
+        "accuracy": 0.5,
+        "correct": 100,
+        "total": 200
+      },
+      "shuffled_parameter_digest": "aa84acdcfb247d67162d02b2f5a76e2a3c47d23643e52264657fc89e7c7b4d28",
+      "shuffled_per_delay": [
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 1,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 2,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 3,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 4,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 5,
+          "total": 40
+        }
+      ],
+      "shuffled_reward_assignment_digest": "75109367486d6a61009be8997d0595e29d0fab615715275c3afb6edf29a0525b",
+      "shuffled_timeline": {
+        "action_count": 2000,
+        "decisions_with_prior_feedback_pending": 0,
+        "delivery_count": 2000,
+        "delivery_timeline_digest": "794aae7e24a4b12c045900627326536962a4a66d3dd9d4a4069acc23d161426e",
+        "lag_histogram": [
+          {
+            "count": 2000,
+            "lag": 0
+          }
+        ],
+        "learner_unresolved_final": 0,
+        "max_pending_after_delivery": 0,
+        "max_pending_before_delivery": 1,
+        "queue_pending_final": 0,
+        "terminal_drain_count": 0
+      },
+      "state_reset": {
+        "accuracy": 0.5,
+        "correct": 100,
+        "total": 200
+      },
+      "training_fixture_digest": "39c76061693bb579dc51b7ff14f8feadbb1be989ffd73b3010369b22ccbb6f2d"
+    },
+    {
+      "action_sequences_equal": true,
+      "arm": "td0",
+      "behavior_passed": false,
+      "evaluation_fixture_digest": "0cb49a228520ebbd80d7fb228b0bf2ffeff45568d8c8c85ee355a26d5968d40e",
+      "normal_action_digest": "c0c1b44f830eb4b9bec3a4ca357879d2db3df6158f05b397ad64d976698d9ce3",
+      "normal_checkpoints": [
+        {
+          "decision_count": 100,
+          "delivery_count": 99,
+          "parameter_digest": "1d501ff769b82eb9e17659821f74b9c369a62ff679c0896a4234513c205d58d8",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 200,
+          "delivery_count": 199,
+          "parameter_digest": "61d368616129770182ccddb327b32466572ab41ea4eb3d4bc4efd791264d2b85",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 300,
+          "delivery_count": 299,
+          "parameter_digest": "32aaf985cc36a98d16dae9ca6767f1fd3d2591c8bf37b2514f27e15a90ed974c",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 400,
+          "delivery_count": 399,
+          "parameter_digest": "1f21efc0a5a384162648a6c8557e2e94d15dd80473c22c0b26c08f557d376e0b",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 500,
+          "delivery_count": 499,
+          "parameter_digest": "7618e036864b5fe36238a352e01ca9def5554c414f018f39f4aaf7a7623ff026",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 600,
+          "delivery_count": 599,
+          "parameter_digest": "29c7afc43a323ed81c6d2e7fd800421648660260406ba3bb5c368b647409c519",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 700,
+          "delivery_count": 699,
+          "parameter_digest": "87922f90a9232b84b83fa5a831a537477aaac64a835d5faca4c20da92b0f36c1",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 800,
+          "delivery_count": 799,
+          "parameter_digest": "b669cfc43882158082b7b319cbdf4970db4c9c8dc47b9956227ed9bbeafcb1db",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 900,
+          "delivery_count": 899,
+          "parameter_digest": "55d4a8a5eca708e4d5b675f9f9f8434d6b096a0d1771180c96fa3b2c08ddd044",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 1000,
+          "delivery_count": 999,
+          "parameter_digest": "dbb133566b8cfa0cc6d08089280eb3673e26a75ff2b66e6ae0c67d734a837ab8",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 1100,
+          "delivery_count": 1099,
+          "parameter_digest": "b2d2ca03ef68807c23a3997c3d42e454c1f3e24a8eee78c24765a0c6a32be4d6",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 1200,
+          "delivery_count": 1199,
+          "parameter_digest": "81acfcc17c3c1a19bdda85b1ed162ff6459f12994ec8b890cb4b37df675cb7e5",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 1300,
+          "delivery_count": 1299,
+          "parameter_digest": "ec01a1ce4cf4715761f504bea6c240f7f227a6242fa6a8adf90d9e3804c32a9b",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 1400,
+          "delivery_count": 1399,
+          "parameter_digest": "c3b8376a7b6c22d789e09a83d59c79d1a3d083a9fd61bd1c7f2468a9b64cad7c",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 1500,
+          "delivery_count": 1499,
+          "parameter_digest": "a8d157e7628972d1a993838333fb24a90089bd586ca74dbbea42f2c8480598dd",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 1600,
+          "delivery_count": 1599,
+          "parameter_digest": "21a0532a1fe9128cb4fcc47a18383570b54ee5a275eb9b5460b1bf3fd75d5472",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 1700,
+          "delivery_count": 1699,
+          "parameter_digest": "01614760d677b689fcf8d38c359f7b8abe94066fb9ce3ba5c3abafb19f5dc41c",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 1800,
+          "delivery_count": 1799,
+          "parameter_digest": "5069d0985e453fefd1e9709354e9db03ad6fd19844297487bf8b59b4c7f4589e",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 1900,
+          "delivery_count": 1899,
+          "parameter_digest": "ee7481a4f99d49b0530e1e6391db7c4c41d5b8656b8613b241dc7a74db744552",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 2000,
+          "delivery_count": 1999,
+          "parameter_digest": "601bb25b2a1b3edc44980dc28d59639fa83b89fcd81863a8d1f6a232d0061533",
+          "unresolved_credit_count": 1
+        }
+      ],
+      "normal_reward_assignment_digest": "96b73227db8edb095d76eaf1813921bc064d3fc8733a7272260f3dfc89ede87a",
+      "normal_timeline": {
+        "action_count": 2000,
+        "decisions_with_prior_feedback_pending": 1999,
+        "delivery_count": 2000,
+        "delivery_timeline_digest": "5ba358e4f80b05a0e12205b6ab7c00cb8e9ba270fb0c9569f946c982e0e9019b",
+        "lag_histogram": [
+          {
+            "count": 2000,
+            "lag": 1
+          }
+        ],
+        "learner_unresolved_final": 0,
+        "max_pending_after_delivery": 1,
+        "max_pending_before_delivery": 2,
+        "queue_pending_final": 0,
+        "terminal_drain_count": 1
+      },
+      "parameter_digest": "048ff439e15570ccc325b47263a8cdd061fabe0efcbab7258568ecc5a31f459b",
+      "per_delay": [
+        {
+          "accuracy": 1.0,
+          "correct": 40,
+          "delay": 1,
+          "total": 40
+        },
+        {
+          "accuracy": 1.0,
+          "correct": 40,
+          "delay": 2,
+          "total": 40
+        },
+        {
+          "accuracy": 0.975,
+          "correct": 39,
+          "delay": 3,
+          "total": 40
+        },
+        {
+          "accuracy": 0.7,
+          "correct": 28,
+          "delay": 4,
+          "total": 40
+        },
+        {
+          "accuracy": 0.85,
+          "correct": 34,
+          "delay": 5,
+          "total": 40
+        }
+      ],
+      "post_training": {
+        "accuracy": 0.905,
+        "correct": 181,
+        "total": 200
+      },
+      "pre_training": {
+        "accuracy": 0.5,
+        "correct": 100,
+        "total": 200
+      },
+      "repeatable": true,
+      "reset_per_delay": [
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 1,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 2,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 3,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 4,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 5,
+          "total": 40
+        }
+      ],
+      "reward_block_multisets_equal": true,
+      "reward_delay": 1,
+      "seed": 7,
+      "shuffled_action_digest": "c0c1b44f830eb4b9bec3a4ca357879d2db3df6158f05b397ad64d976698d9ce3",
+      "shuffled_checkpoints": [
+        {
+          "decision_count": 100,
+          "delivery_count": 99,
+          "parameter_digest": "06235265024be5a6aeddd4a0351cfd1fcee94d7d76ad0a7988ae073a76d6c320",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 200,
+          "delivery_count": 199,
+          "parameter_digest": "f3bd78760c663f676e61f27795e6465b62fd05ea8664897a07cb03ac306d972d",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 300,
+          "delivery_count": 299,
+          "parameter_digest": "4a5576a1cca995361974c373b8d16c8744f67a23ce583f9ca82dfe213bdc8f63",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 400,
+          "delivery_count": 399,
+          "parameter_digest": "c3f1f5c82d371253fe21b6387279e7e71705941c843e20a461d2b5a4c29fea9f",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 500,
+          "delivery_count": 499,
+          "parameter_digest": "76153546fd0c71a6e4214401db9d9ac2257b32c5c5298e68433b0bb2c75708c5",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 600,
+          "delivery_count": 599,
+          "parameter_digest": "70f878b97623e3690dcc2282e4fed7f0968dc3ace76a9d75867b010dd965ba62",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 700,
+          "delivery_count": 699,
+          "parameter_digest": "b156bf5537e35a2d88ca1dc71b6997acf47a00afee3aa9324dbdaffa29f585b3",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 800,
+          "delivery_count": 799,
+          "parameter_digest": "1b73e624b052e2045559f8466ca1838e16254518fa1a85c1f247ca6e196b21d9",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 900,
+          "delivery_count": 899,
+          "parameter_digest": "4bbd41756468094d315084816780a352866ef5411777eacf851e051267de9cb4",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 1000,
+          "delivery_count": 999,
+          "parameter_digest": "13e713568be36ea0867878a971a9b03216594d194abeda8d6c5fe97702f04df6",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 1100,
+          "delivery_count": 1099,
+          "parameter_digest": "ea63d49c0b357c74baa4aefdce34b4d782f68df3db3f446105de2454b8d64b7c",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 1200,
+          "delivery_count": 1199,
+          "parameter_digest": "7548791ed357065ec3656e6c47ea0e14d35c68597b9374e913de2ada3d7ae4ac",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 1300,
+          "delivery_count": 1299,
+          "parameter_digest": "c4fcd8a0b94547db553f28dc2a6f1e148715176274f932b87afc335584e63d1d",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 1400,
+          "delivery_count": 1399,
+          "parameter_digest": "39ec2db66390682fb2d47a8c90d82579e7c8771c9f4d805f4560b343142ca920",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 1500,
+          "delivery_count": 1499,
+          "parameter_digest": "428f036b45dc3b915c58800eb923138c4394c3125b9d4354b55289680c173367",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 1600,
+          "delivery_count": 1599,
+          "parameter_digest": "1e896f44fa906d984e3343b235d54014771f8c0bb275283375a2b0facacc2bb5",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 1700,
+          "delivery_count": 1699,
+          "parameter_digest": "08bdcfe35bc47f1b11d762f9033bf88abbc5fcad5b2faa7fcd256a007aef651c",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 1800,
+          "delivery_count": 1799,
+          "parameter_digest": "d4d754e4547c4ceed28fb7b7714796011fee5ac9c25f569c69ec9ff93e59a21c",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 1900,
+          "delivery_count": 1899,
+          "parameter_digest": "47b89b9a99d3461acf7db970353830b998cd5384d1495fbe3e6a3b8a4590d57c",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 2000,
+          "delivery_count": 1999,
+          "parameter_digest": "0eb620171cfde9bc2635d8cc68b31f4a08b486a54da0c5009932b01d036248c7",
+          "unresolved_credit_count": 1
+        }
+      ],
+      "shuffled_control": {
+        "accuracy": 0.5,
+        "correct": 100,
+        "total": 200
+      },
+      "shuffled_parameter_digest": "6d0a5bb3e60b323a3ca6b66809d0d0ddd6496fbac6d3684b6178a8b085c3d17b",
+      "shuffled_per_delay": [
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 1,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 2,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 3,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 4,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 5,
+          "total": 40
+        }
+      ],
+      "shuffled_reward_assignment_digest": "75109367486d6a61009be8997d0595e29d0fab615715275c3afb6edf29a0525b",
+      "shuffled_timeline": {
+        "action_count": 2000,
+        "decisions_with_prior_feedback_pending": 1999,
+        "delivery_count": 2000,
+        "delivery_timeline_digest": "5ba358e4f80b05a0e12205b6ab7c00cb8e9ba270fb0c9569f946c982e0e9019b",
+        "lag_histogram": [
+          {
+            "count": 2000,
+            "lag": 1
+          }
+        ],
+        "learner_unresolved_final": 0,
+        "max_pending_after_delivery": 1,
+        "max_pending_before_delivery": 2,
+        "queue_pending_final": 0,
+        "terminal_drain_count": 1
+      },
+      "state_reset": {
+        "accuracy": 0.5,
+        "correct": 100,
+        "total": 200
+      },
+      "training_fixture_digest": "39c76061693bb579dc51b7ff14f8feadbb1be989ffd73b3010369b22ccbb6f2d"
+    },
+    {
+      "action_sequences_equal": true,
+      "arm": "td0",
+      "behavior_passed": false,
+      "evaluation_fixture_digest": "0cb49a228520ebbd80d7fb228b0bf2ffeff45568d8c8c85ee355a26d5968d40e",
+      "normal_action_digest": "c0c1b44f830eb4b9bec3a4ca357879d2db3df6158f05b397ad64d976698d9ce3",
+      "normal_checkpoints": [
+        {
+          "decision_count": 100,
+          "delivery_count": 97,
+          "parameter_digest": "aaf96c6da29ed1bedf627ddd6e2ea10c367e4f3ec2778dc0da420b1aea5c5bbe",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 200,
+          "delivery_count": 197,
+          "parameter_digest": "a72e621c5943e1e20451a2ea027caeda3efe6680a7a35e5b580b65fc146e26d8",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 300,
+          "delivery_count": 297,
+          "parameter_digest": "52b52427f8c8393a5c6e8bffa17768280b0477c7e684ebb5dace93d7ff059a1d",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 400,
+          "delivery_count": 397,
+          "parameter_digest": "63fe3ba27d1a58d291f763b319676472174f018f30b3d064edfcf5a0a2e2b00e",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 500,
+          "delivery_count": 497,
+          "parameter_digest": "b6623af4e573e9a7a74690899af29e44598322fae5037285275a0346645dcd78",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 600,
+          "delivery_count": 597,
+          "parameter_digest": "5ada668d97a3f8e5071c1f474a2de0bab83ef3996e7b03881a17c06b4d8ed839",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 700,
+          "delivery_count": 697,
+          "parameter_digest": "c1a15d5b264f8650edb51e2a310f654885f66e6b847de86919481470f962ab90",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 800,
+          "delivery_count": 797,
+          "parameter_digest": "dd6161ffdbaa74298a630bb1995985a2f9054c2748b3151269bef1b1efb4107a",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 900,
+          "delivery_count": 897,
+          "parameter_digest": "cb2bb5ed874dbbf5e0f5abe39ae1eb9db773243632c0680f88af3112b4e948f1",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 1000,
+          "delivery_count": 997,
+          "parameter_digest": "0398fd37fbdabbb579fb245521cb0a8c9fd48ff2446adf40ee5d4e7067362680",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 1100,
+          "delivery_count": 1097,
+          "parameter_digest": "02d5cddcbb464d738b6ae7fcf51d2b3e6548d1d359d2e679ee7c1dc2e95922d4",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 1200,
+          "delivery_count": 1197,
+          "parameter_digest": "7f4ee69de27405e09dca75c415fd5079bfe16d9508ee506d043f9ed15b57af5c",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 1300,
+          "delivery_count": 1297,
+          "parameter_digest": "8f3be8746ac9997cc0b68c71d2e15dc6d4295ab979bcfdd75965e8889f9dac8a",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 1400,
+          "delivery_count": 1397,
+          "parameter_digest": "11a93a33965686db6a9cc0ede4d2b9f7b6f3f1ffa6820e2a108937dd1d7cbb2b",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 1500,
+          "delivery_count": 1497,
+          "parameter_digest": "700efbfda43cea548bec76df7cd78e9c453bec19b6fbcdab709ce908eb718163",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 1600,
+          "delivery_count": 1597,
+          "parameter_digest": "0f2741ff7d8d7a0398b66be151e4150e241f1fa34faa1d7592242c2e73195604",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 1700,
+          "delivery_count": 1697,
+          "parameter_digest": "0bb647670163b509519467d1253820bc4f8b76d609583a7ae89f9870291ede94",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 1800,
+          "delivery_count": 1797,
+          "parameter_digest": "27559a9f4d9316da719d0201552d85e4edbafc14e65b4cb895f4c259ba7e5261",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 1900,
+          "delivery_count": 1897,
+          "parameter_digest": "4379b0d0d77ed685705bb44f9105ae9676a9936b0e33b1fd0a6b4be62755e33d",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 2000,
+          "delivery_count": 1997,
+          "parameter_digest": "23c666f73064d3329d2af2a7837e5496bdfdb291ec15b5d560a48d3a260483b5",
+          "unresolved_credit_count": 3
+        }
+      ],
+      "normal_reward_assignment_digest": "96b73227db8edb095d76eaf1813921bc064d3fc8733a7272260f3dfc89ede87a",
+      "normal_timeline": {
+        "action_count": 2000,
+        "decisions_with_prior_feedback_pending": 1999,
+        "delivery_count": 2000,
+        "delivery_timeline_digest": "1921c3f61e59f14e2452a5d171c65de1dff3a50af9af15cab95b938cce1f3542",
+        "lag_histogram": [
+          {
+            "count": 2000,
+            "lag": 3
+          }
+        ],
+        "learner_unresolved_final": 0,
+        "max_pending_after_delivery": 3,
+        "max_pending_before_delivery": 4,
+        "queue_pending_final": 0,
+        "terminal_drain_count": 3
+      },
+      "parameter_digest": "a34abdb69725af896016bf4ae86b8d7e2821cc280d5b895e66f62be24e778afe",
+      "per_delay": [
+        {
+          "accuracy": 1.0,
+          "correct": 40,
+          "delay": 1,
+          "total": 40
+        },
+        {
+          "accuracy": 1.0,
+          "correct": 40,
+          "delay": 2,
+          "total": 40
+        },
+        {
+          "accuracy": 0.975,
+          "correct": 39,
+          "delay": 3,
+          "total": 40
+        },
+        {
+          "accuracy": 0.675,
+          "correct": 27,
+          "delay": 4,
+          "total": 40
+        },
+        {
+          "accuracy": 0.875,
+          "correct": 35,
+          "delay": 5,
+          "total": 40
+        }
+      ],
+      "post_training": {
+        "accuracy": 0.905,
+        "correct": 181,
+        "total": 200
+      },
+      "pre_training": {
+        "accuracy": 0.5,
+        "correct": 100,
+        "total": 200
+      },
+      "repeatable": true,
+      "reset_per_delay": [
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 1,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 2,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 3,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 4,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 5,
+          "total": 40
+        }
+      ],
+      "reward_block_multisets_equal": true,
+      "reward_delay": 3,
+      "seed": 7,
+      "shuffled_action_digest": "c0c1b44f830eb4b9bec3a4ca357879d2db3df6158f05b397ad64d976698d9ce3",
+      "shuffled_checkpoints": [
+        {
+          "decision_count": 100,
+          "delivery_count": 97,
+          "parameter_digest": "ca3b7a90e506fe1a281e0253fbd96ab50b4d50f12c6c38c9369161c0a747e9df",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 200,
+          "delivery_count": 197,
+          "parameter_digest": "45ad1847c6e6413f4bc8f48a54a300fe45b5f7a980431cd166db9b2cce87cbab",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 300,
+          "delivery_count": 297,
+          "parameter_digest": "1bd10d031d3a9e736943a67d092a78e450057e63c71773e82e38fa73cabd68f5",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 400,
+          "delivery_count": 397,
+          "parameter_digest": "33e3726001fbf57b442a6b2dec6fcd634ce7c47a1fe7a3642606cd04961f3646",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 500,
+          "delivery_count": 497,
+          "parameter_digest": "89d7381528d696bb8b4f192bb6665de6779752c1ce9b9eaf82bcc5c8bafd3356",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 600,
+          "delivery_count": 597,
+          "parameter_digest": "f9c0f5d39768256e16d10de16d3f6793f9e41048575cd9b1e642d22cea23a595",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 700,
+          "delivery_count": 697,
+          "parameter_digest": "c9e45146f5b60a2e2babe825bb4374cae63a50df51446577ad7eeb07090149ab",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 800,
+          "delivery_count": 797,
+          "parameter_digest": "f680240a0210291737181cef6bf9b6418c42c5d2aee63d4760e43f9c42c90f6f",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 900,
+          "delivery_count": 897,
+          "parameter_digest": "48fa4f090a57df0930a6c1c2a9e60e2a2e23c729ea3897b2fb491bd687c4e4be",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 1000,
+          "delivery_count": 997,
+          "parameter_digest": "72483fa0b940aa93201a839430867c0b5ef55396b6f6ea5ec81cb65ff078c786",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 1100,
+          "delivery_count": 1097,
+          "parameter_digest": "5b93e5b8217e573d69b82b56ba1ce848d2c2668ea8d6a8864b438044862fdd6c",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 1200,
+          "delivery_count": 1197,
+          "parameter_digest": "b8b729d45ac43ef645ae847e490aa118b8cde4a68264e936a0f1f67dc853a2b2",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 1300,
+          "delivery_count": 1297,
+          "parameter_digest": "ae0665344434f97c2369a5709a2e8e92c3ea55d2d5ce208ba554232a5915733a",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 1400,
+          "delivery_count": 1397,
+          "parameter_digest": "b67119a20afeeb38d7e084b977af751396116dd7af53bbd7216f94b0e87081dd",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 1500,
+          "delivery_count": 1497,
+          "parameter_digest": "076d339b96532565bba6242146d3dacf37328120eac9ca2c38d8b6dc8ee9292e",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 1600,
+          "delivery_count": 1597,
+          "parameter_digest": "543ffd7c8f6c395f2aff9ded93eb59b1e73c7387a130d16494fcbb65410f14ec",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 1700,
+          "delivery_count": 1697,
+          "parameter_digest": "c9994e0e2fee0abd6974efcf4a0913d22ebf4facb0930a7f5eb713138f0d6296",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 1800,
+          "delivery_count": 1797,
+          "parameter_digest": "33c9652125b7d99443469d38f2e43b440734e4d459a64159de01ccff7c8a1128",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 1900,
+          "delivery_count": 1897,
+          "parameter_digest": "1581961e0cc5e6a0772b2f6e905c4cb75ad7924e2fe8707dcbb4720c0553fd65",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 2000,
+          "delivery_count": 1997,
+          "parameter_digest": "2c3f4fb7cc1e768eecbaeb522c9509f6f23eda05df44e6fae8f5c477dbf28cd8",
+          "unresolved_credit_count": 3
+        }
+      ],
+      "shuffled_control": {
+        "accuracy": 0.5,
+        "correct": 100,
+        "total": 200
+      },
+      "shuffled_parameter_digest": "97cbe1ee4e8973cb92e6ac6a2b3fb80dce36d03320433e37d9931ffb7bfefb11",
+      "shuffled_per_delay": [
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 1,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 2,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 3,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 4,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 5,
+          "total": 40
+        }
+      ],
+      "shuffled_reward_assignment_digest": "75109367486d6a61009be8997d0595e29d0fab615715275c3afb6edf29a0525b",
+      "shuffled_timeline": {
+        "action_count": 2000,
+        "decisions_with_prior_feedback_pending": 1999,
+        "delivery_count": 2000,
+        "delivery_timeline_digest": "1921c3f61e59f14e2452a5d171c65de1dff3a50af9af15cab95b938cce1f3542",
+        "lag_histogram": [
+          {
+            "count": 2000,
+            "lag": 3
+          }
+        ],
+        "learner_unresolved_final": 0,
+        "max_pending_after_delivery": 3,
+        "max_pending_before_delivery": 4,
+        "queue_pending_final": 0,
+        "terminal_drain_count": 3
+      },
+      "state_reset": {
+        "accuracy": 0.5,
+        "correct": 100,
+        "total": 200
+      },
+      "training_fixture_digest": "39c76061693bb579dc51b7ff14f8feadbb1be989ffd73b3010369b22ccbb6f2d"
+    },
+    {
+      "action_sequences_equal": true,
+      "arm": "td0",
+      "behavior_passed": false,
+      "evaluation_fixture_digest": "0cb49a228520ebbd80d7fb228b0bf2ffeff45568d8c8c85ee355a26d5968d40e",
+      "normal_action_digest": "c0c1b44f830eb4b9bec3a4ca357879d2db3df6158f05b397ad64d976698d9ce3",
+      "normal_checkpoints": [
+        {
+          "decision_count": 100,
+          "delivery_count": 95,
+          "parameter_digest": "6ea17e69228d5fdc6157795c626234a00ae86e9daf65a7a90faf7ea70149c607",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 200,
+          "delivery_count": 195,
+          "parameter_digest": "8cce76a4137f19054b8b6ab9ab5e1aeb93cd428be1a9db9f009866ccfb6d39ac",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 300,
+          "delivery_count": 295,
+          "parameter_digest": "198ed5e557406828864e099d077b5b99fa09784dd52ab89bcc5400ae1477f5b5",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 400,
+          "delivery_count": 395,
+          "parameter_digest": "dbfd89a4464296ba3b7555477ea48a84752e4b15a088741ae18775fccef4a688",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 500,
+          "delivery_count": 495,
+          "parameter_digest": "cc8c4f87883db9f6f3a2255c7d851469bf1b07f111b8b480ad1764b0a06672db",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 600,
+          "delivery_count": 595,
+          "parameter_digest": "14c5cb6573a4ea6aba16e4596e6933ce0efa74c32aaecd1ab5a6d80c63c6d5ac",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 700,
+          "delivery_count": 695,
+          "parameter_digest": "0e410be623f5faff3ff8ca9a2acc8ecfe416566548338d5f0d7eb35a0050825d",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 800,
+          "delivery_count": 795,
+          "parameter_digest": "2bb35ef04c8a65f41b50b232148c029ea8edf379f2473bec50ff863041727015",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 900,
+          "delivery_count": 895,
+          "parameter_digest": "9c3d68b8f3293f35756106e498a059eadd328161aec448dea399e9833812fc33",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 1000,
+          "delivery_count": 995,
+          "parameter_digest": "61c9d5d2e7bc0d99342c3bd871d410099a5ddaab60ff59c49d6edf9e2d8c6596",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 1100,
+          "delivery_count": 1095,
+          "parameter_digest": "bb17b576c46300e0bf42fa045fc63414631cc9326fb62b526f8da4d5aa80ebe1",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 1200,
+          "delivery_count": 1195,
+          "parameter_digest": "ad4041c4a2fee0ac6b91c4452c2fa741e597ad3d6e45fb97e337a1bb18c4c0b0",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 1300,
+          "delivery_count": 1295,
+          "parameter_digest": "aa4c4be6e91b71359ce229a810b522c1d0f59e9c6e33d60fcdda7dbd0da4d807",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 1400,
+          "delivery_count": 1395,
+          "parameter_digest": "6d150304bf047ba338a14e6f03d44b3d1d4a4bc98f0c7e6ca558fbeccddd0d60",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 1500,
+          "delivery_count": 1495,
+          "parameter_digest": "96f038bebe30771d5b6e5cbb76360d43b45be4534396f9b49a9cb92fad955bb4",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 1600,
+          "delivery_count": 1595,
+          "parameter_digest": "021d14155fd4f758a7fbd4d49878183f4111f45cb87781996c33121703fbb63e",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 1700,
+          "delivery_count": 1695,
+          "parameter_digest": "a68dc4ffa8884d3e910e50c90450463c3485927c433fc6bfb0fe320ef1f4fa3e",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 1800,
+          "delivery_count": 1795,
+          "parameter_digest": "4f05b852eabeca1c9b7f768ac48bdfa376760d62716598b1c54fa0b552c026c1",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 1900,
+          "delivery_count": 1895,
+          "parameter_digest": "4c0afca67832699ade6d387c26d69df5e3ff67e85de5770946362678bde2cf1f",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 2000,
+          "delivery_count": 1995,
+          "parameter_digest": "bad18b82572b81308e83431731f6246b1b34c7ac484d11470d526203ca5a839a",
+          "unresolved_credit_count": 5
+        }
+      ],
+      "normal_reward_assignment_digest": "96b73227db8edb095d76eaf1813921bc064d3fc8733a7272260f3dfc89ede87a",
+      "normal_timeline": {
+        "action_count": 2000,
+        "decisions_with_prior_feedback_pending": 1999,
+        "delivery_count": 2000,
+        "delivery_timeline_digest": "529e2158b536d5ff03101f91a2ffca7e23a261d6f0ef31ff80472db89206c4a5",
+        "lag_histogram": [
+          {
+            "count": 2000,
+            "lag": 5
+          }
+        ],
+        "learner_unresolved_final": 0,
+        "max_pending_after_delivery": 5,
+        "max_pending_before_delivery": 6,
+        "queue_pending_final": 0,
+        "terminal_drain_count": 5
+      },
+      "parameter_digest": "4bbe84dc243b91f5d606893e31bb648c9af114585bd80a2c62f09e23f967390f",
+      "per_delay": [
+        {
+          "accuracy": 1.0,
+          "correct": 40,
+          "delay": 1,
+          "total": 40
+        },
+        {
+          "accuracy": 1.0,
+          "correct": 40,
+          "delay": 2,
+          "total": 40
+        },
+        {
+          "accuracy": 0.975,
+          "correct": 39,
+          "delay": 3,
+          "total": 40
+        },
+        {
+          "accuracy": 0.7,
+          "correct": 28,
+          "delay": 4,
+          "total": 40
+        },
+        {
+          "accuracy": 0.875,
+          "correct": 35,
+          "delay": 5,
+          "total": 40
+        }
+      ],
+      "post_training": {
+        "accuracy": 0.91,
+        "correct": 182,
+        "total": 200
+      },
+      "pre_training": {
+        "accuracy": 0.5,
+        "correct": 100,
+        "total": 200
+      },
+      "repeatable": true,
+      "reset_per_delay": [
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 1,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 2,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 3,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 4,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 5,
+          "total": 40
+        }
+      ],
+      "reward_block_multisets_equal": true,
+      "reward_delay": 5,
+      "seed": 7,
+      "shuffled_action_digest": "c0c1b44f830eb4b9bec3a4ca357879d2db3df6158f05b397ad64d976698d9ce3",
+      "shuffled_checkpoints": [
+        {
+          "decision_count": 100,
+          "delivery_count": 95,
+          "parameter_digest": "bd7305f2abf841201d9316319549579649722914105c0f2c3e90f67922a63ba2",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 200,
+          "delivery_count": 195,
+          "parameter_digest": "5a94cdfa06587d698172e98516d1f552a660959198cfb4776ce36c50488101bb",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 300,
+          "delivery_count": 295,
+          "parameter_digest": "2761ac0c169daa803ec319e5a5c6e687131a4a678b4309a83f8eb9e43ba2233a",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 400,
+          "delivery_count": 395,
+          "parameter_digest": "9053f1e2ee4229923be85c1928778bdff95d7b75c78da0c6bfeed9d436ebf979",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 500,
+          "delivery_count": 495,
+          "parameter_digest": "d9805e8d7072ece171e7f4c53fc3c3b64bd66b0bac28a4d623efa688b2501849",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 600,
+          "delivery_count": 595,
+          "parameter_digest": "deddb4ea3e821a75a5cbe304dca8232aa5d91861a42d0bd3c17ddf4f8983e7eb",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 700,
+          "delivery_count": 695,
+          "parameter_digest": "e3960b541da479279aad138c4ec7bfbdf217d10212f7cafeb0b62b30bded93d7",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 800,
+          "delivery_count": 795,
+          "parameter_digest": "88baa28e835292c370840b73405cfd40dab7642b2a195ea2d165de917fd47392",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 900,
+          "delivery_count": 895,
+          "parameter_digest": "fc9a4f327301824695e7c5606a1a4fcaa91c7f355155af7f4522c9dea0a4b233",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 1000,
+          "delivery_count": 995,
+          "parameter_digest": "b93a375bbab813f8c960fd2768886cf35b19a31d3aba29506451e1befbd583a3",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 1100,
+          "delivery_count": 1095,
+          "parameter_digest": "5edc6dbb2c33d624043ecbaeeadf436c04c3e890a7d13d72b42ac119243e368e",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 1200,
+          "delivery_count": 1195,
+          "parameter_digest": "e5572fe299f54fc336a6878e7d0c7149b4acb27c8bab70757dc8191e1eae4c30",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 1300,
+          "delivery_count": 1295,
+          "parameter_digest": "9dc85dfd63cc305db704e578232ac5153065a16547411725b4691fcfce7f9818",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 1400,
+          "delivery_count": 1395,
+          "parameter_digest": "554b1dbf4f32abc1c555594e5e2da8a120b11916932ef4263594586d36dfa949",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 1500,
+          "delivery_count": 1495,
+          "parameter_digest": "db000eab1ed3ede5ae88c280d3659c7e533ded746fb9f7e174d5ee55c28a164f",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 1600,
+          "delivery_count": 1595,
+          "parameter_digest": "b407b1bc4ccd5b9de455ef58f051d33cc65cabc6267d75d109aea2f92ad85ff2",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 1700,
+          "delivery_count": 1695,
+          "parameter_digest": "a69bfdb2da847129c961ba40f54558776b8e78d200dbb873df37ba5e223e89de",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 1800,
+          "delivery_count": 1795,
+          "parameter_digest": "33c490a264561b1d9f1cfcfd481bd5bc6baca00d4333caee2a88b4aba7ae4b82",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 1900,
+          "delivery_count": 1895,
+          "parameter_digest": "d3768fb68b3311eb2e4295d5ed2967e56b05022e37b80e04db5f2a9cac1b2162",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 2000,
+          "delivery_count": 1995,
+          "parameter_digest": "9ac62a3e3f08e86c4a3d7e79c05b4b0df0acb05d459cb3cd33cc05a609cac33d",
+          "unresolved_credit_count": 5
+        }
+      ],
+      "shuffled_control": {
+        "accuracy": 0.5,
+        "correct": 100,
+        "total": 200
+      },
+      "shuffled_parameter_digest": "0980dc866238aff52b0605e77006d0163192dc9c44dc71ba24da2f9b91cf550c",
+      "shuffled_per_delay": [
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 1,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 2,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 3,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 4,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 5,
+          "total": 40
+        }
+      ],
+      "shuffled_reward_assignment_digest": "75109367486d6a61009be8997d0595e29d0fab615715275c3afb6edf29a0525b",
+      "shuffled_timeline": {
+        "action_count": 2000,
+        "decisions_with_prior_feedback_pending": 1999,
+        "delivery_count": 2000,
+        "delivery_timeline_digest": "529e2158b536d5ff03101f91a2ffca7e23a261d6f0ef31ff80472db89206c4a5",
+        "lag_histogram": [
+          {
+            "count": 2000,
+            "lag": 5
+          }
+        ],
+        "learner_unresolved_final": 0,
+        "max_pending_after_delivery": 5,
+        "max_pending_before_delivery": 6,
+        "queue_pending_final": 0,
+        "terminal_drain_count": 5
+      },
+      "state_reset": {
+        "accuracy": 0.5,
+        "correct": 100,
+        "total": 200
+      },
+      "training_fixture_digest": "39c76061693bb579dc51b7ff14f8feadbb1be989ffd73b3010369b22ccbb6f2d"
+    },
+    {
+      "action_sequences_equal": true,
+      "arm": "td0",
+      "behavior_passed": true,
+      "evaluation_fixture_digest": "70900596b8a665b1c35bfe1d6aa59333893e9012da16649d0bd0ae57704e15e5",
+      "normal_action_digest": "975e8ebaa9a2db8d15bb1711adff3dfda9fd7bb3795366714f63285e36258984",
+      "normal_checkpoints": [
+        {
+          "decision_count": 100,
+          "delivery_count": 100,
+          "parameter_digest": "d8d042428d9e0a58ae7ddce315a4032660d1dbee3f82b984be4a84b36d8ac549",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 200,
+          "delivery_count": 200,
+          "parameter_digest": "5766063321af5fddb7f1bf9e7b3b89ff274020cf8887852bcd5be1354e0a7ce0",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 300,
+          "delivery_count": 300,
+          "parameter_digest": "afa68eea7e6f4da095becf64b2990849ad2887fc0cea01b234694dbb0abfe705",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 400,
+          "delivery_count": 400,
+          "parameter_digest": "bb4e1dbeb3b948eaac45087a4917891bd636242b504bdf9f1f37d8fe3f2ad9ce",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 500,
+          "delivery_count": 500,
+          "parameter_digest": "3fc7a9b39e4932665da8b6118fc425e46b750c4bb5f1c364d603479fb18578d9",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 600,
+          "delivery_count": 600,
+          "parameter_digest": "377d1afc07988f66501f37b4d3e318d9e826e3b32487f5c5df3af70cb97982af",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 700,
+          "delivery_count": 700,
+          "parameter_digest": "d3d732495f95f0f0150e5b372f2b39a27dee379818f0d5ac6b0e35021edac46f",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 800,
+          "delivery_count": 800,
+          "parameter_digest": "a9bfdc1e9b7f625628c9c63e3722514f01da642b33a73eff7b36fb637adf8bf4",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 900,
+          "delivery_count": 900,
+          "parameter_digest": "9283e138931094a3a02336fbb035e7daad588e90794eae03768df70868e7f9fe",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 1000,
+          "delivery_count": 1000,
+          "parameter_digest": "957751bfc337e5ad198d4ccff7b961ddac9c66b823b92d87fc191e00bc35a2f9",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 1100,
+          "delivery_count": 1100,
+          "parameter_digest": "5ff6ac8c281fedebe5fcabc6e80a46bcecbd2d671cc779c59acfc2a5b4728077",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 1200,
+          "delivery_count": 1200,
+          "parameter_digest": "78e42155ab1cd787ac25be485b44f381cbdef8bf56d0f79616a03ed40d8053ef",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 1300,
+          "delivery_count": 1300,
+          "parameter_digest": "7adb52f82a2ca17947786cca3cc40b0e53f6895b804903bb64c5546db3f6a48d",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 1400,
+          "delivery_count": 1400,
+          "parameter_digest": "5db9bd72d273e04744ecba3cfc4ce1ae92d20021c9e96cf65a1f6014a92e69de",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 1500,
+          "delivery_count": 1500,
+          "parameter_digest": "ef0ecdf4ff17d69abc9876a1f2e92a026ba288e3e4df77caae04ef8071757abb",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 1600,
+          "delivery_count": 1600,
+          "parameter_digest": "4647d4e4365b8e12dde32a3ffc1887f4c90714bc67f986417f752a1a66932d71",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 1700,
+          "delivery_count": 1700,
+          "parameter_digest": "60a50ee4278ae591ec7d25f9493cabc20c476818e3c12de5f0ff3e40636405d3",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 1800,
+          "delivery_count": 1800,
+          "parameter_digest": "ef50dfc7cde5ac4494de04426196ab59b6a044a8b685455059d72d2c36fa23bd",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 1900,
+          "delivery_count": 1900,
+          "parameter_digest": "5556710ea60439cc49d2e720a2d368cb6702f5a40d0d28c0ee6c357fd5d110b6",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 2000,
+          "delivery_count": 2000,
+          "parameter_digest": "2fe8d9e4d54488eaf19daab65012d1e711dc23432edbbf8a617e75682e84d8ad",
+          "unresolved_credit_count": 0
+        }
+      ],
+      "normal_reward_assignment_digest": "b1189a5cbc3e15d325462d75b2ef778aff6316c5d0e30ab4937d156ee2c26a1e",
+      "normal_timeline": {
+        "action_count": 2000,
+        "decisions_with_prior_feedback_pending": 0,
+        "delivery_count": 2000,
+        "delivery_timeline_digest": "794aae7e24a4b12c045900627326536962a4a66d3dd9d4a4069acc23d161426e",
+        "lag_histogram": [
+          {
+            "count": 2000,
+            "lag": 0
+          }
+        ],
+        "learner_unresolved_final": 0,
+        "max_pending_after_delivery": 0,
+        "max_pending_before_delivery": 1,
+        "queue_pending_final": 0,
+        "terminal_drain_count": 0
+      },
+      "parameter_digest": "2fe8d9e4d54488eaf19daab65012d1e711dc23432edbbf8a617e75682e84d8ad",
+      "per_delay": [
+        {
+          "accuracy": 1.0,
+          "correct": 40,
+          "delay": 1,
+          "total": 40
+        },
+        {
+          "accuracy": 1.0,
+          "correct": 40,
+          "delay": 2,
+          "total": 40
+        },
+        {
+          "accuracy": 1.0,
+          "correct": 40,
+          "delay": 3,
+          "total": 40
+        },
+        {
+          "accuracy": 1.0,
+          "correct": 40,
+          "delay": 4,
+          "total": 40
+        },
+        {
+          "accuracy": 0.975,
+          "correct": 39,
+          "delay": 5,
+          "total": 40
+        }
+      ],
+      "post_training": {
+        "accuracy": 0.995,
+        "correct": 199,
+        "total": 200
+      },
+      "pre_training": {
+        "accuracy": 0.5,
+        "correct": 100,
+        "total": 200
+      },
+      "repeatable": true,
+      "reset_per_delay": [
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 1,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 2,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 3,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 4,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 5,
+          "total": 40
+        }
+      ],
+      "reward_block_multisets_equal": true,
+      "reward_delay": 0,
+      "seed": 17,
+      "shuffled_action_digest": "975e8ebaa9a2db8d15bb1711adff3dfda9fd7bb3795366714f63285e36258984",
+      "shuffled_checkpoints": [
+        {
+          "decision_count": 100,
+          "delivery_count": 100,
+          "parameter_digest": "f8045a3f22da617ea9f3198b69637ed1db9935dc45750b3a68f0c8da893adce0",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 200,
+          "delivery_count": 200,
+          "parameter_digest": "378c0de2803653df57a0fd26d5b5fb3761a69ca643a6c03e73d768655a29b96e",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 300,
+          "delivery_count": 300,
+          "parameter_digest": "8bcc3e376ab086aeb81c5daa09cc5d36f10c830af370484a0d0ea39f9815e0b0",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 400,
+          "delivery_count": 400,
+          "parameter_digest": "9a021e38a40b4c1b17b76747349ff954939b214fcc22875c171e19af44d2275f",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 500,
+          "delivery_count": 500,
+          "parameter_digest": "2124f7f39b4d02b3581e4b96beb195b329269a76290dae702223c2b4e8cfe419",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 600,
+          "delivery_count": 600,
+          "parameter_digest": "e18c297b0aadb1d94f8ae07a79e29e257d619552dd7ca044eb1dfd0a6832b367",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 700,
+          "delivery_count": 700,
+          "parameter_digest": "58f25c6a09e6660d14ffd8a4fb3c2592cc3f2ec29a3c2b6d681dd4340a906a21",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 800,
+          "delivery_count": 800,
+          "parameter_digest": "f052fdf71ee1996b99ddd12504afe57af9ed7ba220d2271ef74192eb9ef46221",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 900,
+          "delivery_count": 900,
+          "parameter_digest": "4eba514c15255d7a32bb31c49f73dcac0f38ff77252305ac93720762ef183fbc",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 1000,
+          "delivery_count": 1000,
+          "parameter_digest": "ca8754d05d561d758de4820d02fccc5cdeeb867ee7702e172cbcdc718e377b95",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 1100,
+          "delivery_count": 1100,
+          "parameter_digest": "3a82d2751dc81cd8e53c3c8d48b53dbc833a9878d0af8539427d40d8aa922ef5",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 1200,
+          "delivery_count": 1200,
+          "parameter_digest": "67d71e57b4d78e375e7f5e98b49681722792de7e9e566bd676d8ff43a36213da",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 1300,
+          "delivery_count": 1300,
+          "parameter_digest": "0cc672c4a85cb2c7c4e4089aa4a8add35fb153b4603c7c82b4708fd56b676d53",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 1400,
+          "delivery_count": 1400,
+          "parameter_digest": "5269be92525039b72f88550d290dcc82bc5dffd4e16cdee5bbb1df854b3d2033",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 1500,
+          "delivery_count": 1500,
+          "parameter_digest": "043f89b679cb22244e157384fe779eb5d913fb641fe7a9f170bfe3f6bb6a717a",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 1600,
+          "delivery_count": 1600,
+          "parameter_digest": "63a975566a758b6ce154c9564c15b91ea907e101e515ef50415d325495ad39bc",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 1700,
+          "delivery_count": 1700,
+          "parameter_digest": "9f5a3958324f852c5ffeac33a2bf1d10bb29f6c0aed60c923afcc31e1928ee0a",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 1800,
+          "delivery_count": 1800,
+          "parameter_digest": "9fd89c64b0c9a9093185f8d7cbd5578cfc56a1357434c1983f74baeb6178e821",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 1900,
+          "delivery_count": 1900,
+          "parameter_digest": "15f75f41bd2e89bf4d61147afb8603b2ce07809e6f3b6dbd95e96e67f9c0c61c",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 2000,
+          "delivery_count": 2000,
+          "parameter_digest": "f83dc62059f23768dcb03762f86648b898597d3cfd962414c37d3aef4d77597a",
+          "unresolved_credit_count": 0
+        }
+      ],
+      "shuffled_control": {
+        "accuracy": 0.5,
+        "correct": 100,
+        "total": 200
+      },
+      "shuffled_parameter_digest": "f83dc62059f23768dcb03762f86648b898597d3cfd962414c37d3aef4d77597a",
+      "shuffled_per_delay": [
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 1,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 2,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 3,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 4,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 5,
+          "total": 40
+        }
+      ],
+      "shuffled_reward_assignment_digest": "df5a3b7d534879f0ae0756067c084875a0bacef8652a508d4d77c24a28f776ce",
+      "shuffled_timeline": {
+        "action_count": 2000,
+        "decisions_with_prior_feedback_pending": 0,
+        "delivery_count": 2000,
+        "delivery_timeline_digest": "794aae7e24a4b12c045900627326536962a4a66d3dd9d4a4069acc23d161426e",
+        "lag_histogram": [
+          {
+            "count": 2000,
+            "lag": 0
+          }
+        ],
+        "learner_unresolved_final": 0,
+        "max_pending_after_delivery": 0,
+        "max_pending_before_delivery": 1,
+        "queue_pending_final": 0,
+        "terminal_drain_count": 0
+      },
+      "state_reset": {
+        "accuracy": 0.5,
+        "correct": 100,
+        "total": 200
+      },
+      "training_fixture_digest": "56343ce19ab94f2eef8e538f2d9f5f2e686d2d4cf1e20ffc39529d6138497b5c"
+    },
+    {
+      "action_sequences_equal": true,
+      "arm": "td0",
+      "behavior_passed": true,
+      "evaluation_fixture_digest": "70900596b8a665b1c35bfe1d6aa59333893e9012da16649d0bd0ae57704e15e5",
+      "normal_action_digest": "975e8ebaa9a2db8d15bb1711adff3dfda9fd7bb3795366714f63285e36258984",
+      "normal_checkpoints": [
+        {
+          "decision_count": 100,
+          "delivery_count": 99,
+          "parameter_digest": "0ddbaad6b41b0eeee06f2910691365b11323935efa5948e119885dfd4eaa614c",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 200,
+          "delivery_count": 199,
+          "parameter_digest": "7cf0fc5fc6b5a9b31bc82b437c9688a0f112b98797a60ad9da28fa5777c9a954",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 300,
+          "delivery_count": 299,
+          "parameter_digest": "dcdfb462b5eb252d742da03edfdc8f44cddeeacfc9bcefe4dd34e2a592be0932",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 400,
+          "delivery_count": 399,
+          "parameter_digest": "946ac51213ba39630581c0744330184fd2bdb4b3226902ddc9144fd05022792b",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 500,
+          "delivery_count": 499,
+          "parameter_digest": "f01573187df6d478815317fdb69b0ccab0b6dfbfea160b3747e549f6275b4ed4",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 600,
+          "delivery_count": 599,
+          "parameter_digest": "c20fbc6fc4b2729dc9074fa38f23d5d239e492e52783a86126b31d466d7d6e00",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 700,
+          "delivery_count": 699,
+          "parameter_digest": "26da59fc083cfe4172320a49a5b522dc7e26c873d59513835fda08ffe904a917",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 800,
+          "delivery_count": 799,
+          "parameter_digest": "56792f5be2b871cd455166e9521cc11ceb2ee897bc06197bbae20a157ce01d18",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 900,
+          "delivery_count": 899,
+          "parameter_digest": "6b6278ca9ec16ca528b3e4c9ccd38c761da74981e0bd4fe23c22ff07af7e79a1",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 1000,
+          "delivery_count": 999,
+          "parameter_digest": "afac14472049c25c7de83a8d87a71a76e2abcc69d4981fff578ca6a96483ddaf",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 1100,
+          "delivery_count": 1099,
+          "parameter_digest": "ef9eb057d2866c0906d5ba23a9f2fd671346b1f33d39bd4f197e4268c1e3d451",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 1200,
+          "delivery_count": 1199,
+          "parameter_digest": "f0671d1ba6467c9b00165791cd10e3430b423e69c06160c3f3e5babb91a1fc0c",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 1300,
+          "delivery_count": 1299,
+          "parameter_digest": "e6f6f8ae14773b85355a14e071a5b2803acb16a9b58bafab81b878225eabbffd",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 1400,
+          "delivery_count": 1399,
+          "parameter_digest": "8b64bd11a652892a045a9c3bcca135078c63107d1b9b834e5937fbb155186a43",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 1500,
+          "delivery_count": 1499,
+          "parameter_digest": "db6d4b0db18c541ffbcf306ce8ea05e8cc94cf48f974bc70d9464c5b368b5c5f",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 1600,
+          "delivery_count": 1599,
+          "parameter_digest": "c052d4254a6da4632234aad9a33e0de8c60ded06e132130f50b0530c6a87eb46",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 1700,
+          "delivery_count": 1699,
+          "parameter_digest": "dae6f22b26726bc0601e573d57086024cb3908efd02b07916b207c44b2c47c50",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 1800,
+          "delivery_count": 1799,
+          "parameter_digest": "399d9a73bfba106ea52151dd4524d078a697dc6634fcdf23a39e7c0fdf14b93a",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 1900,
+          "delivery_count": 1899,
+          "parameter_digest": "da0ea36c46b1f8b808c5103d01bc210247d8a637116c7e301bd77e32250788ab",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 2000,
+          "delivery_count": 1999,
+          "parameter_digest": "ec413c31ed6c329d387eb2708696eb12f3d603a38ca28822cca23023f0ccd278",
+          "unresolved_credit_count": 1
+        }
+      ],
+      "normal_reward_assignment_digest": "b1189a5cbc3e15d325462d75b2ef778aff6316c5d0e30ab4937d156ee2c26a1e",
+      "normal_timeline": {
+        "action_count": 2000,
+        "decisions_with_prior_feedback_pending": 1999,
+        "delivery_count": 2000,
+        "delivery_timeline_digest": "5ba358e4f80b05a0e12205b6ab7c00cb8e9ba270fb0c9569f946c982e0e9019b",
+        "lag_histogram": [
+          {
+            "count": 2000,
+            "lag": 1
+          }
+        ],
+        "learner_unresolved_final": 0,
+        "max_pending_after_delivery": 1,
+        "max_pending_before_delivery": 2,
+        "queue_pending_final": 0,
+        "terminal_drain_count": 1
+      },
+      "parameter_digest": "b1f146ac857eacf24de16c9565bfe9ddd8ee06b7c0ac8376601341d590ba2185",
+      "per_delay": [
+        {
+          "accuracy": 1.0,
+          "correct": 40,
+          "delay": 1,
+          "total": 40
+        },
+        {
+          "accuracy": 1.0,
+          "correct": 40,
+          "delay": 2,
+          "total": 40
+        },
+        {
+          "accuracy": 1.0,
+          "correct": 40,
+          "delay": 3,
+          "total": 40
+        },
+        {
+          "accuracy": 1.0,
+          "correct": 40,
+          "delay": 4,
+          "total": 40
+        },
+        {
+          "accuracy": 0.975,
+          "correct": 39,
+          "delay": 5,
+          "total": 40
+        }
+      ],
+      "post_training": {
+        "accuracy": 0.995,
+        "correct": 199,
+        "total": 200
+      },
+      "pre_training": {
+        "accuracy": 0.5,
+        "correct": 100,
+        "total": 200
+      },
+      "repeatable": true,
+      "reset_per_delay": [
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 1,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 2,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 3,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 4,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 5,
+          "total": 40
+        }
+      ],
+      "reward_block_multisets_equal": true,
+      "reward_delay": 1,
+      "seed": 17,
+      "shuffled_action_digest": "975e8ebaa9a2db8d15bb1711adff3dfda9fd7bb3795366714f63285e36258984",
+      "shuffled_checkpoints": [
+        {
+          "decision_count": 100,
+          "delivery_count": 99,
+          "parameter_digest": "8872342246399b94db92343cb48fa4c3863727209ed846b9fa10d36a3cfbd55d",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 200,
+          "delivery_count": 199,
+          "parameter_digest": "d4f1957043d8f1106e61993a35d71a8e8e0f82843c014903b5a658f5a55abfff",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 300,
+          "delivery_count": 299,
+          "parameter_digest": "569d00dff90166d86b1a9ffd3ba198a73d35f107a815413f4a326af255f08a20",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 400,
+          "delivery_count": 399,
+          "parameter_digest": "e11efa65659905dd79263d2f37d07528c740c0d07d981803be57ed9426d13901",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 500,
+          "delivery_count": 499,
+          "parameter_digest": "ce25c05838afcbb64ea60ca7680d87d21c1a394fb6dd63641f265c1327225dd0",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 600,
+          "delivery_count": 599,
+          "parameter_digest": "ac849ae68a1df5f15fa6ad576d3a398713f3952a08eff640a7e087ccb3c288eb",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 700,
+          "delivery_count": 699,
+          "parameter_digest": "e66c7606e262f2e9937cfd883f8ece8317a1fc98db3962c013c59e39804e89c1",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 800,
+          "delivery_count": 799,
+          "parameter_digest": "d9bff96dfe4f9e781dbb4c01350ccb32be415edb6b1f831b5c8cad14acfbac5e",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 900,
+          "delivery_count": 899,
+          "parameter_digest": "1290a0eb44ca33877a226190dc7b7db068b008ea4bfc65ca202225cf0be85f22",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 1000,
+          "delivery_count": 999,
+          "parameter_digest": "c3ad8ea19e8c3c35cb245c5f69945607605fe0980113f53bf6d81b2b3ed6968e",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 1100,
+          "delivery_count": 1099,
+          "parameter_digest": "f078841629fb2ccb8efcf01663bc817e86fb38c38ec64c26b766420de5727397",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 1200,
+          "delivery_count": 1199,
+          "parameter_digest": "0567b01934c8f81ac979e5a7bb63e5d5e5413de152a8daa73e1b2eabd5f3e08d",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 1300,
+          "delivery_count": 1299,
+          "parameter_digest": "3000a3fac7f68d2bfc7aeffd7b9801b2fb4fb1ffd1c63b4601f25fd7c154ee04",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 1400,
+          "delivery_count": 1399,
+          "parameter_digest": "835b722f1d232f589f59bdea5a5620b57cd5e596983ccbc2dbdc4dd3d003b804",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 1500,
+          "delivery_count": 1499,
+          "parameter_digest": "69a84eecdaadd2ba3af58aa36003ba67ab277df7c7a1072509ce47f89e246901",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 1600,
+          "delivery_count": 1599,
+          "parameter_digest": "43635ac6f27abf385182efe0c8cdefcddd15d4d10db96e832f09e62a36f31e8d",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 1700,
+          "delivery_count": 1699,
+          "parameter_digest": "e2ab6563d0eefedcb6532d5487a647342169fba9d37f8700a7f4cb58617d8183",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 1800,
+          "delivery_count": 1799,
+          "parameter_digest": "ca2d053e572d039c4336f6d4962d48fceaee60fa71f4ac41658914be4273b6bc",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 1900,
+          "delivery_count": 1899,
+          "parameter_digest": "3ebe2ed188098d3542cf78ed9487befd3ea69fed2ca1ca5b86340f488f11e013",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 2000,
+          "delivery_count": 1999,
+          "parameter_digest": "c06bd0f984f4ed0adb7d9f74ef3aa6c31f96a1a69a68154894627b5d37bf354a",
+          "unresolved_credit_count": 1
+        }
+      ],
+      "shuffled_control": {
+        "accuracy": 0.5,
+        "correct": 100,
+        "total": 200
+      },
+      "shuffled_parameter_digest": "d1b71ecd74c28862e9a035e1b8329b9a0b5c463fe411f3c39aae0e354c879b88",
+      "shuffled_per_delay": [
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 1,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 2,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 3,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 4,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 5,
+          "total": 40
+        }
+      ],
+      "shuffled_reward_assignment_digest": "df5a3b7d534879f0ae0756067c084875a0bacef8652a508d4d77c24a28f776ce",
+      "shuffled_timeline": {
+        "action_count": 2000,
+        "decisions_with_prior_feedback_pending": 1999,
+        "delivery_count": 2000,
+        "delivery_timeline_digest": "5ba358e4f80b05a0e12205b6ab7c00cb8e9ba270fb0c9569f946c982e0e9019b",
+        "lag_histogram": [
+          {
+            "count": 2000,
+            "lag": 1
+          }
+        ],
+        "learner_unresolved_final": 0,
+        "max_pending_after_delivery": 1,
+        "max_pending_before_delivery": 2,
+        "queue_pending_final": 0,
+        "terminal_drain_count": 1
+      },
+      "state_reset": {
+        "accuracy": 0.5,
+        "correct": 100,
+        "total": 200
+      },
+      "training_fixture_digest": "56343ce19ab94f2eef8e538f2d9f5f2e686d2d4cf1e20ffc39529d6138497b5c"
+    },
+    {
+      "action_sequences_equal": true,
+      "arm": "td0",
+      "behavior_passed": true,
+      "evaluation_fixture_digest": "70900596b8a665b1c35bfe1d6aa59333893e9012da16649d0bd0ae57704e15e5",
+      "normal_action_digest": "975e8ebaa9a2db8d15bb1711adff3dfda9fd7bb3795366714f63285e36258984",
+      "normal_checkpoints": [
+        {
+          "decision_count": 100,
+          "delivery_count": 97,
+          "parameter_digest": "8cc31e475d9f1186a9c5d633801142cb453656a0e4d18180399f487187547aa4",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 200,
+          "delivery_count": 197,
+          "parameter_digest": "b04324d2865736801f6ad0b8f3833355b7c8de93b75fd215862de12fcfe3a86d",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 300,
+          "delivery_count": 297,
+          "parameter_digest": "c8823caf8a0798ad8f4e32faeccb267a646b6b07f7fbd88b526edfe768e0705a",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 400,
+          "delivery_count": 397,
+          "parameter_digest": "2fcb345fb540b21f218703c29f96f6b666927d1618660ff25bb32840ec94f91b",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 500,
+          "delivery_count": 497,
+          "parameter_digest": "dcc67578a1627e08134ebc020d6e50c5b0ef6ef0579e9f6394562b6906fe5fc2",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 600,
+          "delivery_count": 597,
+          "parameter_digest": "0e4c12bc79afab906349081565068508cfbfa4bd7bdc6536069381150ef82e5b",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 700,
+          "delivery_count": 697,
+          "parameter_digest": "f0b22ffcc8a65b4c4a8eaecfc686d6abeca649040016ace47c9fc276df90a0e6",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 800,
+          "delivery_count": 797,
+          "parameter_digest": "3e826b008be139302e54c6e830916ec2e30b31a6e10895e473ec1e23371a5b6e",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 900,
+          "delivery_count": 897,
+          "parameter_digest": "e48f84c5577fa762854edb75bf32b354cecdee5d0950d2021e51a6bb5429d32f",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 1000,
+          "delivery_count": 997,
+          "parameter_digest": "5dda688caa8145d1ffabe98d5c1811e5843f05f360dc3671e2c20375438754c3",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 1100,
+          "delivery_count": 1097,
+          "parameter_digest": "0a89298a37c42a4e828ff0715fb372f0713367c733dee5359b924bf37bc7f28e",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 1200,
+          "delivery_count": 1197,
+          "parameter_digest": "e95c22505ac3ca69e5a46f5c7687f0172ded8508ac481aace94937a7aaabae75",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 1300,
+          "delivery_count": 1297,
+          "parameter_digest": "57ad75771e8668ee4b4ccc5c4151f2ecc3cf4df21df9e48ceabb14ed77cd6f4e",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 1400,
+          "delivery_count": 1397,
+          "parameter_digest": "c719f58a5f5dd84b9e24ac0d6575f64d9617ee95e258652eb96d5004eece2bc4",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 1500,
+          "delivery_count": 1497,
+          "parameter_digest": "812d1d4027de18c2e74ab064a26764f153abb998b66d88dd4e5a67a0f6619d2d",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 1600,
+          "delivery_count": 1597,
+          "parameter_digest": "81f34485ac857eecd685fcaddd4d1e3f0f270f564bfe202cb4bd3d4403b7dfb5",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 1700,
+          "delivery_count": 1697,
+          "parameter_digest": "c64fd266d63bd1589c07dd6be9ec63bcdf4060065b7f99e59cc70be3866d585e",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 1800,
+          "delivery_count": 1797,
+          "parameter_digest": "916e7d6473569733ad3c532ea9c2f9b328c2b52ae3243b99be7c614062bed09e",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 1900,
+          "delivery_count": 1897,
+          "parameter_digest": "c40e8b2af78644dd5f1fb2b45fd09445edc082bf3377ec0e3b37850bafc25656",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 2000,
+          "delivery_count": 1997,
+          "parameter_digest": "1233d2c8c7af1874203512659fe4e87a1500aa1ce273e248a8064b98f86708ac",
+          "unresolved_credit_count": 3
+        }
+      ],
+      "normal_reward_assignment_digest": "b1189a5cbc3e15d325462d75b2ef778aff6316c5d0e30ab4937d156ee2c26a1e",
+      "normal_timeline": {
+        "action_count": 2000,
+        "decisions_with_prior_feedback_pending": 1999,
+        "delivery_count": 2000,
+        "delivery_timeline_digest": "1921c3f61e59f14e2452a5d171c65de1dff3a50af9af15cab95b938cce1f3542",
+        "lag_histogram": [
+          {
+            "count": 2000,
+            "lag": 3
+          }
+        ],
+        "learner_unresolved_final": 0,
+        "max_pending_after_delivery": 3,
+        "max_pending_before_delivery": 4,
+        "queue_pending_final": 0,
+        "terminal_drain_count": 3
+      },
+      "parameter_digest": "a98e61d88589b50e30d1452374e3dbc09ab483bae07452588e154466c0702c88",
+      "per_delay": [
+        {
+          "accuracy": 1.0,
+          "correct": 40,
+          "delay": 1,
+          "total": 40
+        },
+        {
+          "accuracy": 1.0,
+          "correct": 40,
+          "delay": 2,
+          "total": 40
+        },
+        {
+          "accuracy": 1.0,
+          "correct": 40,
+          "delay": 3,
+          "total": 40
+        },
+        {
+          "accuracy": 1.0,
+          "correct": 40,
+          "delay": 4,
+          "total": 40
+        },
+        {
+          "accuracy": 0.975,
+          "correct": 39,
+          "delay": 5,
+          "total": 40
+        }
+      ],
+      "post_training": {
+        "accuracy": 0.995,
+        "correct": 199,
+        "total": 200
+      },
+      "pre_training": {
+        "accuracy": 0.5,
+        "correct": 100,
+        "total": 200
+      },
+      "repeatable": true,
+      "reset_per_delay": [
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 1,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 2,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 3,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 4,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 5,
+          "total": 40
+        }
+      ],
+      "reward_block_multisets_equal": true,
+      "reward_delay": 3,
+      "seed": 17,
+      "shuffled_action_digest": "975e8ebaa9a2db8d15bb1711adff3dfda9fd7bb3795366714f63285e36258984",
+      "shuffled_checkpoints": [
+        {
+          "decision_count": 100,
+          "delivery_count": 97,
+          "parameter_digest": "5a0fc56234942fea5650a8fba021a12d2d0b0295ed5decdde24e4e80c59bf3fa",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 200,
+          "delivery_count": 197,
+          "parameter_digest": "b209db1cc3805bb6727fa07a534af547a50a31f068b12e9e00bc84c2e79ff0d2",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 300,
+          "delivery_count": 297,
+          "parameter_digest": "5390f3504f298ac6c48dace3e7ab2db083cda112469636a6c9091154cdb0b29a",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 400,
+          "delivery_count": 397,
+          "parameter_digest": "1ed9720abf23a76a280f2be84515d732dec5cab5f9df5e2a4d7f496aa73b044f",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 500,
+          "delivery_count": 497,
+          "parameter_digest": "a155c1cb89826130bda03051b9162a0682059cc2945856afeb28483a76f6b4a6",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 600,
+          "delivery_count": 597,
+          "parameter_digest": "83e27ecf07448424285f1cb9a734aba79cc4415856a8011777752cc28fedfc95",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 700,
+          "delivery_count": 697,
+          "parameter_digest": "ad81ffe9d78cf4ff5a622c98b469fab697d8519b35574fbc7695d7d41c370700",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 800,
+          "delivery_count": 797,
+          "parameter_digest": "96bd6f2f0f46f434bf68aaee233e90c4fba3159d738212b126a8ac8232f072fa",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 900,
+          "delivery_count": 897,
+          "parameter_digest": "ece1e6f10e12682071324cbbe35b56363a5f27d4b57fe575a3e87ed1e30dd83a",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 1000,
+          "delivery_count": 997,
+          "parameter_digest": "acde4c119dc0fe69a00d293dc477f324043e9f0fe87b32cdf46f67943309c334",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 1100,
+          "delivery_count": 1097,
+          "parameter_digest": "4bb3f6139ef0bb1edf6d1af564a513f41c331a08b14a759341c5c47814060ceb",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 1200,
+          "delivery_count": 1197,
+          "parameter_digest": "33b0845f4949d03a8be1a272cb05d71894d910df01caa5b703bc8fb49d84aa3d",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 1300,
+          "delivery_count": 1297,
+          "parameter_digest": "861b1336942ae97ccdb26f6c492e8477c2801b38a0a09f06cef26d235fc33d0a",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 1400,
+          "delivery_count": 1397,
+          "parameter_digest": "a4e64a86244bb79c6e091b551521f186d33dc065ff54d85f4a4da8ca1d4941f0",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 1500,
+          "delivery_count": 1497,
+          "parameter_digest": "fde85fed666c04fa72896c35aad31f70bd84d1037869ba29ac9f212fd8634d74",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 1600,
+          "delivery_count": 1597,
+          "parameter_digest": "abadba6e7871374a5dc2627ebcbe5fab09ee8d0170e075d9c3ee25d44dc24c40",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 1700,
+          "delivery_count": 1697,
+          "parameter_digest": "0e724478ceb6575cc93a21b4798826a8cb80bbf5d4f7db423ca12220b1c16095",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 1800,
+          "delivery_count": 1797,
+          "parameter_digest": "b9a8e34f9cf1fd5b97f5f669e6f417a662e98120126530c82df898f71aaf682e",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 1900,
+          "delivery_count": 1897,
+          "parameter_digest": "0c35892422f03ccd628080ee159cf0b08868944c8763c6b3c0a28bc35a66cad8",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 2000,
+          "delivery_count": 1997,
+          "parameter_digest": "75c4b51f570ebf27572af94a9d894f0986c84dfaf6e7af32af3d3c9e201e9201",
+          "unresolved_credit_count": 3
+        }
+      ],
+      "shuffled_control": {
+        "accuracy": 0.5,
+        "correct": 100,
+        "total": 200
+      },
+      "shuffled_parameter_digest": "2e5b859882603d2106bc9abb8aee70386b5c680fbbdd6d858fb46163771c6234",
+      "shuffled_per_delay": [
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 1,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 2,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 3,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 4,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 5,
+          "total": 40
+        }
+      ],
+      "shuffled_reward_assignment_digest": "df5a3b7d534879f0ae0756067c084875a0bacef8652a508d4d77c24a28f776ce",
+      "shuffled_timeline": {
+        "action_count": 2000,
+        "decisions_with_prior_feedback_pending": 1999,
+        "delivery_count": 2000,
+        "delivery_timeline_digest": "1921c3f61e59f14e2452a5d171c65de1dff3a50af9af15cab95b938cce1f3542",
+        "lag_histogram": [
+          {
+            "count": 2000,
+            "lag": 3
+          }
+        ],
+        "learner_unresolved_final": 0,
+        "max_pending_after_delivery": 3,
+        "max_pending_before_delivery": 4,
+        "queue_pending_final": 0,
+        "terminal_drain_count": 3
+      },
+      "state_reset": {
+        "accuracy": 0.5,
+        "correct": 100,
+        "total": 200
+      },
+      "training_fixture_digest": "56343ce19ab94f2eef8e538f2d9f5f2e686d2d4cf1e20ffc39529d6138497b5c"
+    },
+    {
+      "action_sequences_equal": true,
+      "arm": "td0",
+      "behavior_passed": true,
+      "evaluation_fixture_digest": "70900596b8a665b1c35bfe1d6aa59333893e9012da16649d0bd0ae57704e15e5",
+      "normal_action_digest": "975e8ebaa9a2db8d15bb1711adff3dfda9fd7bb3795366714f63285e36258984",
+      "normal_checkpoints": [
+        {
+          "decision_count": 100,
+          "delivery_count": 95,
+          "parameter_digest": "1e4f8d2baccb0c2c11bbed6bba97f1ef57e2faef1a56e4245f7e242c55f24678",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 200,
+          "delivery_count": 195,
+          "parameter_digest": "088c17fc5318ca27725fcbe1cd75f5143d67c92afc31d8dbee2f4e13a7aaf13f",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 300,
+          "delivery_count": 295,
+          "parameter_digest": "2a98739d02134de074e86bebf8d5416056d6da98eb3d95dec9259ccbe56bd9c4",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 400,
+          "delivery_count": 395,
+          "parameter_digest": "697d526553e6bd2fe9fe8fcce7c770eaafc01581c41041b880f0b40abf59d299",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 500,
+          "delivery_count": 495,
+          "parameter_digest": "6ab501565915b4baaa967958cbb93ffd64c6ac9667c6ac0a79862c2c9bdb7b7c",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 600,
+          "delivery_count": 595,
+          "parameter_digest": "587069f807db7130ec911188ea4efecb81cec2a790870999e8477c70b7dd053c",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 700,
+          "delivery_count": 695,
+          "parameter_digest": "326587f09a45c7893b8d5399aa524aefaba3e44568067d0fe1a8d140b2adae07",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 800,
+          "delivery_count": 795,
+          "parameter_digest": "21aa3d9a3c4ca4bbe782ec5dd9c6d80f74c39ac81086a95d94478e2f69dea1c8",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 900,
+          "delivery_count": 895,
+          "parameter_digest": "1e591fa9fd590a7e7a03e859e696c2ccc28f7f6e2e6a46f9efd221fa6866c4fe",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 1000,
+          "delivery_count": 995,
+          "parameter_digest": "52483d01ca3cd2d012cc71d9421fd0781bc0ddaf23b70fdde11dd403c5ecfb9a",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 1100,
+          "delivery_count": 1095,
+          "parameter_digest": "3d04a675a07d2c7bd8999dca76bdf24470e3f23b744c5d83625f66dbcb010f0c",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 1200,
+          "delivery_count": 1195,
+          "parameter_digest": "146d31f168c440f1637ffb6e3a7b546d85f5858dab20ac14e89d17428f85bf86",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 1300,
+          "delivery_count": 1295,
+          "parameter_digest": "564d1ef2b01fb08fb909ca536e8e050cd77025d6a3ace95eb4faa7cdddb0482e",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 1400,
+          "delivery_count": 1395,
+          "parameter_digest": "58f2790d4e32a3f74431d387833eda442adc48799a6349ae6cadc6db9087f97f",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 1500,
+          "delivery_count": 1495,
+          "parameter_digest": "349845f3a1993953bfe1f47790327d57ea24969411666040561453eb155a22c9",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 1600,
+          "delivery_count": 1595,
+          "parameter_digest": "adde9327ce7c74d94df207a7a57176c6bf00cb25b8966aaaf1d338e2f3dcab6c",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 1700,
+          "delivery_count": 1695,
+          "parameter_digest": "e91d3a2336ffe54457de49f6a8a9455de47ce503dbf8d4916896170539555fd8",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 1800,
+          "delivery_count": 1795,
+          "parameter_digest": "c70568feca38cbfc03a4f526f8f886326507d487facc31916ca103584b5c14d4",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 1900,
+          "delivery_count": 1895,
+          "parameter_digest": "07087ea777b6430259f6d4c42ed16c9ebc7a316b906c29b5d1b57e26a8f04b6b",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 2000,
+          "delivery_count": 1995,
+          "parameter_digest": "29ae9003bac6b51bacc42de490b586c3a5752ef16db73ee0fe347aa49baca94c",
+          "unresolved_credit_count": 5
+        }
+      ],
+      "normal_reward_assignment_digest": "b1189a5cbc3e15d325462d75b2ef778aff6316c5d0e30ab4937d156ee2c26a1e",
+      "normal_timeline": {
+        "action_count": 2000,
+        "decisions_with_prior_feedback_pending": 1999,
+        "delivery_count": 2000,
+        "delivery_timeline_digest": "529e2158b536d5ff03101f91a2ffca7e23a261d6f0ef31ff80472db89206c4a5",
+        "lag_histogram": [
+          {
+            "count": 2000,
+            "lag": 5
+          }
+        ],
+        "learner_unresolved_final": 0,
+        "max_pending_after_delivery": 5,
+        "max_pending_before_delivery": 6,
+        "queue_pending_final": 0,
+        "terminal_drain_count": 5
+      },
+      "parameter_digest": "ee3dfb09525d0ddc9bc8a4c0fb62f92e8d63f402a9f0d30cfe019363c4ebb79c",
+      "per_delay": [
+        {
+          "accuracy": 1.0,
+          "correct": 40,
+          "delay": 1,
+          "total": 40
+        },
+        {
+          "accuracy": 1.0,
+          "correct": 40,
+          "delay": 2,
+          "total": 40
+        },
+        {
+          "accuracy": 1.0,
+          "correct": 40,
+          "delay": 3,
+          "total": 40
+        },
+        {
+          "accuracy": 1.0,
+          "correct": 40,
+          "delay": 4,
+          "total": 40
+        },
+        {
+          "accuracy": 0.975,
+          "correct": 39,
+          "delay": 5,
+          "total": 40
+        }
+      ],
+      "post_training": {
+        "accuracy": 0.995,
+        "correct": 199,
+        "total": 200
+      },
+      "pre_training": {
+        "accuracy": 0.5,
+        "correct": 100,
+        "total": 200
+      },
+      "repeatable": true,
+      "reset_per_delay": [
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 1,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 2,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 3,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 4,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 5,
+          "total": 40
+        }
+      ],
+      "reward_block_multisets_equal": true,
+      "reward_delay": 5,
+      "seed": 17,
+      "shuffled_action_digest": "975e8ebaa9a2db8d15bb1711adff3dfda9fd7bb3795366714f63285e36258984",
+      "shuffled_checkpoints": [
+        {
+          "decision_count": 100,
+          "delivery_count": 95,
+          "parameter_digest": "33a9c14854a474e91cc001ff6ed73840bd37c17b35ba5f8c2a0b60f56fb21ad2",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 200,
+          "delivery_count": 195,
+          "parameter_digest": "9289663e346e89c8c3974d14f7b5a5c499fa3656ec75df014f7830602dcd5e78",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 300,
+          "delivery_count": 295,
+          "parameter_digest": "662dcd58d5b9d57b1085249045df9e4c3be3b00b0ca72e4383eda6bf03e8f260",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 400,
+          "delivery_count": 395,
+          "parameter_digest": "73e488b34f2c4a07c91b8d193f7e1341a19cc4a352f73e39cee640485ebbc282",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 500,
+          "delivery_count": 495,
+          "parameter_digest": "b844e6acbce0fcd6a9e00db9442e2c9eb3e766dadef55a11dc5a0523f50a55b7",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 600,
+          "delivery_count": 595,
+          "parameter_digest": "6dda1b63a07990f77dee44e88bbf6b8499014ee95e76468d9d1f2f81a2ee8f35",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 700,
+          "delivery_count": 695,
+          "parameter_digest": "374a5b69f31dfef3b4c3ca767f93df9b6e71f26c89be7ee8edb43ad908aff935",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 800,
+          "delivery_count": 795,
+          "parameter_digest": "a99a1256f1e8adced6ce71d803372ba4c1497364c4d6382b35683691831e66d1",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 900,
+          "delivery_count": 895,
+          "parameter_digest": "736d8156a28f28b641f9be5916d930ff5f8df33d6e0f4d46961819d415373794",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 1000,
+          "delivery_count": 995,
+          "parameter_digest": "3cfe9a8dde2dab3e488b36d5b6f40f031cc9bf2539de5384814080e413b6e32c",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 1100,
+          "delivery_count": 1095,
+          "parameter_digest": "9c45eab7b56ab99c713ebe695dd72896924839939643140379e60f08ed456453",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 1200,
+          "delivery_count": 1195,
+          "parameter_digest": "6bf3aa3ba392ae950e0e57061219a992ba2f0e0dfb5211db9903ba66bbc4a070",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 1300,
+          "delivery_count": 1295,
+          "parameter_digest": "eeb7ab35732b08f6378b4646569217a053350dcee0f5d330b4f1b161bf09fbfe",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 1400,
+          "delivery_count": 1395,
+          "parameter_digest": "e2fb0a7412cc891de23438a9e613e39d893d7cdd81022fe8ef5d8209df693a0e",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 1500,
+          "delivery_count": 1495,
+          "parameter_digest": "f2a58c7904158a42ca2075ae02cce8744867572a0e81262184d46da62965bc6e",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 1600,
+          "delivery_count": 1595,
+          "parameter_digest": "10e9b9100dab9438ebef780616211f15877debcebdd6d7aab481f184fc4acf61",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 1700,
+          "delivery_count": 1695,
+          "parameter_digest": "61cf04042409342d116a217cff1ea17dd9d5ebffbec8290d42001aad703765cd",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 1800,
+          "delivery_count": 1795,
+          "parameter_digest": "d0cd3b04c4fe4f0e8a1b32d604ef764f4df3fe79cb051c1adaea88828380baca",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 1900,
+          "delivery_count": 1895,
+          "parameter_digest": "f046d19bd08bb640870034defc428413bbeaf74a380be5fb5518cb74e45f7e81",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 2000,
+          "delivery_count": 1995,
+          "parameter_digest": "504811ec43a2c6b87a357e50afee748fe442b10ada20209090b10b87a1fe30ed",
+          "unresolved_credit_count": 5
+        }
+      ],
+      "shuffled_control": {
+        "accuracy": 0.5,
+        "correct": 100,
+        "total": 200
+      },
+      "shuffled_parameter_digest": "8b88bb451dbaa57228e24db2cd4fa655fa298da113bc1008511b02fecbdb7b57",
+      "shuffled_per_delay": [
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 1,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 2,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 3,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 4,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 5,
+          "total": 40
+        }
+      ],
+      "shuffled_reward_assignment_digest": "df5a3b7d534879f0ae0756067c084875a0bacef8652a508d4d77c24a28f776ce",
+      "shuffled_timeline": {
+        "action_count": 2000,
+        "decisions_with_prior_feedback_pending": 1999,
+        "delivery_count": 2000,
+        "delivery_timeline_digest": "529e2158b536d5ff03101f91a2ffca7e23a261d6f0ef31ff80472db89206c4a5",
+        "lag_histogram": [
+          {
+            "count": 2000,
+            "lag": 5
+          }
+        ],
+        "learner_unresolved_final": 0,
+        "max_pending_after_delivery": 5,
+        "max_pending_before_delivery": 6,
+        "queue_pending_final": 0,
+        "terminal_drain_count": 5
+      },
+      "state_reset": {
+        "accuracy": 0.5,
+        "correct": 100,
+        "total": 200
+      },
+      "training_fixture_digest": "56343ce19ab94f2eef8e538f2d9f5f2e686d2d4cf1e20ffc39529d6138497b5c"
+    },
+    {
+      "action_sequences_equal": true,
+      "arm": "td0",
+      "behavior_passed": false,
+      "evaluation_fixture_digest": "ca3ce1b58d52b3d1752f7d3f0b4491640d07d977245e1bcccad5abfb72757e19",
+      "normal_action_digest": "7b22ab084b419942663b58181200518864bbbf04c81150c08c7ed534cfff796c",
+      "normal_checkpoints": [
+        {
+          "decision_count": 100,
+          "delivery_count": 100,
+          "parameter_digest": "8b040b92dad833d726bb8e7fc4a7b5195705e330b1067614a11db1ab9b6753d3",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 200,
+          "delivery_count": 200,
+          "parameter_digest": "ffaea3bfbfcf50ae800f5f701ae40ce9238e1cbea32ba51777b50527004d9963",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 300,
+          "delivery_count": 300,
+          "parameter_digest": "9ce66d97859f3c18bc899ab5e1443d5fc75fa4a59ad5629d070d6818da6180ae",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 400,
+          "delivery_count": 400,
+          "parameter_digest": "e6136055345fcdcda023b5b969c46f578e2fd2e6ad19e112186265602d70c1e9",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 500,
+          "delivery_count": 500,
+          "parameter_digest": "712c796927477588333d50bdfd5be20c1012280d426a2516c05945d4b770aeda",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 600,
+          "delivery_count": 600,
+          "parameter_digest": "52ecc1eb8636f6552e5e6ff12ba30199e809b3baa3969f1ed2fe157f81a844ce",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 700,
+          "delivery_count": 700,
+          "parameter_digest": "63e40e6d410161c4999f9a751b1f5453ff66687df49e83e05fde05d11e38705a",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 800,
+          "delivery_count": 800,
+          "parameter_digest": "865a66707daee73e909497f7f774c8ec9e4fb294c516031c56e292f81d0b8faa",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 900,
+          "delivery_count": 900,
+          "parameter_digest": "645926d87134dab73dd3d64bd0235c4f5b18c2f4a56c4c5c5bd996cb87cdeda9",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 1000,
+          "delivery_count": 1000,
+          "parameter_digest": "818ec883ed6837cc1be85eaef8c123cd4360950fc620f25f4f48d06717367cf7",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 1100,
+          "delivery_count": 1100,
+          "parameter_digest": "41cc75dac90b9ca0b6d1eeef35a9584160bf3f7d8cea567931a0626e75e33e36",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 1200,
+          "delivery_count": 1200,
+          "parameter_digest": "e9c23b6dfa5b2daad077cb875e088a2167bfb60094fc77beeadbf540de0259d8",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 1300,
+          "delivery_count": 1300,
+          "parameter_digest": "62bec8ad1e3f9c2ec09e2de3c026b6fa75c2ad47c5b62b785f0617ae44aea096",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 1400,
+          "delivery_count": 1400,
+          "parameter_digest": "99de5f96881f73a6bed95692b86037fd9b6672edf89f7b8dc0532fa9f3c8294d",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 1500,
+          "delivery_count": 1500,
+          "parameter_digest": "6119a0e5fcd96a649d278d11eeb30c329dac644412a2393415fa02127b87ddb4",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 1600,
+          "delivery_count": 1600,
+          "parameter_digest": "5ab2ff5598cda30328cb78d0ddaa9c2cbf159305d9355aa8d38db9cb596a183f",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 1700,
+          "delivery_count": 1700,
+          "parameter_digest": "f54c00e5ddde2c13498cc252d257478c2a606b9504de2ebb17d18a17002f095b",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 1800,
+          "delivery_count": 1800,
+          "parameter_digest": "45ea1168bf8511305b28b139ecd1fdff4281ec0a9afcd18cdcfa9c2bd47d331a",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 1900,
+          "delivery_count": 1900,
+          "parameter_digest": "a1d439af5363d16d884185b56415c8b10eac5eca3ffe853cbe2ba7dd1be94aee",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 2000,
+          "delivery_count": 2000,
+          "parameter_digest": "04043bdf61d5e72d286bb74b5482cbc71beb95377c00b0736008b9b807c5589c",
+          "unresolved_credit_count": 0
+        }
+      ],
+      "normal_reward_assignment_digest": "9ece6b6ec455cf586968d051c939aac3ba2de30c2bbf1fabd69946c0541910bd",
+      "normal_timeline": {
+        "action_count": 2000,
+        "decisions_with_prior_feedback_pending": 0,
+        "delivery_count": 2000,
+        "delivery_timeline_digest": "794aae7e24a4b12c045900627326536962a4a66d3dd9d4a4069acc23d161426e",
+        "lag_histogram": [
+          {
+            "count": 2000,
+            "lag": 0
+          }
+        ],
+        "learner_unresolved_final": 0,
+        "max_pending_after_delivery": 0,
+        "max_pending_before_delivery": 1,
+        "queue_pending_final": 0,
+        "terminal_drain_count": 0
+      },
+      "parameter_digest": "04043bdf61d5e72d286bb74b5482cbc71beb95377c00b0736008b9b807c5589c",
+      "per_delay": [
+        {
+          "accuracy": 1.0,
+          "correct": 40,
+          "delay": 1,
+          "total": 40
+        },
+        {
+          "accuracy": 1.0,
+          "correct": 40,
+          "delay": 2,
+          "total": 40
+        },
+        {
+          "accuracy": 1.0,
+          "correct": 40,
+          "delay": 3,
+          "total": 40
+        },
+        {
+          "accuracy": 0.925,
+          "correct": 37,
+          "delay": 4,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 5,
+          "total": 40
+        }
+      ],
+      "post_training": {
+        "accuracy": 0.885,
+        "correct": 177,
+        "total": 200
+      },
+      "pre_training": {
+        "accuracy": 0.5,
+        "correct": 100,
+        "total": 200
+      },
+      "repeatable": true,
+      "reset_per_delay": [
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 1,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 2,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 3,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 4,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 5,
+          "total": 40
+        }
+      ],
+      "reward_block_multisets_equal": true,
+      "reward_delay": 0,
+      "seed": 29,
+      "shuffled_action_digest": "7b22ab084b419942663b58181200518864bbbf04c81150c08c7ed534cfff796c",
+      "shuffled_checkpoints": [
+        {
+          "decision_count": 100,
+          "delivery_count": 100,
+          "parameter_digest": "3c12ea34c2b5b763deb80d722bc183bcea1b7cda0f22fb38d4bc2def5008ccb0",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 200,
+          "delivery_count": 200,
+          "parameter_digest": "3219ce3d00f793228f42377bea0cc8a2ce41cfcd9e039f0ba0a358aa4b041965",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 300,
+          "delivery_count": 300,
+          "parameter_digest": "b179b27b8f7f96ac3ad5644de349b6e75daa80378d65ac61db5411ffb1f39017",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 400,
+          "delivery_count": 400,
+          "parameter_digest": "8b702d64c19c2232e1c47364f3b5d644668c36a82b194cf7c1d8336dc014b04e",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 500,
+          "delivery_count": 500,
+          "parameter_digest": "68993a3bdeaf43d07e216162f63fe46507bcc7c67a47a95c853ce5f33a462b6f",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 600,
+          "delivery_count": 600,
+          "parameter_digest": "71dd8380189a2cea1b371d285205fc50b3340a4bed387dda079eb6154a031a77",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 700,
+          "delivery_count": 700,
+          "parameter_digest": "0beb44cfaca6d14d1867ea5fafb2904fb296e3bb3e8c685fc708ae7324f7b5a7",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 800,
+          "delivery_count": 800,
+          "parameter_digest": "1704b731dadd8c93fe89e0713d39f0c201b7b4dae954beddca23040bef3413eb",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 900,
+          "delivery_count": 900,
+          "parameter_digest": "2796074825b8ae8292add540ef9bec82c49a5f2cca2eb0347256cce19aeea9da",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 1000,
+          "delivery_count": 1000,
+          "parameter_digest": "9568cba613aca149b5a1e4483e307fa160b8e698706a66d11cb5ffdb8a2830b5",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 1100,
+          "delivery_count": 1100,
+          "parameter_digest": "10c28326f4fa86f72ae2279ee8d2bbed9ca97738d1deb4e80ca5d8830d9b745e",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 1200,
+          "delivery_count": 1200,
+          "parameter_digest": "082255bee299d685781a12bb775de086914a06bb7a9e07c949deae71d733da78",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 1300,
+          "delivery_count": 1300,
+          "parameter_digest": "5973c101bde91afc264ed6dc29f6c5fc9a66908b4ded90ecf727a166ca9b2017",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 1400,
+          "delivery_count": 1400,
+          "parameter_digest": "5e1d558ddba7076aaa94a3b2f74e69e53ecbec2bac46f7dfb95289f229e39a7d",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 1500,
+          "delivery_count": 1500,
+          "parameter_digest": "5d4b115ed8e8ec90852d3ae71e4e1ef2ea748ae577845203b849a6ff2ea36550",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 1600,
+          "delivery_count": 1600,
+          "parameter_digest": "0b1d4b9e13368fb16fff01678d6f4597a5dd931e80bec04c4b296cb190378298",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 1700,
+          "delivery_count": 1700,
+          "parameter_digest": "415437d851abed60d5691db96be3d608f01ec0c4d80f8a9f43d17658e1fcfcce",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 1800,
+          "delivery_count": 1800,
+          "parameter_digest": "41f5b900ceb00c4667768b27409e0e43710d672caed09f4c14de16cf086f8b8b",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 1900,
+          "delivery_count": 1900,
+          "parameter_digest": "dd5ce53335bfd07962357bcddc000cf9742fe351e86d28dd2ede73c6b837b3eb",
+          "unresolved_credit_count": 0
+        },
+        {
+          "decision_count": 2000,
+          "delivery_count": 2000,
+          "parameter_digest": "fc85ac69852aa79fcfd3ca0989dff9698d179e5c4c3ffcdbf66a3dcf142a8ce2",
+          "unresolved_credit_count": 0
+        }
+      ],
+      "shuffled_control": {
+        "accuracy": 0.69,
+        "correct": 138,
+        "total": 200
+      },
+      "shuffled_parameter_digest": "fc85ac69852aa79fcfd3ca0989dff9698d179e5c4c3ffcdbf66a3dcf142a8ce2",
+      "shuffled_per_delay": [
+        {
+          "accuracy": 0.525,
+          "correct": 21,
+          "delay": 1,
+          "total": 40
+        },
+        {
+          "accuracy": 0.675,
+          "correct": 27,
+          "delay": 2,
+          "total": 40
+        },
+        {
+          "accuracy": 1.0,
+          "correct": 40,
+          "delay": 3,
+          "total": 40
+        },
+        {
+          "accuracy": 0.75,
+          "correct": 30,
+          "delay": 4,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 5,
+          "total": 40
+        }
+      ],
+      "shuffled_reward_assignment_digest": "ad74fae31261e6cd7543c58892a0b64b09c1286b5e41d25aedcf017bc810f39d",
+      "shuffled_timeline": {
+        "action_count": 2000,
+        "decisions_with_prior_feedback_pending": 0,
+        "delivery_count": 2000,
+        "delivery_timeline_digest": "794aae7e24a4b12c045900627326536962a4a66d3dd9d4a4069acc23d161426e",
+        "lag_histogram": [
+          {
+            "count": 2000,
+            "lag": 0
+          }
+        ],
+        "learner_unresolved_final": 0,
+        "max_pending_after_delivery": 0,
+        "max_pending_before_delivery": 1,
+        "queue_pending_final": 0,
+        "terminal_drain_count": 0
+      },
+      "state_reset": {
+        "accuracy": 0.5,
+        "correct": 100,
+        "total": 200
+      },
+      "training_fixture_digest": "91d84c32def3fadf1b3dfc94bd21d95deb3f58e10117011fd787b1a68aac2243"
+    },
+    {
+      "action_sequences_equal": true,
+      "arm": "td0",
+      "behavior_passed": false,
+      "evaluation_fixture_digest": "ca3ce1b58d52b3d1752f7d3f0b4491640d07d977245e1bcccad5abfb72757e19",
+      "normal_action_digest": "7b22ab084b419942663b58181200518864bbbf04c81150c08c7ed534cfff796c",
+      "normal_checkpoints": [
+        {
+          "decision_count": 100,
+          "delivery_count": 99,
+          "parameter_digest": "357decba17cc2865d9a9ca3899660ef21a2f51c442d6029a99f6cdc10bed2e7b",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 200,
+          "delivery_count": 199,
+          "parameter_digest": "f9d7cd3e4386447d536b6786170ecb0cda8690b2303d38213071a354f6ad7b18",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 300,
+          "delivery_count": 299,
+          "parameter_digest": "641100b737866a60b3c72b02cde0ddb420cfdf66f4e9eb05554c798615683b75",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 400,
+          "delivery_count": 399,
+          "parameter_digest": "9bbc6676ef329aa79a3f37e54110285d45220bf201cfc7c617044c4625f56b92",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 500,
+          "delivery_count": 499,
+          "parameter_digest": "1fbdd45a3ff01a9f959d733722eae9b61d2414b7e87c42fbd9cb9c33c8cef347",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 600,
+          "delivery_count": 599,
+          "parameter_digest": "334de76591b564ceffaba8d4ee14fc4935aecd2328d8e5a94f8332a19bc7b462",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 700,
+          "delivery_count": 699,
+          "parameter_digest": "44b1b2b62e50e6b55aaa63d3e4946dce9b6cb79798550d10b187c4a61fe8057c",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 800,
+          "delivery_count": 799,
+          "parameter_digest": "23f8c3843ce5f4ea184d4bc5e7e92e39525b8b3b52e9e940757c33989227be51",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 900,
+          "delivery_count": 899,
+          "parameter_digest": "c2d9148d1e2be59eebc34cc3d9fd4934b7296424687984fe3536aecd590f5746",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 1000,
+          "delivery_count": 999,
+          "parameter_digest": "75354d351be09a62e899f88993a00b1e0eee1dcfe2343a521a1c92326038bab8",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 1100,
+          "delivery_count": 1099,
+          "parameter_digest": "a61fd6da3de356fadacbfbdc54ca6dfc26e158a75680671d7226c8b83800a551",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 1200,
+          "delivery_count": 1199,
+          "parameter_digest": "951fa41604692f30c6068ad06b5c7c1466ddd4b5d1e9b7be3e0434d52a7cef73",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 1300,
+          "delivery_count": 1299,
+          "parameter_digest": "321883c1d88a55d96ad4b8399cc4f0c1c72db65119902b69eef12b509b8e7076",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 1400,
+          "delivery_count": 1399,
+          "parameter_digest": "58185ea46020ebb9d733cf29ab1c87906243d5b7192e2abf8f0770e1c7cce063",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 1500,
+          "delivery_count": 1499,
+          "parameter_digest": "b9d0b71bec03cf553db8e187ebeb6313edddbbb37d1aa168aaab70d1a2e4694b",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 1600,
+          "delivery_count": 1599,
+          "parameter_digest": "cb98d6c81470f3ef66a8044f4fc0ece323489d7f60f8043defbb3b50b654c826",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 1700,
+          "delivery_count": 1699,
+          "parameter_digest": "b7966cacf90060644a93208aedf748bbfce0002bd8ed32183774c5a9112d5535",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 1800,
+          "delivery_count": 1799,
+          "parameter_digest": "5877422e46c6c0bae649adc5c99c27beb89d6131c0d7dcf6e5454b5cdb05f71b",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 1900,
+          "delivery_count": 1899,
+          "parameter_digest": "89fde01817c445981d508bfbed6a1fe3af0f7575a9912b4d2d170c20374666be",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 2000,
+          "delivery_count": 1999,
+          "parameter_digest": "13a3dcc370260296ac3e56e792fc75d79d7a0e935ff91a81abe57372acb4e2f0",
+          "unresolved_credit_count": 1
+        }
+      ],
+      "normal_reward_assignment_digest": "9ece6b6ec455cf586968d051c939aac3ba2de30c2bbf1fabd69946c0541910bd",
+      "normal_timeline": {
+        "action_count": 2000,
+        "decisions_with_prior_feedback_pending": 1999,
+        "delivery_count": 2000,
+        "delivery_timeline_digest": "5ba358e4f80b05a0e12205b6ab7c00cb8e9ba270fb0c9569f946c982e0e9019b",
+        "lag_histogram": [
+          {
+            "count": 2000,
+            "lag": 1
+          }
+        ],
+        "learner_unresolved_final": 0,
+        "max_pending_after_delivery": 1,
+        "max_pending_before_delivery": 2,
+        "queue_pending_final": 0,
+        "terminal_drain_count": 1
+      },
+      "parameter_digest": "15defa22cbc053bf5f191e1c6adbe79e0cec4c89021da4fe4ac9483534f84e36",
+      "per_delay": [
+        {
+          "accuracy": 1.0,
+          "correct": 40,
+          "delay": 1,
+          "total": 40
+        },
+        {
+          "accuracy": 1.0,
+          "correct": 40,
+          "delay": 2,
+          "total": 40
+        },
+        {
+          "accuracy": 1.0,
+          "correct": 40,
+          "delay": 3,
+          "total": 40
+        },
+        {
+          "accuracy": 0.925,
+          "correct": 37,
+          "delay": 4,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 5,
+          "total": 40
+        }
+      ],
+      "post_training": {
+        "accuracy": 0.885,
+        "correct": 177,
+        "total": 200
+      },
+      "pre_training": {
+        "accuracy": 0.5,
+        "correct": 100,
+        "total": 200
+      },
+      "repeatable": true,
+      "reset_per_delay": [
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 1,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 2,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 3,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 4,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 5,
+          "total": 40
+        }
+      ],
+      "reward_block_multisets_equal": true,
+      "reward_delay": 1,
+      "seed": 29,
+      "shuffled_action_digest": "7b22ab084b419942663b58181200518864bbbf04c81150c08c7ed534cfff796c",
+      "shuffled_checkpoints": [
+        {
+          "decision_count": 100,
+          "delivery_count": 99,
+          "parameter_digest": "449b73a5e66975186be206271d732c360583ec7e0dd6e652d3a9b283eaa03b78",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 200,
+          "delivery_count": 199,
+          "parameter_digest": "2eb9a077bec7140359738863e2d3fe10b68edf09c2851c395502119ce3f1e42f",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 300,
+          "delivery_count": 299,
+          "parameter_digest": "c325a51cb329bba816ffe1b53ffd852e264d3e6cd4ddf64a0415ca1304a6a8ed",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 400,
+          "delivery_count": 399,
+          "parameter_digest": "5e0799297239e194f0fa222e4e9657b3e7a53747ee0a75e40c9634d46dc34259",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 500,
+          "delivery_count": 499,
+          "parameter_digest": "254233d3e410f260ea94f6b1c9b2e01332c4989b67e9dce72bc9c10bee4691ed",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 600,
+          "delivery_count": 599,
+          "parameter_digest": "af8b4ef6ec7e897e98eda3cbe3e8beb3073a54c0e05a68d7acb67ae77b8f0dd8",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 700,
+          "delivery_count": 699,
+          "parameter_digest": "6ba17aa0b04a70b696f427c30d1f0dd47b41b62a9f7407372a73b3c151bc7fca",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 800,
+          "delivery_count": 799,
+          "parameter_digest": "70bea2dbae524fb808e04135121ab150b249f6002aef4d18f6aa524db38932c2",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 900,
+          "delivery_count": 899,
+          "parameter_digest": "7dc9050aecee363e5665103e67dcc81a954b7983c13e40ce4a2976f25fb46fd7",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 1000,
+          "delivery_count": 999,
+          "parameter_digest": "424fe64dbbe6e46ebc66623402fc45d6f37a3eca2d298ca2d409e3aa3dfb97c0",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 1100,
+          "delivery_count": 1099,
+          "parameter_digest": "c9ca8e51932fd1342d7eaffd13c7a9215faa580c634e99999a8a1a5f9a30d721",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 1200,
+          "delivery_count": 1199,
+          "parameter_digest": "0146ab707ebed73ae8784f536177a2260658bc0236ada070d474782f5fa29902",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 1300,
+          "delivery_count": 1299,
+          "parameter_digest": "0f280fd05775bb25ea03d6ed1b1216305bfdd840a656602b92974b1ffb5b8441",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 1400,
+          "delivery_count": 1399,
+          "parameter_digest": "cec104791e15a149fbd78fc8f0c3eff7ea69e1cfc7ce2cfaa5860d38c1e15e0a",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 1500,
+          "delivery_count": 1499,
+          "parameter_digest": "20a76fb0096bc11aa86d84b486802da26090d968212360ce4dc8cdfd5b1e2976",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 1600,
+          "delivery_count": 1599,
+          "parameter_digest": "5fee5a88150b0396603c4d271295ddfefafb8a8820117f31b417d5a26e55986b",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 1700,
+          "delivery_count": 1699,
+          "parameter_digest": "74de4ea3b5d525418ed2279d0c71e714a4c9347909dfe39ef8274ddd0cbc9d46",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 1800,
+          "delivery_count": 1799,
+          "parameter_digest": "4b5312a766f2ee8892957e23404d8a15a76b45cdb3d962bbdfa2b05997e99077",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 1900,
+          "delivery_count": 1899,
+          "parameter_digest": "ff9bcf3cc6e965dd09c04f4373bcbabb6ff5a33d5a2484b4d1f6c9ff1f3f1cc4",
+          "unresolved_credit_count": 1
+        },
+        {
+          "decision_count": 2000,
+          "delivery_count": 1999,
+          "parameter_digest": "3de37058acd6e043957c0670eb3ad9aa911077b3c8d6bcbded77612f99108e57",
+          "unresolved_credit_count": 1
+        }
+      ],
+      "shuffled_control": {
+        "accuracy": 0.68,
+        "correct": 136,
+        "total": 200
+      },
+      "shuffled_parameter_digest": "6f3636224e77d4b14bbf3695a6b557d07d09165261ef6b6baf8f2db200b2857c",
+      "shuffled_per_delay": [
+        {
+          "accuracy": 0.55,
+          "correct": 22,
+          "delay": 1,
+          "total": 40
+        },
+        {
+          "accuracy": 0.675,
+          "correct": 27,
+          "delay": 2,
+          "total": 40
+        },
+        {
+          "accuracy": 1.0,
+          "correct": 40,
+          "delay": 3,
+          "total": 40
+        },
+        {
+          "accuracy": 0.675,
+          "correct": 27,
+          "delay": 4,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 5,
+          "total": 40
+        }
+      ],
+      "shuffled_reward_assignment_digest": "ad74fae31261e6cd7543c58892a0b64b09c1286b5e41d25aedcf017bc810f39d",
+      "shuffled_timeline": {
+        "action_count": 2000,
+        "decisions_with_prior_feedback_pending": 1999,
+        "delivery_count": 2000,
+        "delivery_timeline_digest": "5ba358e4f80b05a0e12205b6ab7c00cb8e9ba270fb0c9569f946c982e0e9019b",
+        "lag_histogram": [
+          {
+            "count": 2000,
+            "lag": 1
+          }
+        ],
+        "learner_unresolved_final": 0,
+        "max_pending_after_delivery": 1,
+        "max_pending_before_delivery": 2,
+        "queue_pending_final": 0,
+        "terminal_drain_count": 1
+      },
+      "state_reset": {
+        "accuracy": 0.5,
+        "correct": 100,
+        "total": 200
+      },
+      "training_fixture_digest": "91d84c32def3fadf1b3dfc94bd21d95deb3f58e10117011fd787b1a68aac2243"
+    },
+    {
+      "action_sequences_equal": true,
+      "arm": "td0",
+      "behavior_passed": false,
+      "evaluation_fixture_digest": "ca3ce1b58d52b3d1752f7d3f0b4491640d07d977245e1bcccad5abfb72757e19",
+      "normal_action_digest": "7b22ab084b419942663b58181200518864bbbf04c81150c08c7ed534cfff796c",
+      "normal_checkpoints": [
+        {
+          "decision_count": 100,
+          "delivery_count": 97,
+          "parameter_digest": "3c423a228f13058b7c4c7c2b9c252ce8a7cb885bd20bd3f9c51a1f3bad76fb25",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 200,
+          "delivery_count": 197,
+          "parameter_digest": "e44d19cc8603ade1308ae6f2f851843dbbf730219f60763be246d1a7c29425a8",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 300,
+          "delivery_count": 297,
+          "parameter_digest": "5682368973085350771cae3dbfbaeda47b0d89c62077b8eb01cddb1b91b9828a",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 400,
+          "delivery_count": 397,
+          "parameter_digest": "86ecd46159d88c4141844ed076cd00d1a729449c3c64e6bb32b1729838a48edc",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 500,
+          "delivery_count": 497,
+          "parameter_digest": "467f7729f7cf9b64d7111bca414bb901bd6e6f7a1b524dbebb590c0a05d98bfd",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 600,
+          "delivery_count": 597,
+          "parameter_digest": "1b4fc6a6545f214d2a9161d290cd28724a16cb07ecf30fc378de378b5f521c9f",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 700,
+          "delivery_count": 697,
+          "parameter_digest": "9a06d95614bf21fd9ec7d3afe20b021388d7f63682f983ee915fe91c9ca1d6ea",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 800,
+          "delivery_count": 797,
+          "parameter_digest": "52eb5773ac9b6084d258cf1cde20423ee03bacb5c11f3965f2c813ae18a1c4d8",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 900,
+          "delivery_count": 897,
+          "parameter_digest": "e1177b548992ace1d21e520d2ce498e6a5d1b511e0642027d6ae367182efa435",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 1000,
+          "delivery_count": 997,
+          "parameter_digest": "9c1f75287c00b9cd7e0ad376529fde2f5a56e8f38415b2f07454ce176b16d7f1",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 1100,
+          "delivery_count": 1097,
+          "parameter_digest": "577cf4d525d5097055eb47bea2f2a426b588a5b5209a6d9ed2c8ef19db6db5fa",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 1200,
+          "delivery_count": 1197,
+          "parameter_digest": "0e00e9191b481c091f2e3a521fd2914e08d53e8dabd0d44539aee401e6cb77a1",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 1300,
+          "delivery_count": 1297,
+          "parameter_digest": "7a7807ffddf0d23f68531f350cfb16f341ba6b6eccd73b12702f89ed49dec2ae",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 1400,
+          "delivery_count": 1397,
+          "parameter_digest": "c31ad0c8e16414c90e2b33a4fb943b27397b190deefda078ffa3c12def35fa3f",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 1500,
+          "delivery_count": 1497,
+          "parameter_digest": "59bba55a68daa1ffcebc85abf10384fa32f5db478c23da5fd4de053ca92194a7",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 1600,
+          "delivery_count": 1597,
+          "parameter_digest": "07addf10f6dc20a86f76b015b83641cb438871363c094d15d51b00168236570d",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 1700,
+          "delivery_count": 1697,
+          "parameter_digest": "098f2a283d6e500cb969391870f979d98b03ca953488ea1bacb66f7c8aad0f08",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 1800,
+          "delivery_count": 1797,
+          "parameter_digest": "52c1b3cea921a317ed82847f2ddfa17b1bee3fe7cb81099c218e7aacde71d8c0",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 1900,
+          "delivery_count": 1897,
+          "parameter_digest": "d434b1864e37337c45f41e9faa3d0fd535670201dd0f25832c63b814d6aefbfe",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 2000,
+          "delivery_count": 1997,
+          "parameter_digest": "6e5d791c05747e98f8232b1cd3a8dae737a6318decfde5689424691738d11200",
+          "unresolved_credit_count": 3
+        }
+      ],
+      "normal_reward_assignment_digest": "9ece6b6ec455cf586968d051c939aac3ba2de30c2bbf1fabd69946c0541910bd",
+      "normal_timeline": {
+        "action_count": 2000,
+        "decisions_with_prior_feedback_pending": 1999,
+        "delivery_count": 2000,
+        "delivery_timeline_digest": "1921c3f61e59f14e2452a5d171c65de1dff3a50af9af15cab95b938cce1f3542",
+        "lag_histogram": [
+          {
+            "count": 2000,
+            "lag": 3
+          }
+        ],
+        "learner_unresolved_final": 0,
+        "max_pending_after_delivery": 3,
+        "max_pending_before_delivery": 4,
+        "queue_pending_final": 0,
+        "terminal_drain_count": 3
+      },
+      "parameter_digest": "3dd0119fed601418ca4eccb03d594f72dbeb863b9daf69d306c4bd572bada213",
+      "per_delay": [
+        {
+          "accuracy": 1.0,
+          "correct": 40,
+          "delay": 1,
+          "total": 40
+        },
+        {
+          "accuracy": 1.0,
+          "correct": 40,
+          "delay": 2,
+          "total": 40
+        },
+        {
+          "accuracy": 1.0,
+          "correct": 40,
+          "delay": 3,
+          "total": 40
+        },
+        {
+          "accuracy": 0.925,
+          "correct": 37,
+          "delay": 4,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 5,
+          "total": 40
+        }
+      ],
+      "post_training": {
+        "accuracy": 0.885,
+        "correct": 177,
+        "total": 200
+      },
+      "pre_training": {
+        "accuracy": 0.5,
+        "correct": 100,
+        "total": 200
+      },
+      "repeatable": true,
+      "reset_per_delay": [
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 1,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 2,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 3,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 4,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 5,
+          "total": 40
+        }
+      ],
+      "reward_block_multisets_equal": true,
+      "reward_delay": 3,
+      "seed": 29,
+      "shuffled_action_digest": "7b22ab084b419942663b58181200518864bbbf04c81150c08c7ed534cfff796c",
+      "shuffled_checkpoints": [
+        {
+          "decision_count": 100,
+          "delivery_count": 97,
+          "parameter_digest": "3b1f5f0f31b861403cd822fbc50d40846212163ee5b38a0daa3251dd4d97a2bd",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 200,
+          "delivery_count": 197,
+          "parameter_digest": "6b5b9445cca49e65685d31268d53aaadfabb0eef540bc1633161a975ef350ee1",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 300,
+          "delivery_count": 297,
+          "parameter_digest": "7508524919caf3bdaf3bb3c1d8674c1e01ceb6c2af9ae7b895ed0006fc2d5c79",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 400,
+          "delivery_count": 397,
+          "parameter_digest": "1d7225303a1569dd605fdee6e6590ac82fe71bdfec7d989cd54a5b071b70b41d",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 500,
+          "delivery_count": 497,
+          "parameter_digest": "8df54a8d81ead9f73fad8733048cea639b1ced58b92e3f8b6b8358c5839ab355",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 600,
+          "delivery_count": 597,
+          "parameter_digest": "dcfae3bebf3a3056dcc9151fda2318ed93798a7c638ec43c5ac38dd541b5f693",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 700,
+          "delivery_count": 697,
+          "parameter_digest": "41bc4f9477a6582b9de6d879378a55b7967651f84af5ad7251a2399ed0994932",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 800,
+          "delivery_count": 797,
+          "parameter_digest": "6943597a1bdb560dc100a80cfc33591a71e736d75006b7f6cfe1cb5029b2c2b1",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 900,
+          "delivery_count": 897,
+          "parameter_digest": "3e901324336d63c6fd9ad5e762acda9f852d4c7331cce1ba5a8fb203dc1c3c9d",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 1000,
+          "delivery_count": 997,
+          "parameter_digest": "8192cfa2e4cb4c0947f6cb6f6871a1b84d790f0530003342570ccd6dfdfea168",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 1100,
+          "delivery_count": 1097,
+          "parameter_digest": "938073241604147cb4c187c1d0c220eae1f25eb661f6e28b925880b69ab1ff50",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 1200,
+          "delivery_count": 1197,
+          "parameter_digest": "ea5503811bf7912a53c7df338023f12c1e6bb722c7d5501d8b0c5d8f8a03a5cf",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 1300,
+          "delivery_count": 1297,
+          "parameter_digest": "ba34c34bac25fad57540f1ac4dce89e5b8505b5a4c21f5fb6be46468b0de29e5",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 1400,
+          "delivery_count": 1397,
+          "parameter_digest": "83c9ab8048bb1787239f6694c244284c6d30eca37e6735325cf20f34568b6c47",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 1500,
+          "delivery_count": 1497,
+          "parameter_digest": "9d7c4baaefe9cbdd18172d2a98827417c72e1bef73ce4b73009190656732b0a3",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 1600,
+          "delivery_count": 1597,
+          "parameter_digest": "06ab5fcfbd117ba026e42e4dd87c9f8f2c788cda4266a53de5018e263e9862ab",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 1700,
+          "delivery_count": 1697,
+          "parameter_digest": "361c9c14881d5eb16c9528f98f158c228a56c64659eadb48796954759cc61cd2",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 1800,
+          "delivery_count": 1797,
+          "parameter_digest": "2c25f124955aa10a5e9f0af6d2cc2be1332a55fa67e82491470d0ad97790d3b2",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 1900,
+          "delivery_count": 1897,
+          "parameter_digest": "0be90436f3b66f241aa138733c46c9d466c3ddfa29a63ff829e27333822b17f8",
+          "unresolved_credit_count": 3
+        },
+        {
+          "decision_count": 2000,
+          "delivery_count": 1997,
+          "parameter_digest": "5c4e3129797eca890146b68d41d08c0581a4b883e46f06c92e72f14f01e5646e",
+          "unresolved_credit_count": 3
+        }
+      ],
+      "shuffled_control": {
+        "accuracy": 0.755,
+        "correct": 151,
+        "total": 200
+      },
+      "shuffled_parameter_digest": "685b0ed0415260e0531f3cb212c1fb7576902ada22d650ca219ab94f411540c9",
+      "shuffled_per_delay": [
+        {
+          "accuracy": 0.525,
+          "correct": 21,
+          "delay": 1,
+          "total": 40
+        },
+        {
+          "accuracy": 0.85,
+          "correct": 34,
+          "delay": 2,
+          "total": 40
+        },
+        {
+          "accuracy": 1.0,
+          "correct": 40,
+          "delay": 3,
+          "total": 40
+        },
+        {
+          "accuracy": 0.9,
+          "correct": 36,
+          "delay": 4,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 5,
+          "total": 40
+        }
+      ],
+      "shuffled_reward_assignment_digest": "ad74fae31261e6cd7543c58892a0b64b09c1286b5e41d25aedcf017bc810f39d",
+      "shuffled_timeline": {
+        "action_count": 2000,
+        "decisions_with_prior_feedback_pending": 1999,
+        "delivery_count": 2000,
+        "delivery_timeline_digest": "1921c3f61e59f14e2452a5d171c65de1dff3a50af9af15cab95b938cce1f3542",
+        "lag_histogram": [
+          {
+            "count": 2000,
+            "lag": 3
+          }
+        ],
+        "learner_unresolved_final": 0,
+        "max_pending_after_delivery": 3,
+        "max_pending_before_delivery": 4,
+        "queue_pending_final": 0,
+        "terminal_drain_count": 3
+      },
+      "state_reset": {
+        "accuracy": 0.5,
+        "correct": 100,
+        "total": 200
+      },
+      "training_fixture_digest": "91d84c32def3fadf1b3dfc94bd21d95deb3f58e10117011fd787b1a68aac2243"
+    },
+    {
+      "action_sequences_equal": true,
+      "arm": "td0",
+      "behavior_passed": false,
+      "evaluation_fixture_digest": "ca3ce1b58d52b3d1752f7d3f0b4491640d07d977245e1bcccad5abfb72757e19",
+      "normal_action_digest": "7b22ab084b419942663b58181200518864bbbf04c81150c08c7ed534cfff796c",
+      "normal_checkpoints": [
+        {
+          "decision_count": 100,
+          "delivery_count": 95,
+          "parameter_digest": "7ae907a11d74b11e7ea31018127501bbec9bab503eab359a6982ed6cdb9167e2",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 200,
+          "delivery_count": 195,
+          "parameter_digest": "2b8f552b60f2da3428c1bb67787b5953ea258261e38e5d0c139f5b548ec21947",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 300,
+          "delivery_count": 295,
+          "parameter_digest": "41f3eb6429b013bc2f0313545f5ed19b20c2878c28a7c37d51b7d509ebb0e350",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 400,
+          "delivery_count": 395,
+          "parameter_digest": "9bb5ec86c54f6f828e4c80246e18e4047583955ec11d2ea3f8ad8763c67f75b4",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 500,
+          "delivery_count": 495,
+          "parameter_digest": "575ebc41ee884591aab6643f81427899a3f9fa7c894299a4c69a7d9b85dc7e63",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 600,
+          "delivery_count": 595,
+          "parameter_digest": "39bbe122368c93cbd4d238f0fa39db132e51e52cae0e9995d1cafe4bf488b85d",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 700,
+          "delivery_count": 695,
+          "parameter_digest": "fe7b2f7052978f23c4bddb4c0d1cf93e5303989d82f0959dee56956f06490256",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 800,
+          "delivery_count": 795,
+          "parameter_digest": "f28607387f124d9a37dee54c6478a0eb0acc0e89dfea4141ecee8a0adf85399d",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 900,
+          "delivery_count": 895,
+          "parameter_digest": "9e52cd55d2851579fdaf88d68c9b70a96ffab09e843c552b907851972a762014",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 1000,
+          "delivery_count": 995,
+          "parameter_digest": "dfb64fa994444f2b199954df8054b959c65a02b40396bedfa1c7595a078bcd96",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 1100,
+          "delivery_count": 1095,
+          "parameter_digest": "714ff842bbbec6c4af25e2e4d23775a28b2e4b69878f0d99212f7e2f128df8b1",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 1200,
+          "delivery_count": 1195,
+          "parameter_digest": "92d184b1dfacc30a70996186bfd39d0f8b34255ddb19a0d7835f5eeb87d36dbb",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 1300,
+          "delivery_count": 1295,
+          "parameter_digest": "5eeef5e3d49127f12c399d045763df6ab803f831bdb5d375c95a566b125cdc4e",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 1400,
+          "delivery_count": 1395,
+          "parameter_digest": "cb8cad407af7f9ada77d04adad4bebd96d8dc53bc38796efe89d130485c51be7",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 1500,
+          "delivery_count": 1495,
+          "parameter_digest": "160a3a44f0b59d611e10db8c65bc48960ca34f52beda59a9ede2b9c93fa61e3f",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 1600,
+          "delivery_count": 1595,
+          "parameter_digest": "3e1e76cde2f92d6b9ce8810375ba5c1e21958e734729402b5c228e4b0415ca6a",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 1700,
+          "delivery_count": 1695,
+          "parameter_digest": "22f323ef5c71e5cbb33079fd723c56aed984c41e34a18c160c9e84c15c478002",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 1800,
+          "delivery_count": 1795,
+          "parameter_digest": "855b85e3efa430154e45a4ac2a9bc642097718c1c21fdcba0b41f9f8bc22a604",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 1900,
+          "delivery_count": 1895,
+          "parameter_digest": "522d3bd26763ebc9b6710b7992dfa7217ee03e356bf8462aa3ab499d23448dd0",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 2000,
+          "delivery_count": 1995,
+          "parameter_digest": "d554cd15ef4b3aa9343c42df9f49b1d0f221e33d31260192d1036559aec2fe5c",
+          "unresolved_credit_count": 5
+        }
+      ],
+      "normal_reward_assignment_digest": "9ece6b6ec455cf586968d051c939aac3ba2de30c2bbf1fabd69946c0541910bd",
+      "normal_timeline": {
+        "action_count": 2000,
+        "decisions_with_prior_feedback_pending": 1999,
+        "delivery_count": 2000,
+        "delivery_timeline_digest": "529e2158b536d5ff03101f91a2ffca7e23a261d6f0ef31ff80472db89206c4a5",
+        "lag_histogram": [
+          {
+            "count": 2000,
+            "lag": 5
+          }
+        ],
+        "learner_unresolved_final": 0,
+        "max_pending_after_delivery": 5,
+        "max_pending_before_delivery": 6,
+        "queue_pending_final": 0,
+        "terminal_drain_count": 5
+      },
+      "parameter_digest": "59f7771190f9e70079d2246630c54546562eeda9319517bd10e120f006fbe0af",
+      "per_delay": [
+        {
+          "accuracy": 1.0,
+          "correct": 40,
+          "delay": 1,
+          "total": 40
+        },
+        {
+          "accuracy": 1.0,
+          "correct": 40,
+          "delay": 2,
+          "total": 40
+        },
+        {
+          "accuracy": 1.0,
+          "correct": 40,
+          "delay": 3,
+          "total": 40
+        },
+        {
+          "accuracy": 0.925,
+          "correct": 37,
+          "delay": 4,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 5,
+          "total": 40
+        }
+      ],
+      "post_training": {
+        "accuracy": 0.885,
+        "correct": 177,
+        "total": 200
+      },
+      "pre_training": {
+        "accuracy": 0.5,
+        "correct": 100,
+        "total": 200
+      },
+      "repeatable": true,
+      "reset_per_delay": [
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 1,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 2,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 3,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 4,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 5,
+          "total": 40
+        }
+      ],
+      "reward_block_multisets_equal": true,
+      "reward_delay": 5,
+      "seed": 29,
+      "shuffled_action_digest": "7b22ab084b419942663b58181200518864bbbf04c81150c08c7ed534cfff796c",
+      "shuffled_checkpoints": [
+        {
+          "decision_count": 100,
+          "delivery_count": 95,
+          "parameter_digest": "2d4ea5890db48293cf3f98bce9e2cef38fe27816f31c950df8dfdd7341c286d2",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 200,
+          "delivery_count": 195,
+          "parameter_digest": "afb69f1b19d930f592244873c38ba619fd49e39ddba52b7641f0a0a77c684923",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 300,
+          "delivery_count": 295,
+          "parameter_digest": "5c26502477b7e0d155d61f58e86599e4d36d4bf1d167986df55a7f52804b0e8a",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 400,
+          "delivery_count": 395,
+          "parameter_digest": "df48403b6d28c8c0b8e432425e9ab781395dfde0496a6df6c4a8666fd58a5dd6",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 500,
+          "delivery_count": 495,
+          "parameter_digest": "ecf353ec7a710c8781a984b2bba9dc945f354cf68213aa2c20586a32f9809cfb",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 600,
+          "delivery_count": 595,
+          "parameter_digest": "8d2e81b1afeaf5d39d1a44f2a72eafe882323c2cdff21fe6c31f0dec754b0709",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 700,
+          "delivery_count": 695,
+          "parameter_digest": "e5a9912b545131b5734aed2af3b574b83269509208c14ea33d0a8e37edc2dadc",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 800,
+          "delivery_count": 795,
+          "parameter_digest": "32ea81da9ed5a19a6f8b53c9e8a6e43cd139cc72a11601275031defbd79f74ca",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 900,
+          "delivery_count": 895,
+          "parameter_digest": "362eff1236905cd77bc31e43261144b0902539b647c14d6d3cb3738911d106fd",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 1000,
+          "delivery_count": 995,
+          "parameter_digest": "c843d775cdc68bb8e627ef739ac24720d13d2c7515cba224eed31c19774d3ff8",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 1100,
+          "delivery_count": 1095,
+          "parameter_digest": "b345e09ff496d03206b1482849668f9d7aa1e39c48d0a16eb9b87901249be398",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 1200,
+          "delivery_count": 1195,
+          "parameter_digest": "f204d75a3816a59044dab710694b7e93ce0979d56d86db9c897ca58a162f2988",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 1300,
+          "delivery_count": 1295,
+          "parameter_digest": "21fd7beb82486cf99f1f8ad2e2008d9e237459fde508fc49fcec0b29a324b839",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 1400,
+          "delivery_count": 1395,
+          "parameter_digest": "bc3e7572d8d67ea03c713583e94b5d0a089dfc9c657cf340b2da23f2eaef5334",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 1500,
+          "delivery_count": 1495,
+          "parameter_digest": "d11e8c2bd2c58f79af3d2e59e6a8eb2e0c9d1659a0a42055f1698cd898877cc2",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 1600,
+          "delivery_count": 1595,
+          "parameter_digest": "bd6ed31f58bf2d6eded1a0250917b96625db43595b6dac0f042bda5ec1f6b798",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 1700,
+          "delivery_count": 1695,
+          "parameter_digest": "e17079c6975038c702b1d29e9cd90f8cb6105988b12b5c3c8d5bfa749abae5c0",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 1800,
+          "delivery_count": 1795,
+          "parameter_digest": "92e754c8e2f9149f01824c4a874e775c02eca63a98ed5dd489acae62a0726836",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 1900,
+          "delivery_count": 1895,
+          "parameter_digest": "e962b24577a7e1bf8a04b2d704614ee5903b2dd9e755cf1afbdc7fca350a5d69",
+          "unresolved_credit_count": 5
+        },
+        {
+          "decision_count": 2000,
+          "delivery_count": 1995,
+          "parameter_digest": "2dedb5b43139be82422ba3bea6fc50527729d3f713905138ccbdd64b9e1df592",
+          "unresolved_credit_count": 5
+        }
+      ],
+      "shuffled_control": {
+        "accuracy": 0.675,
+        "correct": 135,
+        "total": 200
+      },
+      "shuffled_parameter_digest": "3e8c6f29f1c4a62723c8718572dbf7bf13f7308b50c62d8dd5c89cf14369c3fe",
+      "shuffled_per_delay": [
+        {
+          "accuracy": 0.825,
+          "correct": 33,
+          "delay": 1,
+          "total": 40
+        },
+        {
+          "accuracy": 0.575,
+          "correct": 23,
+          "delay": 2,
+          "total": 40
+        },
+        {
+          "accuracy": 0.925,
+          "correct": 37,
+          "delay": 3,
+          "total": 40
+        },
+        {
+          "accuracy": 0.55,
+          "correct": 22,
+          "delay": 4,
+          "total": 40
+        },
+        {
+          "accuracy": 0.5,
+          "correct": 20,
+          "delay": 5,
+          "total": 40
+        }
+      ],
+      "shuffled_reward_assignment_digest": "ad74fae31261e6cd7543c58892a0b64b09c1286b5e41d25aedcf017bc810f39d",
+      "shuffled_timeline": {
+        "action_count": 2000,
+        "decisions_with_prior_feedback_pending": 1999,
+        "delivery_count": 2000,
+        "delivery_timeline_digest": "529e2158b536d5ff03101f91a2ffca7e23a261d6f0ef31ff80472db89206c4a5",
+        "lag_histogram": [
+          {
+            "count": 2000,
+            "lag": 5
+          }
+        ],
+        "learner_unresolved_final": 0,
+        "max_pending_after_delivery": 5,
+        "max_pending_before_delivery": 6,
+        "queue_pending_final": 0,
+        "terminal_drain_count": 5
+      },
+      "state_reset": {
+        "accuracy": 0.5,
+        "correct": 100,
+        "total": 200
+      },
+      "training_fixture_digest": "91d84c32def3fadf1b3dfc94bd21d95deb3f58e10117011fd787b1a68aac2243"
+    }
+  ],
+  "reward_delays": [
+    0,
+    1,
+    3,
+    5
+  ],
+  "schema_version": 2,
+  "seeds": [
+    7,
+    17,
+    29
+  ]
+}

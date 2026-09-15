@@ -246,6 +246,42 @@ keeps the action lineages identical: it improves seed 29/delay 5 modestly but
 does not pass the fixed gate and worsens seed 7 overall. It is evidence for
 the attribution, not a replacement learner.
 
+## Phase 3B — overlapping delayed credit
+
+Phase 3B now uses a corrected select-before-deliver protocol: non-zero reward
+delay overlaps later real decisions, a Phase 3B-only TD(0) adapter may hold
+multiple unresolved FIFO credits, and terminal drain delivers remaining rewards
+without creating synthetic actions. Gate P audits exact lag, queue high-water,
+terminal drain, exactly-once delivery, zero final unresolved state, control
+timeline identity, repeatability, and exact `d_r=0` Phase 3A continuity.
+
+The frozen corrected evidence is
+[phase-3b-delayed-credit.json](docs/experiments/phase-3b-delayed-credit.json),
+SHA-256 `dbe263aa916ca0e2bbf3281b20d56de7d6cee70c38f08146c96eb9987e024074`; the bounded interpretation is in
+[phase-3b-delayed-credit-report.md](docs/experiments/phase-3b-delayed-credit-report.md).
+The result is **protocol valid but behavior failed** across ordered seeds
+`[7, 17, 29]`. Seed 17 passes all reward delays; seeds 7 and 29 do not satisfy
+the fixed per-row behavioral gate. This is valid negative evidence rather than
+a harness-invalid result.
+
+| Seed | `d_r=0` | `d_r=1` | `d_r=3` | `d_r=5` |
+|---:|---:|---:|---:|---:|
+| 7 | 181/200 | 181/200 | 181/200 | 182/200 |
+| 17 | 199/200 | 199/200 | 199/200 | 199/200 |
+| 29 | 177/200 | 177/200 | 177/200 | 177/200 |
+
+The timeline itself proves the delay: exact lag is `0/1/3/5`, max pending
+before delivery is `1/2/4/6`, and terminal drain is `0/1/3/5`. `d_r=0` exactly
+matches frozen Phase 3A TD(0). Corrected Phase 3B contains no TD(lambda) arm;
+that mechanism remains blocked pending a separate overlapping-trace design.
+
+Run the reusable protocol gate and committed-artifact verifier with:
+
+```bash
+python scripts/benchmark_phase3b_delayed_credit.py --require-protocol-valid
+python scripts/verify_phase3b_delayed_credit.py
+```
+
 ## Package layout
 
 ```text
@@ -260,7 +296,11 @@ src/neural_state_machine/
 ├── memory_benchmark.py  Phase 2B reward-learning baseline
 ├── memory_probe.py  Phase 2A frozen linear measurement
 ├── phase3a_failure_attribution.py  Phase 3A diagnostic variance arms
-└── phase3a_credit_compare.py  TD(0)/TD(lambda) diagnostic comparison
+├── phase3a_credit_compare.py  TD(0)/TD(lambda) diagnostic comparison
+├── delayed_credit.py  auditable delayed-reward FIFO queue
+├── phase3b_learners.py  Phase 3B multi-inflight TD(0) adapter
+├── phase3b_controls.py  Gate P timeline invariants
+└── phase3b_delayed_benchmark.py  overlapping delayed-credit benchmark
 ```
 
 ## What the result means
@@ -296,6 +336,8 @@ possible temporal visual subsystem, not the controller studied here.
 - [Phase 2B reward-learning design](docs/superpowers/specs/2026-09-14-phase-2b-reward-learning-design.md)
 - [Phase 2C learning diagnostics design](docs/superpowers/specs/2026-09-14-phase-2c-learning-diagnostics-design.md)
 - [Phase 2C learning diagnostics plan](docs/superpowers/plans/2026-09-14-phase-2c-learning-diagnostics.md)
+- [Corrected Phase 3B delayed-credit design](docs/superpowers/specs/2026-09-15-phase-3b-delayed-credit-design.md)
+- [Corrected Phase 3B overlapping implementation plan](docs/superpowers/plans/2026-09-15-phase-3b-overlapping-delayed-credit.md)
 
 ## License
 

@@ -48,14 +48,5 @@ jobs:
       - name: Phase 3B overlapping protocol gate
         run: python scripts/benchmark_phase3b_delayed_credit.py --require-protocol-valid
 
-      - name: Materialize Phase 3B evidence candidate
-        if: matrix.python-version == '3.10'
-        run: python scripts/benchmark_phase3b_delayed_credit.py --evidence docs/experiments/phase-3b-delayed-credit.json
-
-      - name: Upload Phase 3B evidence candidate
-        if: matrix.python-version == '3.10'
-        uses: actions/upload-artifact@v4
-        with:
-          name: phase3b-evidence-candidate
-          path: docs/experiments/phase-3b-delayed-credit.json
-          if-no-files-found: error
+      - name: Verify frozen Phase 3B delayed-credit evidence
+        run: python scripts/verify_phase3b_delayed_credit.py
