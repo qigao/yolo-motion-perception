@@ -181,6 +181,32 @@ def _validate(payload: dict[str, object]) -> None:
         raise RuntimeError("result keys do not match registered seed/delay grid")
 
 
+def _portable_projection(payload: dict[str, object]) -> dict[str, object]:
+    """Return fields that are stable across supported Python/NumPy environments."""
+    projection = json.loads(json.dumps(payload, sort_keys=True, allow_nan=False))
+    results = projection.get("results")
+    if not isinstance(results, list):
+        raise RuntimeError("portable projection requires result rows")
+    for result in results:
+        if not isinstance(result, dict):
+            raise RuntimeError("portable projection requires object result rows")
+        result.pop("parameter_digest", None)
+        result.pop("shuffled_parameter_digest", None)
+        for checkpoint_key in ("normal_checkpoints", "shuffled_checkpoints"):
+            checkpoints = result.get(checkpoint_key)
+            if not isinstance(checkpoints, list):
+                raise RuntimeError(
+                    f"portable projection requires checkpoint rows: {checkpoint_key}"
+                )
+            for checkpoint in checkpoints:
+                if not isinstance(checkpoint, dict):
+                    raise RuntimeError(
+                        f"portable projection requires object checkpoints: {checkpoint_key}"
+                    )
+                checkpoint.pop("parameter_digest", None)
+    return projection
+
+
 def _config_from_payload(payload: dict[str, object]) -> DelayedCreditConfig:
     config = payload.get("config")
     reward_delays = payload.get("reward_delays")
@@ -213,8 +239,11 @@ def verify_phase3b_delayed_credit(
     seeds = tuple(committed["seeds"])
     config = _config_from_payload(committed)
     runtime = build_payload(root, seeds=seeds, config=config)
-    if runtime != committed:
-        raise RuntimeError("committed Phase 3B evidence differs from deterministic replay")
+    _validate(runtime)
+    if _portable_projection(runtime) != _portable_projection(committed):
+        raise RuntimeError(
+            "committed Phase 3B portable evidence differs from deterministic replay"
+        )
     return committed
 
 
