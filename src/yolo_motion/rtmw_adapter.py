@@ -132,7 +132,7 @@ def _first_prediction(result: Any) -> Any | None:
     if result is None:
         return None
     if not isinstance(result, dict):
-        raise ValueError("RTMW inferencer result must be a mapping")
+        raise TypeError("RTMW inferencer result must be a mapping")
 
     predictions = result.get("predictions")
     if predictions is None:
@@ -148,7 +148,7 @@ def _first_prediction(result: Any) -> Any | None:
 
 def _prediction_arrays(sample: Any, track_id: int) -> tuple[np.ndarray, np.ndarray]:
     if not isinstance(sample, dict):
-        raise ValueError(f"RTMW prediction for track {track_id} must be a mapping")
+        raise TypeError(f"RTMW prediction for track {track_id} must be a mapping")
 
     keypoints = np.asarray(sample.get("keypoints"), dtype=float)
     if keypoints.ndim == 3 and keypoints.shape[0] == 1:
