@@ -1,7 +1,6 @@
 import math
 
 import pytest
-
 from test_gait_pipeline import gait_config, gait_observation
 
 from yolo_motion.gait_pipeline import OpticalGaitPipeline
