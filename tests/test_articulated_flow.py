@@ -12,7 +12,6 @@ from yolo_motion.pose_regions import (
 from yolo_motion.pose_types import PoseLayout, PoseObservation
 from yolo_motion.types import TrackObservation
 
-
 FRAME_SIZE = 400
 
 
