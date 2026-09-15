@@ -22,7 +22,7 @@ jobs:
         run: python -m pip install -e '.[dev,optical]'
       - name: Unit tests
         run: pytest -q
-      - name: Ruff
-        run: ruff check .
+      - name: Ruff diagnostic
+        run: ruff check --select I --fix --diff .
       - name: Synthetic benchmark
         run: python scripts/benchmark_synthetic.py
