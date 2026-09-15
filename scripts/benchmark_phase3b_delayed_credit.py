@@ -96,6 +96,13 @@ def _lineages_match_across_delays(results: tuple[DelayedCreditResult, ...]) -> b
     return True
 
 
+def _registered_behavior_passed(results: tuple[object, ...]) -> bool:
+    delayed = tuple(result for result in results if result.reward_delay != 0)
+    if not delayed:
+        raise ValueError("registered behavior gate requires at least one non-zero reward delay")
+    return all(result.behavior_passed for result in delayed)
+
+
 def build_payload(
     root: Path | None = None,
     *,
@@ -111,7 +118,7 @@ def build_payload(
         and all(_continuity_matches(result, resolved) for result in results)
         and _lineages_match_across_delays(results)
     )
-    behavior_passed = protocol_valid and all(result.behavior_passed for result in results)
+    behavior_passed = protocol_valid and _registered_behavior_passed(results)
 
     payload = delayed_credit_payload(results)
     payload.pop("diagnostic_only", None)
