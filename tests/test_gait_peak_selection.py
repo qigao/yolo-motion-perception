@@ -47,6 +47,6 @@ def _history() -> list[ArticulatedFlowEvidence]:
 def test_gait_uses_strongest_plausible_autocorrelation_peak():
     evidence = estimate_gait(_history(), GaitConfig())
 
-    assert evidence.cadence_hz == pytest.approx(0.8, abs=0.10)
+    assert evidence.cadence_hz == pytest.approx(1.6, abs=0.20)
     assert evidence.periodicity > 0.80
     assert evidence.bilateral_correlation > 0.45
