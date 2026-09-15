@@ -1,3 +1,4 @@
+import copy
 import json
 from pathlib import Path
 
@@ -8,11 +9,11 @@ from scripts.benchmark_phase3b_delayed_credit import build_payload, write_eviden
 from scripts.verify_phase3b_delayed_credit import _validate
 
 
-def test_phase3b_payload_is_explicitly_diagnostic_only(tmp_path: Path) -> None:
+def _small_payload(tmp_path: Path) -> dict[str, object]:
     frozen = tmp_path / "docs/experiments/phase-3a-action-value.json"
-    frozen.parent.mkdir(parents=True)
+    frozen.parent.mkdir(parents=True, exist_ok=True)
     frozen.write_bytes(b"frozen")
-    payload = build_payload(
+    return build_payload(
         tmp_path,
         seeds=(7,),
         config=DelayedCreditConfig(
@@ -21,38 +22,72 @@ def test_phase3b_payload_is_explicitly_diagnostic_only(tmp_path: Path) -> None:
             checkpoint_interval=50,
         ),
     )
+
+
+def test_phase3b_payload_uses_schema_v2_and_arm_a_only(tmp_path: Path) -> None:
+    payload = _small_payload(tmp_path)
+
     assert payload["experiment"] == "phase-3b-delayed-credit"
-    assert payload["diagnostic_only"] is True
-    assert payload["all_passed"] is False
+    assert payload["schema_version"] == 2
+    assert payload["protocol_valid"] is True
+    assert type(payload["behavior_passed"]) is bool
+    assert payload["all_passed"] == (
+        payload["protocol_valid"] and payload["behavior_passed"]
+    )
+    assert payload["seeds"] == [7]
+    assert payload["reward_delays"] == [0, 1, 3, 5]
+    assert {row["arm"] for row in payload["results"]} == {"td0"}
     _validate(payload)
 
 
-def test_writer_accepts_only_approved_path(tmp_path: Path) -> None:
+def test_writer_refuses_protocol_invalid_payload(tmp_path: Path) -> None:
+    target = tmp_path / "docs/experiments/phase-3b-delayed-credit.json"
     payload = {
         "experiment": "phase-3b-delayed-credit",
-        "schema_version": 1,
-        "diagnostic_only": True,
-        "decision_status": "diagnostic-only-before-full-gate",
-        "frozen_phase3a_sha256": "0" * 64,
-        "results": [],
+        "schema_version": 2,
+        "protocol_valid": False,
+        "behavior_passed": False,
+        "all_passed": False,
     }
-    with pytest.raises(ValueError, match="approved"):
-        write_evidence(payload, tmp_path / "other.json", tmp_path)
+    with pytest.raises(ValueError, match="protocol_valid"):
+        write_evidence(payload, target, tmp_path)
+    assert not target.exists()
 
 
-def test_writer_is_deterministic_for_identical_payload(tmp_path: Path) -> None:
-    root = tmp_path
-    target = root / "docs/experiments/phase-3b-delayed-credit.json"
-    payload = {
-        "experiment": "phase-3b-delayed-credit",
-        "schema_version": 1,
-        "diagnostic_only": True,
-        "decision_status": "diagnostic-only-before-full-gate",
-        "frozen_phase3a_sha256": "0" * 64,
-        "results": [],
-    }
-    write_evidence(payload, target, root)
+def test_writer_is_deterministic_for_protocol_valid_payload(tmp_path: Path) -> None:
+    payload = _small_payload(tmp_path)
+    target = tmp_path / "docs/experiments/phase-3b-delayed-credit.json"
+
+    write_evidence(payload, target, tmp_path)
     first = target.read_bytes()
-    write_evidence(payload, target, root)
+    write_evidence(payload, target, tmp_path)
+
     assert target.read_bytes() == first
-    assert json.loads(first)["schema_version"] == 1
+    assert json.loads(first)["schema_version"] == 2
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "schema",
+        "protocol",
+        "arm",
+        "timeline_digest",
+    ],
+)
+def test_verifier_schema_rejects_protocol_corruption(
+    tmp_path: Path, mutation: str
+) -> None:
+    payload = _small_payload(tmp_path)
+    broken = copy.deepcopy(payload)
+    if mutation == "schema":
+        broken["schema_version"] = 1
+    elif mutation == "protocol":
+        broken["protocol_valid"] = False
+    elif mutation == "arm":
+        broken["results"][0]["arm"] = "td_lambda"
+    else:
+        broken["results"][0]["normal_timeline"]["delivery_timeline_digest"] = "bad"
+
+    with pytest.raises(RuntimeError):
+        _validate(broken)
