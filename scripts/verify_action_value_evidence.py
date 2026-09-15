@@ -72,6 +72,7 @@ _LOCAL_RESULT_KEYS = {
     "initial_parameter_digest",
     "matrix_controls",
     "normal_parameter_digest",
+    "post_margin",
     "reset_hidden_digest",
     "shuffled_parameter_digest",
 }
@@ -127,6 +128,12 @@ def _finite(value: object, name: str) -> float:
 def _fixed_float(value: object, name: str, expected: float) -> float:
     if type(value) is not float or not math.isfinite(value) or value != expected:
         _fail(f"{name} must be the fixed finite float {expected}")
+    return value
+
+
+def _diagnostic_float(value: object, name: str) -> float:
+    if type(value) is not float or not math.isfinite(value):
+        _fail(f"{name} must be a finite float")
     return value
 
 
@@ -264,8 +271,8 @@ def _checkpoints(value: object, name: str) -> list[dict[str, object]]:
             _fail(f"{name} has an unexpected episode sequence")
         _count(row["accuracy"], f"{name}.accuracy", total=100)
         for key in keys - {"accuracy", "episode"}:
-            _finite(row[key], f"{name}.{key}")
-        rows.append(row)
+            _diagnostic_float(row[key], f"{name}.{key}")
+        rows.append({"accuracy": row["accuracy"], "episode": row["episode"]})
     return rows
 
 
@@ -340,14 +347,19 @@ def _portable_result(value: object, expected_seed: int) -> dict[str, object]:
         _fail("training retained pending feedback")
     if result["repeatable"] is not True:
         _fail("per-seed execution was not repeatable")
-    _checkpoints(result["normal_checkpoints"], "normal_checkpoints")
-    _checkpoints(result["shuffled_checkpoints"], "shuffled_checkpoints")
+    normal_checkpoints = _checkpoints(result["normal_checkpoints"], "normal_checkpoints")
+    shuffled_checkpoints = _checkpoints(
+        result["shuffled_checkpoints"], "shuffled_checkpoints"
+    )
     post_margin = _dictionary(result["post_margin"], "post_margin", {"mean", "minimum", "p10"})
     for key in post_margin:
-        _finite(post_margin[key], f"post_margin.{key}")
+        _diagnostic_float(post_margin[key], f"post_margin.{key}")
     if result["passed"] is not _expected_pass(result):
         _fail("per-seed pass flag is inconsistent with fixed gates")
-    return {key: result[key] for key in sorted(_RESULT_KEYS - _LOCAL_RESULT_KEYS)}
+    portable = {key: result[key] for key in sorted(_RESULT_KEYS - _LOCAL_RESULT_KEYS)}
+    portable["normal_checkpoints"] = normal_checkpoints
+    portable["shuffled_checkpoints"] = shuffled_checkpoints
+    return portable
 
 
 def _portable_phase_3a_payload(payload: dict[str, object]) -> dict[str, object]:

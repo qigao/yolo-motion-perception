@@ -1522,6 +1522,21 @@ def _mutate_evidence(payload: dict[str, object], mutation: str) -> None:
     elif mutation == "checkpoint_nan":
         assert isinstance(result["normal_checkpoints"], list)
         result["normal_checkpoints"][0]["td_error_mean"] = float("nan")
+    elif mutation == "checkpoint_float_missing":
+        assert isinstance(result["normal_checkpoints"], list)
+        del result["normal_checkpoints"][0]["margin_mean"]
+    elif mutation == "checkpoint_float_malformed":
+        assert isinstance(result["normal_checkpoints"], list)
+        result["normal_checkpoints"][0]["margin_mean"] = 1
+    elif mutation == "post_margin_nan":
+        assert isinstance(result["post_margin"], dict)
+        result["post_margin"]["mean"] = float("nan")
+    elif mutation == "post_margin_missing":
+        assert isinstance(result["post_margin"], dict)
+        del result["post_margin"]["p10"]
+    elif mutation == "post_margin_malformed":
+        assert isinstance(result["post_margin"], dict)
+        result["post_margin"]["minimum"] = "0.0"
     elif mutation == "frozen_hash":
         assert isinstance(payload["frozen_evidence_sha256"], dict)
         payload["frozen_evidence_sha256"]["phase_2b"] = "e" * 64
@@ -1565,6 +1580,11 @@ def _mutate_evidence(payload: dict[str, object], mutation: str) -> None:
         "forged_zero_digests",
         "checkpoint_sequence",
         "checkpoint_nan",
+        "checkpoint_float_missing",
+        "checkpoint_float_malformed",
+        "post_margin_nan",
+        "post_margin_missing",
+        "post_margin_malformed",
         "frozen_hash",
         "fairness",
         "pending",
@@ -1587,7 +1607,7 @@ def test_portable_evidence_validation_fails_closed(
         verifier._portable_phase_3a_payload(artifact)
 
 
-def test_portable_projection_excludes_only_environment_local_digests(
+def test_portable_projection_excludes_environment_local_raw_values(
     default_benchmark_payload: dict[str, object],
 ) -> None:
     verifier = _script_module("verify_action_value_evidence")
@@ -1610,12 +1630,51 @@ def test_portable_projection_excludes_only_environment_local_digests(
         "initial_parameter_digest",
         "matrix_controls",
         "normal_parameter_digest",
+        "post_margin",
         "reset_hidden_digest",
         "shuffled_parameter_digest",
     }
     assert omitted.isdisjoint(projected["results"][0])
     assert set(projected["results"][0]) == set(artifact["results"][0]) - omitted
+    for checkpoint_name in ("normal_checkpoints", "shuffled_checkpoints"):
+        assert all(
+            set(checkpoint) == {"accuracy", "episode"}
+            for checkpoint in projected["results"][0][checkpoint_name]
+        )
     assert "source_commit" not in projected
+
+
+def test_finite_raw_diagnostic_perturbations_do_not_change_portable_projection(
+    default_benchmark_payload: dict[str, object],
+) -> None:
+    verifier = _script_module("verify_action_value_evidence")
+    baseline = _evidence_payload(default_benchmark_payload)
+    perturbed = deepcopy(baseline)
+    result = perturbed["results"][0]
+    assert isinstance(result, dict)
+    diagnostic_keys = {
+        "margin_mean",
+        "margin_minimum",
+        "margin_p10",
+        "td_error_abs_mean",
+        "td_error_maximum",
+        "td_error_mean",
+        "td_error_p90",
+    }
+    for checkpoint_name in ("normal_checkpoints", "shuffled_checkpoints"):
+        checkpoints = result[checkpoint_name]
+        assert isinstance(checkpoints, list)
+        for checkpoint in checkpoints:
+            for key in diagnostic_keys:
+                checkpoint[key] = float(checkpoint[key]) + 1.0e-12
+    post_margin = result["post_margin"]
+    assert isinstance(post_margin, dict)
+    for key in ("mean", "minimum", "p10"):
+        post_margin[key] = float(post_margin[key]) + 1.0e-12
+
+    assert verifier._portable_phase_3a_payload(perturbed) == (
+        verifier._portable_phase_3a_payload(baseline)
+    )
 
 
 def test_zero_parameter_digest_matches_real_exact_zero_table() -> None:
