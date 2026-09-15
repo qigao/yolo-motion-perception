@@ -26,6 +26,25 @@ from yolo_motion.ultralytics_adapter import observations_from_result
 OUTPUT_DIR = Path("runs/real-video-gait")
 
 
+def _articulated_to_dict(articulated) -> dict[str, object]:
+    return {
+        "track_id": articulated.track_id,
+        "start_timestamp": articulated.start_timestamp,
+        "end_timestamp": articulated.end_timestamp,
+        "torso_dx": articulated.torso_dx,
+        "torso_dy": articulated.torso_dy,
+        "normalized_torso_dx": articulated.normalized_torso_dx,
+        "normalized_torso_dy": articulated.normalized_torso_dy,
+        "region_flow": {
+            name: asdict(region)
+            for name, region in articulated.region_flow.items()
+        },
+        "pose_flow_agreement": articulated.pose_flow_agreement,
+        "person_height_px": articulated.person_height_px,
+        "quality": articulated.quality,
+    }
+
+
 def _diagnose_scenario(
     name: str,
     video_path: Path,
@@ -157,7 +176,7 @@ def _diagnose_scenario(
                                         "height": observation.height,
                                         "confidence": observation.confidence,
                                     },
-                                    "evidence": asdict(articulated),
+                                    "evidence": _articulated_to_dict(articulated),
                                 },
                                 sort_keys=True,
                             )
