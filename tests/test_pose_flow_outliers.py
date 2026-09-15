@@ -33,12 +33,17 @@ def _points() -> dict[int, tuple[float, float]]:
     }
 
 
-def _pose(timestamp: float, outliers: set[int] | None = None) -> PoseObservation:
+def _pose(
+    timestamp: float,
+    outliers: set[int] | None = None,
+    *,
+    outlier_dx: float = 70.0,
+) -> PoseObservation:
     xy = np.full((133, 2), 0.5, dtype=float)
     confidence = np.full(133, 0.95, dtype=float)
     outliers = outliers or set()
     for index, (x, y) in _points().items():
-        dx = 70.0 if index in outliers else 0.0
+        dx = outlier_dx if index in outliers else 0.0
         xy[index] = ((x + dx) / FRAME_SIZE, y / FRAME_SIZE)
     return PoseObservation(
         track_id=17,
@@ -51,9 +56,9 @@ def _pose(timestamp: float, outliers: set[int] | None = None) -> PoseObservation
     )
 
 
-def _estimate(outliers: set[int]):
+def _estimate(outliers: set[int], *, outlier_dx: float = 70.0):
     previous = _pose(1.0)
-    current = _pose(1.1, outliers)
+    current = _pose(1.1, outliers, outlier_dx=outlier_dx)
     track = TrackObservation(
         track_id=17,
         timestamp=1.1,
@@ -81,6 +86,14 @@ def _estimate(outliers: set[int]):
         flow,
         ArticulatedFlowConfig(max_pose_flow_error_norm=0.08),
     )
+
+
+def test_in_threshold_pose_flow_errors_count_as_agreement_support():
+    evidence = _estimate(set(LOCOMOTION_KEYPOINTS), outlier_dx=7.0)
+
+    assert evidence is not None
+    assert evidence.pose_flow_agreement > 0.95
+    assert evidence.quality > 0.95
 
 
 def test_two_catastrophic_joint_outliers_do_not_overrule_twelve_consistent_joints():
