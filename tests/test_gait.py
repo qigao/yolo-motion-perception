@@ -123,7 +123,7 @@ def test_one_leg_missing_tracks_support_fraction_without_fabrication():
 
 
 def test_irregular_leg_motion_does_not_look_strongly_periodic():
-    evidence = estimate_gait(make_history(0.75, irregular=True), config())
+    evidence = estimate_gait(make_history(1.5, irregular=True), config())
 
     assert evidence.periodicity < config().min_periodicity
 
