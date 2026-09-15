@@ -8,16 +8,21 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class PendingReward:
+    sequence: int
     action_index: int
     reward: float
+    decision_step: int
     due_step: int
 
 
 @dataclass(frozen=True)
 class RewardDelivery:
+    sequence: int
     action_index: int
     reward: float
+    decision_step: int
     due_step: int
+    delivery_step: int
 
 
 class DelayedRewardQueue:
@@ -28,6 +33,7 @@ class DelayedRewardQueue:
             raise ValueError("max_delay must be a non-negative integer")
         self.max_delay = max_delay
         self._current_step = 0
+        self._next_sequence = 0
         self._pending: list[PendingReward] = []
 
     @property
@@ -52,11 +58,14 @@ class DelayedRewardQueue:
         if not math.isfinite(reward_value):
             raise ValueError("reward must be a finite scalar")
         pending = PendingReward(
+            sequence=self._next_sequence,
             action_index=action_index,
             reward=reward_value,
+            decision_step=self._current_step,
             due_step=self._current_step + delay,
         )
         self._pending.append(pending)
+        self._next_sequence += 1
         return pending
 
     def advance(self) -> int:
@@ -75,13 +84,17 @@ class DelayedRewardQueue:
         self._pending = [item for item in self._pending if item.due_step > self._current_step]
         return tuple(
             RewardDelivery(
+                sequence=item.sequence,
                 action_index=item.action_index,
                 reward=item.reward,
+                decision_step=item.decision_step,
                 due_step=item.due_step,
+                delivery_step=self._current_step,
             )
             for item in ready
         )
 
     def reset(self) -> None:
         self._current_step = 0
+        self._next_sequence = 0
         self._pending.clear()
