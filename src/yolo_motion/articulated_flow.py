@@ -16,6 +16,8 @@ from .pose_types import PoseObservation
 from .types import TrackObservation
 
 _LOCOMOTION_KEYPOINTS = (5, 6, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22)
+_POSE_FLOW_NEIGHBORHOOD_RATIO = 0.02
+_POSE_FLOW_ERROR_QUANTILE = 0.25
 
 
 @dataclass(frozen=True)
@@ -69,13 +71,35 @@ def _keypoint_pixel(pose: PoseObservation, index: int) -> tuple[float, float]:
     )
 
 
-def _nearest_flow(flow: FlowObservation, x: float, y: float) -> tuple[float, float] | None:
+def _local_flow_error(
+    flow: FlowObservation,
+    x: float,
+    y: float,
+    pose_dx: float,
+    pose_dy: float,
+    radius_px: int,
+) -> float | None:
     height, width = flow.dx.shape
-    ix = int(np.clip(round(x), 0, width - 1))
-    iy = int(np.clip(round(y), 0, height - 1))
-    if flow.valid is not None and not bool(flow.valid[iy, ix]):
+    cx = int(np.clip(round(x), 0, width - 1))
+    cy = int(np.clip(round(y), 0, height - 1))
+    x0 = max(0, cx - radius_px)
+    x1 = min(width, cx + radius_px + 1)
+    y0 = max(0, cy - radius_px)
+    y1 = min(height, cy + radius_px + 1)
+
+    yy, xx = np.ogrid[y0:y1, x0:x1]
+    local_mask = (xx - x) ** 2 + (yy - y) ** 2 <= radius_px * radius_px
+    if flow.valid is not None:
+        local_mask &= flow.valid[y0:y1, x0:x1]
+    if not np.any(local_mask):
         return None
-    return float(flow.dx[iy, ix]), float(flow.dy[iy, ix])
+
+    local_dx = flow.dx[y0:y1, x0:x1][local_mask]
+    local_dy = flow.dy[y0:y1, x0:x1][local_mask]
+    errors = np.hypot(local_dx - pose_dx, local_dy - pose_dy)
+    if errors.size == 0 or not np.isfinite(errors).all():
+        return None
+    return float(np.quantile(errors, _POSE_FLOW_ERROR_QUANTILE))
 
 
 def _pose_flow_agreement(
@@ -86,18 +110,25 @@ def _pose_flow_agreement(
     max_error_norm: float,
 ) -> float:
     errors: list[float] = []
+    radius_px = max(1, int(round(_POSE_FLOW_NEIGHBORHOOD_RATIO * person_height_px)))
     for index in _LOCOMOTION_KEYPOINTS:
         if previous_pose.confidence[index] <= 0.0 or current_pose.confidence[index] <= 0.0:
             continue
         previous_x, previous_y = _keypoint_pixel(previous_pose, index)
         current_x, current_y = _keypoint_pixel(current_pose, index)
-        sampled = _nearest_flow(flow, previous_x, previous_y)
-        if sampled is None:
-            continue
         pose_dx = current_x - previous_x
         pose_dy = current_y - previous_y
-        error = math.hypot(pose_dx - sampled[0], pose_dy - sampled[1]) / person_height_px
-        errors.append(error)
+        error = _local_flow_error(
+            flow,
+            previous_x,
+            previous_y,
+            pose_dx,
+            pose_dy,
+            radius_px,
+        )
+        if error is None:
+            continue
+        errors.append(error / person_height_px)
 
     if not errors:
         return 0.0
