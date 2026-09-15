@@ -177,6 +177,32 @@ def test_training_selection_validates_rng_without_advancing_state() -> None:
     assert actual_rng.integers(100) == expected_rng.integers(100)
 
 
+def test_training_rejects_invalid_hidden_before_advancing_valid_rng() -> None:
+    """Catches moving rng.integers before _feature validation."""
+    learner = NormalizedActionValue(2, 3)
+    actual_rng = np.random.default_rng(43)
+    expected_rng = np.random.default_rng(43)
+
+    with pytest.raises(ValueError, match="hidden_state"):
+        learner.select_for_training(np.zeros(1), (0, 1), actual_rng)
+
+    assert actual_rng.integers(100) == expected_rng.integers(100)
+    assert learner.has_pending_feedback is False
+
+
+def test_training_rejects_invalid_legal_indices_before_advancing_valid_rng() -> None:
+    """Catches moving rng.integers before _legal_actions validation."""
+    learner = NormalizedActionValue(2, 3)
+    actual_rng = np.random.default_rng(47)
+    expected_rng = np.random.default_rng(47)
+
+    with pytest.raises(ValueError, match="legal_action_indices"):
+        learner.select_for_training(np.zeros(2), (0, 0), actual_rng)
+
+    assert actual_rng.integers(100) == expected_rng.integers(100)
+    assert learner.has_pending_feedback is False
+
+
 def test_training_selection_rejects_second_pending_record_without_rng_draw() -> None:
     learner = NormalizedActionValue(2, 3)
     rng = np.random.default_rng(31)
