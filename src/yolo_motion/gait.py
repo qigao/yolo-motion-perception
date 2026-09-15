@@ -208,7 +208,7 @@ def _fundamental_peak(lag_scores: list[tuple[int, float]]) -> tuple[int, float]:
     return min(strong_local_peaks, key=lambda item: item[0])
 
 
-def _cadence_and_periodicity(
+def _stride_cycle_and_periodicity(
     left: np.ndarray,
     right: np.ndarray,
     dt: float,
@@ -217,17 +217,19 @@ def _cadence_and_periodicity(
     if dt <= 0.0 or len(left) < 4:
         return 0.0, 0.0
     sample_rate = 1.0 / dt
-    max_frequency = min(
-        max(config.walking_cadence_max_hz, config.running_cadence_min_hz * 2.0),
-        sample_rate * 0.45,
+    min_cycle_frequency = config.walking_cadence_min_hz / 2.0
+    max_step_frequency = max(
+        config.walking_cadence_max_hz,
+        config.running_cadence_min_hz * 2.0,
     )
-    if max_frequency <= config.walking_cadence_min_hz:
+    max_cycle_frequency = min(max_step_frequency / 2.0, sample_rate * 0.45)
+    if max_cycle_frequency <= min_cycle_frequency:
         return 0.0, 0.0
 
-    min_lag = max(1, math.floor(sample_rate / max_frequency))
+    min_lag = max(1, math.floor(sample_rate / max_cycle_frequency))
     max_lag = min(
         len(left) - 3,
-        math.ceil(sample_rate / config.walking_cadence_min_hz),
+        math.ceil(sample_rate / min_cycle_frequency),
     )
     if max_lag <= min_lag:
         return 0.0, 0.0
@@ -254,15 +256,15 @@ def _cadence_and_periodicity(
 def _bilateral_phase(
     left: np.ndarray,
     right: np.ndarray,
-    cadence_hz: float,
+    stride_cycle_hz: float,
     dt: float,
 ) -> tuple[float, float]:
-    if cadence_hz <= 0.0 or dt <= 0.0:
+    if stride_cycle_hz <= 0.0 or dt <= 0.0:
         return 0.0, 0.0
     if np.isfinite(left).sum() < 3 or np.isfinite(right).sum() < 3:
         return 0.0, 0.0
 
-    half_period = 0.5 / cadence_hz
+    half_period = 0.5 / stride_cycle_hz
     min_lag = max(1, math.floor(0.60 * half_period / dt))
     max_lag = min(len(left) - 3, math.ceil(1.40 * half_period / dt))
     if max_lag < min_lag:
@@ -334,13 +336,19 @@ def estimate_gait(
     right_energy = float(np.mean(right_norms)) if right_norms else 0.0
 
     dt = _sample_interval(window)
-    cadence_hz, periodicity = _cadence_and_periodicity(left_signal, right_signal, dt, config)
+    stride_cycle_hz, periodicity = _stride_cycle_and_periodicity(
+        left_signal,
+        right_signal,
+        dt,
+        config,
+    )
     bilateral_correlation, phase_lag_seconds = _bilateral_phase(
         left_signal,
         right_signal,
-        cadence_hz,
+        stride_cycle_hz,
         dt,
     )
+    cadence_hz = 2.0 * stride_cycle_hz
 
     finite_signal = np.concatenate(
         (left_signal[np.isfinite(left_signal)], right_signal[np.isfinite(right_signal)])
