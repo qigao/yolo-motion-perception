@@ -59,10 +59,15 @@ class EligibilityTraceActionValue(NormalizedActionValue):
         pending = self._pending
         if not isinstance(pending, _PendingCredit):
             raise RuntimeError("trace update requires pending feedback")
-        self._eligibility *= self.discount * self.trace_decay
-        self._eligibility[pending.action_index] += (
-            pending.feature / pending.denominator
-        )
+        with np.errstate(over="ignore", invalid="ignore", divide="ignore"):
+            candidate = self._eligibility * (self.discount * self.trace_decay)
+            candidate[pending.action_index] += (
+                pending.feature / pending.denominator
+            )
+        if not np.all(np.isfinite(candidate)):
+            self._pending = None
+            raise ValueError("eligibility trace update would overflow")
+        self._eligibility = candidate
         return decision
 
     def learn(self, reward: object) -> ActionValueUpdate:
@@ -71,7 +76,12 @@ class EligibilityTraceActionValue(NormalizedActionValue):
         reward_value = validated_finite_scalar(reward, "reward")
         pending = self._pending
         td_error = reward_value - pending.prediction
-        self._weights += self.step_size * td_error * self._eligibility
+        with np.errstate(over="ignore", invalid="ignore", divide="ignore"):
+            delta = self.step_size * td_error * self._eligibility
+            candidate = self._weights + delta
+        if not np.all(np.isfinite(candidate)):
+            raise ValueError("finite reward would overflow eligibility-trace weights")
+        self._weights = candidate
         self._pending = None
         return ActionValueUpdate(
             action_index=pending.action_index,
