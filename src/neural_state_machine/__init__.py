@@ -1,6 +1,13 @@
 """Deterministic neural state machine game experiment."""
 
 from .action_value import ActionValueDecision, ActionValueUpdate, NormalizedActionValue
+from .action_value_benchmark import (
+    ActionValueBenchmarkConfig,
+    ActionValueCheckpoint,
+    ActionValueExperimentResult,
+    run_action_value_benchmark,
+    run_action_value_experiment,
+)
 from .controller import RecurrentController
 from .encoding import encode_observation
 from .environment import ToyGame
@@ -43,6 +50,9 @@ __all__ = [
     "AccuracyCount",
     "Action",
     "ActionValueDecision",
+    "ActionValueBenchmarkConfig",
+    "ActionValueCheckpoint",
+    "ActionValueExperimentResult",
     "ActionValueUpdate",
     "Cue",
     "DelayedCueEpisode",
@@ -74,6 +84,8 @@ __all__ = [
     "fit_linear_probe",
     "replay_equal",
     "run_episode",
+    "run_action_value_benchmark",
+    "run_action_value_experiment",
     "run_learning_diagnostics",
     "run_learning_diagnostics_benchmark",
     "run_memory_probe",

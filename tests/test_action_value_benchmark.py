@@ -3,25 +3,35 @@ from __future__ import annotations
 import dataclasses
 import hashlib
 import inspect
+import json
+import subprocess
+import sys
 from dataclasses import FrozenInstanceError
+from pathlib import Path
 from types import SimpleNamespace
+from typing import get_type_hints
 
 import numpy as np
 import pytest
 
+import neural_state_machine
 import neural_state_machine.action_value_benchmark as benchmark_module
 from neural_state_machine.action_value import ActionValueUpdate, NormalizedActionValue
 from neural_state_machine.action_value_benchmark import (
     ActionValueCheckpoint,
     ActionValueBenchmarkConfig,
+    ActionValueExperimentResult,
     _build_fixture_bundle,
     _evaluate,
     _new_learner,
     _new_policy,
+    _passes_acceptance,
     _permute_reward_blocks,
     _run_once,
     _train_normal,
     _train_shuffled,
+    run_action_value_benchmark,
+    run_action_value_experiment,
 )
 from neural_state_machine.memory_benchmark import AccuracyCount
 from neural_state_machine.memory_task import Cue, DelayedCueEpisode, DelayedCueTask
@@ -859,3 +869,357 @@ def test_run_once_assembles_independent_frozen_fair_paths(
     )
     assert first.pre_training.overall.total == first.post_training.overall.total == 20
     assert first.state_reset.overall.total == first.shuffled_control.overall.total == 20
+
+
+def _accepted_result(seed: int, *, shuffled_correct: int = 100) -> ActionValueExperimentResult:
+    reset_200 = AccuracyCount(100, 200)
+    reset_40 = AccuracyCount(20, 40)
+    return ActionValueExperimentResult(
+        seed=seed,
+        config=ActionValueBenchmarkConfig(),
+        pre_training=reset_200,
+        post_training=AccuracyCount(180, 200),
+        state_reset=reset_200,
+        shuffled_control=AccuracyCount(shuffled_correct, 200),
+        per_delay=tuple((delay, AccuracyCount(36, 40)) for delay in range(1, 6)),
+        reset_per_delay=tuple((delay, reset_40) for delay in range(1, 6)),
+        shuffled_per_delay=tuple((delay, reset_40) for delay in range(1, 6)),
+        normal_checkpoints=(),
+        shuffled_checkpoints=(),
+        normal_action_counts=((0, 1_000), (1, 1_000)),
+        shuffled_action_counts=((0, 1_000), (1, 1_000)),
+        normal_actions=(0,) * 1_000 + (1,) * 1_000,
+        shuffled_actions=(0,) * 1_000 + (1,) * 1_000,
+        normal_action_digest="normal-action",
+        shuffled_action_digest="normal-action",
+        normal_reward_digest="normal-reward",
+        shuffled_reward_digest="shuffled-reward",
+        action_sequences_equal=True,
+        reward_block_multisets_equal=True,
+        initial_parameter_digest="initial",
+        normal_parameter_digest="normal",
+        shuffled_parameter_digest="shuffled",
+        normal_matrix_digests_before=("a", "b", "c"),
+        normal_matrix_digests_after=("a", "b", "c"),
+        shuffled_matrix_digests_before=("a", "b", "c"),
+        shuffled_matrix_digests_after=("a", "b", "c"),
+        training_fixture_digest="training",
+        evaluation_fixture_digest="evaluation",
+        decision_hidden_digest="decision",
+        reset_hidden_digest="reset",
+        post_margin_mean=1.0,
+        post_margin_p10=0.5,
+        post_margin_minimum=0.25,
+        all_reset_hidden_equal=True,
+        normal_pending_feedback=False,
+        shuffled_pending_feedback=False,
+        repeatable=True,
+    )
+
+
+def test_public_result_has_exact_frozen_tuple_contract() -> None:
+    expected_fields = {
+        "seed": int,
+        "config": ActionValueBenchmarkConfig,
+        "pre_training": AccuracyCount,
+        "post_training": AccuracyCount,
+        "state_reset": AccuracyCount,
+        "shuffled_control": AccuracyCount,
+        "per_delay": tuple[tuple[int, AccuracyCount], ...],
+        "reset_per_delay": tuple[tuple[int, AccuracyCount], ...],
+        "shuffled_per_delay": tuple[tuple[int, AccuracyCount], ...],
+        "normal_checkpoints": tuple[ActionValueCheckpoint, ...],
+        "shuffled_checkpoints": tuple[ActionValueCheckpoint, ...],
+        "normal_action_counts": tuple[tuple[int, int], ...],
+        "shuffled_action_counts": tuple[tuple[int, int], ...],
+        "normal_actions": tuple[int, ...],
+        "shuffled_actions": tuple[int, ...],
+        "normal_action_digest": str,
+        "shuffled_action_digest": str,
+        "normal_reward_digest": str,
+        "shuffled_reward_digest": str,
+        "action_sequences_equal": bool,
+        "reward_block_multisets_equal": bool,
+        "initial_parameter_digest": str,
+        "normal_parameter_digest": str,
+        "shuffled_parameter_digest": str,
+        "normal_matrix_digests_before": tuple[str, str, str],
+        "normal_matrix_digests_after": tuple[str, str, str],
+        "shuffled_matrix_digests_before": tuple[str, str, str],
+        "shuffled_matrix_digests_after": tuple[str, str, str],
+        "training_fixture_digest": str,
+        "evaluation_fixture_digest": str,
+        "decision_hidden_digest": str,
+        "reset_hidden_digest": str,
+        "post_margin_mean": float,
+        "post_margin_p10": float,
+        "post_margin_minimum": float,
+        "all_reset_hidden_equal": bool,
+        "normal_pending_feedback": bool,
+        "shuffled_pending_feedback": bool,
+        "repeatable": bool,
+    }
+
+    assert get_type_hints(ActionValueExperimentResult) == expected_fields
+    result = _accepted_result(7)
+    assert tuple(delay for delay, _ in result.per_delay) == (1, 2, 3, 4, 5)
+    assert isinstance(result.normal_actions, tuple)
+    assert isinstance(result.normal_action_counts, tuple)
+    with pytest.raises(FrozenInstanceError):
+        result.repeatable = False
+
+
+@pytest.mark.parametrize("seed", [-1, True, 1.5, "7"])
+def test_public_experiment_rejects_invalid_seed(seed: object) -> None:
+    with pytest.raises(ValueError):
+        run_action_value_experiment(seed)  # type: ignore[arg-type]
+
+
+def test_public_experiment_rejects_invalid_config() -> None:
+    with pytest.raises(ValueError):
+        run_action_value_experiment(7, object())  # type: ignore[arg-type]
+
+
+def test_repeatability_compares_two_reconstructed_executions(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = ActionValueBenchmarkConfig(
+        hidden_size=8,
+        training_episodes=20,
+        evaluation_blocks=1,
+        checkpoint_interval=10,
+    )
+    baseline = _run_once(7, config)
+    calls: list[tuple[int, ActionValueBenchmarkConfig]] = []
+    returns = iter((baseline, dataclasses.replace(baseline, training_fixture_digest="different")))
+
+    def reconstructed(seed: int, received: ActionValueBenchmarkConfig) -> object:
+        calls.append((seed, received))
+        return next(returns)
+
+    monkeypatch.setattr(benchmark_module, "_run_once", reconstructed)
+    result = run_action_value_experiment(7, config)
+
+    assert calls == [(7, config), (7, config)]
+    assert result.repeatable is False
+    assert result.training_fixture_digest == baseline.training_fixture_digest
+
+
+def test_public_experiment_is_equal_across_full_calls() -> None:
+    config = ActionValueBenchmarkConfig(
+        hidden_size=8,
+        training_episodes=20,
+        evaluation_blocks=1,
+        checkpoint_interval=10,
+    )
+    assert run_action_value_experiment(17, config) == run_action_value_experiment(17, config)
+
+
+def test_default_result_has_preregistered_checkpoint_and_nested_tuple_shape() -> None:
+    result = run_action_value_experiment(7)
+
+    assert len(result.normal_checkpoints) == len(result.shuffled_checkpoints) == 20
+    assert tuple(row.episode for row in result.normal_checkpoints) == tuple(range(100, 2_001, 100))
+    assert tuple(row.episode for row in result.shuffled_checkpoints) == tuple(
+        range(100, 2_001, 100)
+    )
+    assert len(result.normal_actions) == len(result.shuffled_actions) == 2_000
+    assert result.per_delay == tuple(result.per_delay)
+    assert result.reset_per_delay == tuple(result.reset_per_delay)
+    assert result.shuffled_per_delay == tuple(result.shuffled_per_delay)
+    with pytest.raises(TypeError):
+        result.normal_actions[0] = 1  # type: ignore[index]
+    with pytest.raises(FrozenInstanceError):
+        result.normal_checkpoints[0].episode = 0
+
+
+def test_phase_three_a_public_api_is_exported_from_package() -> None:
+    expected = {
+        "ActionValueBenchmarkConfig": ActionValueBenchmarkConfig,
+        "ActionValueCheckpoint": ActionValueCheckpoint,
+        "ActionValueExperimentResult": ActionValueExperimentResult,
+        "run_action_value_experiment": run_action_value_experiment,
+        "run_action_value_benchmark": run_action_value_benchmark,
+    }
+
+    assert {name: getattr(neural_state_machine, name) for name in expected} == expected
+    assert expected.keys() <= set(neural_state_machine.__all__)
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"repeatable": False},
+        {"post_training": AccuracyCount(179, 200)},
+        {"per_delay": ((1, AccuracyCount(33, 40)),) + tuple((d, AccuracyCount(36, 40)) for d in range(2, 6))},
+        {"state_reset": AccuracyCount(99, 200)},
+        {"reset_per_delay": ((1, AccuracyCount(19, 40)),) + tuple((d, AccuracyCount(20, 40)) for d in range(2, 6))},
+        {"all_reset_hidden_equal": False},
+        {"shuffled_control": AccuracyCount(150, 200)},
+        {"action_sequences_equal": False},
+        {"reward_block_multisets_equal": False},
+        {"normal_parameter_digest": "initial"},
+        {"shuffled_parameter_digest": "initial"},
+        {"normal_matrix_digests_after": ("x", "b", "c")},
+        {"shuffled_matrix_digests_after": ("x", "b", "c")},
+        {"normal_pending_feedback": True},
+        {"shuffled_pending_feedback": True},
+    ],
+)
+def test_per_seed_acceptance_is_literal_and_conjunctive(change: dict[str, object]) -> None:
+    assert _passes_acceptance(_accepted_result(7)) is True
+    assert _passes_acceptance(dataclasses.replace(_accepted_result(7), **change)) is False
+
+
+@pytest.mark.parametrize("correct", [80, 120])
+def test_pooled_control_boundaries_are_inclusive(
+    monkeypatch: pytest.MonkeyPatch, correct: int
+) -> None:
+    monkeypatch.setattr(
+        benchmark_module,
+        "run_action_value_experiment",
+        lambda seed, config: _accepted_result(seed, shuffled_correct=correct),
+    )
+
+    assert run_action_value_benchmark((7, 17, 29))["all_passed"] is True
+
+
+def test_failed_seed_cannot_be_compensated_by_strong_seeds(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    results = {
+        7: _accepted_result(7, shuffled_correct=100),
+        17: _accepted_result(17, shuffled_correct=100),
+        29: dataclasses.replace(_accepted_result(29, shuffled_correct=100), repeatable=False),
+    }
+    monkeypatch.setattr(
+        benchmark_module,
+        "run_action_value_experiment",
+        lambda seed, config: results[seed],
+    )
+
+    payload = run_action_value_benchmark((7, 17, 29))
+
+    assert [row["passed"] for row in payload["results"]] == [True, True, False]
+    assert payload["shuffled_pooled"] == {"accuracy": 0.5, "correct": 300, "total": 600}
+    assert payload["all_passed"] is False
+
+
+def test_benchmark_schema_is_complete_and_json_strict() -> None:
+    config = ActionValueBenchmarkConfig(
+        hidden_size=8,
+        training_episodes=20,
+        evaluation_blocks=1,
+        checkpoint_interval=10,
+    )
+    payload = run_action_value_benchmark((7,), config)
+
+    assert set(payload) == {
+        "all_passed",
+        "config",
+        "evidence_schema_version",
+        "frozen_evidence_sha256",
+        "phase",
+        "results",
+        "rng_lineages",
+        "seeds",
+        "shuffled_pooled",
+    }
+    assert payload["phase"] == "3A"
+    assert payload["evidence_schema_version"] == 1
+    assert payload["seeds"] == [7]
+    assert payload["rng_lineages"] == {
+        "behavior_action": ["seed", 0x33414354],
+        "evaluation_fixture": ["seed", 0x4556414C],
+        "reward_shuffle": ["seed", 0x33534846],
+        "training_fixture": ["seed", 0x54524149],
+    }
+    root = Path(__file__).resolve().parents[1]
+    assert payload["frozen_evidence_sha256"] == {
+        "phase_2b": hashlib.sha256(
+            (root / "docs/experiments/phase-2b-failure.json").read_bytes()
+        ).hexdigest(),
+        "phase_2c": hashlib.sha256(
+            (root / "docs/experiments/phase-2c-diagnostics.json").read_bytes()
+        ).hexdigest(),
+    }
+    result = payload["results"][0]
+    assert set(result) == {
+        "action_sequences_equal",
+        "all_reset_hidden_equal",
+        "decision_hidden_digest",
+        "evaluation_fixture_digest",
+        "initial_parameter_digest",
+        "matrix_controls",
+        "normal_action_counts",
+        "normal_action_digest",
+        "normal_actions",
+        "normal_checkpoints",
+        "normal_parameter_digest",
+        "normal_pending_feedback",
+        "normal_reward_digest",
+        "passed",
+        "per_delay",
+        "post_margin",
+        "post_training",
+        "pre_training",
+        "repeatable",
+        "reset_hidden_digest",
+        "reset_per_delay",
+        "reward_block_multisets_equal",
+        "seed",
+        "shuffled_action_counts",
+        "shuffled_action_digest",
+        "shuffled_actions",
+        "shuffled_checkpoints",
+        "shuffled_control",
+        "shuffled_parameter_digest",
+        "shuffled_pending_feedback",
+        "shuffled_per_delay",
+        "shuffled_reward_digest",
+        "state_reset",
+        "training_fixture_digest",
+    }
+    assert len(result["normal_actions"]) == len(result["shuffled_actions"]) == 20
+    assert result["normal_checkpoints"][-1]["episode"] == 20
+    assert set(result["normal_checkpoints"][-1]) == {
+        "accuracy",
+        "episode",
+        "margin_mean",
+        "margin_minimum",
+        "margin_p10",
+        "td_error_abs_mean",
+        "td_error_maximum",
+        "td_error_mean",
+        "td_error_p90",
+    }
+    assert set(result["post_margin"]) == {"mean", "minimum", "p10"}
+    json.dumps(payload, sort_keys=True, separators=(",", ":"), allow_nan=False)
+
+
+@pytest.mark.parametrize(
+    "seeds",
+    [(), [], (7, 7), (7, -1), (True,), (1.5,), None],
+)
+def test_benchmark_rejects_invalid_seed_sequences(seeds: object) -> None:
+    with pytest.raises(ValueError):
+        run_action_value_benchmark(seeds)  # type: ignore[arg-type]
+
+
+def test_cli_is_byte_repeatable_and_preserves_truthful_exit_status() -> None:
+    root = Path(__file__).resolve().parents[1]
+    command = [sys.executable, "scripts/benchmark_action_value.py"]
+
+    first = subprocess.run(command, cwd=root, capture_output=True, check=False)
+    second = subprocess.run(command, cwd=root, capture_output=True, check=False)
+
+    assert first.stderr == second.stderr == b""
+    assert first.stdout == second.stdout
+    assert first.stdout.count(b"\n") == 1
+    payload = json.loads(first.stdout)
+    assert payload["seeds"] == [7, 17, 29]
+    assert payload["phase"] == "3A"
+    assert payload["evidence_schema_version"] == 1
+    expected_status = int(not payload["all_passed"])
+    assert first.returncode == second.returncode == expected_status
+    assert payload["all_passed"] is False
