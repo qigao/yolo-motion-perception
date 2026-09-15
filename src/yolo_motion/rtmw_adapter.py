@@ -97,6 +97,20 @@ def load_mmpose_rtmw(config: RtmwAdapterConfig) -> RtmwPoseAdapter:
     return RtmwPoseAdapter(inferencer)
 
 
+def _pixel_floor(value: float) -> int:
+    nearest = round(value)
+    if math.isclose(value, nearest, rel_tol=0.0, abs_tol=1e-9):
+        return int(nearest)
+    return math.floor(value)
+
+
+def _pixel_ceil(value: float) -> int:
+    nearest = round(value)
+    if math.isclose(value, nearest, rel_tol=0.0, abs_tol=1e-9):
+        return int(nearest)
+    return math.ceil(value)
+
+
 def _track_crop(
     track: TrackObservation,
     frame_width: int,
@@ -107,10 +121,10 @@ def _track_crop(
     top = (track.cy - track.height / 2.0) * frame_height
     bottom = (track.cy + track.height / 2.0) * frame_height
 
-    x1 = max(0, min(frame_width, math.floor(left)))
-    y1 = max(0, min(frame_height, math.floor(top)))
-    x2 = max(0, min(frame_width, math.ceil(right)))
-    y2 = max(0, min(frame_height, math.ceil(bottom)))
+    x1 = max(0, min(frame_width, _pixel_floor(left)))
+    y1 = max(0, min(frame_height, _pixel_floor(top)))
+    x2 = max(0, min(frame_width, _pixel_ceil(right)))
+    y2 = max(0, min(frame_height, _pixel_ceil(bottom)))
     return x1, y1, x2, y2
 
 
