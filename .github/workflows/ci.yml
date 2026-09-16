@@ -1,0 +1,102 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  standalone:
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        python-version: ["3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install project
+        run: python -m pip install -e '.[dev]'
+
+      - name: Phase 3C evidence verifier regression tests
+        run: pytest -q tests/test_phase3c_verifier_portability.py
+
+      - name: Phase 3C diagnostic contract tests
+        run: pytest -q tests/test_phase3c_diagnostics_*.py
+
+      - name: Unit tests
+        run: pytest -q
+
+      - name: Ruff
+        run: ruff check .
+
+      - name: Deterministic benchmark
+        run: python scripts/benchmark.py
+
+      - name: Delayed-cue linear memory probe
+        run: python scripts/benchmark_memory_probe.py
+
+      - name: Verify frozen Phase 2B failure
+        run: python scripts/verify_reward_learning_failure.py
+
+      - name: Phase 2C learning diagnostics
+        run: python scripts/benchmark_learning_diagnostics.py
+
+      - name: Phase 3B delayed-credit tests
+        run: pytest -q tests/test_delayed_credit.py tests/test_phase3b_delayed_benchmark.py tests/test_phase3b_learners.py tests/test_phase3b_controls.py tests/test_phase3b_evidence.py
+
+      - name: Phase 3B Ruff
+        run: ruff check src/neural_state_machine/delayed_credit.py src/neural_state_machine/phase3b_delayed_benchmark.py src/neural_state_machine/phase3b_learners.py src/neural_state_machine/phase3b_controls.py scripts/benchmark_phase3b_delayed_credit.py scripts/verify_phase3b_delayed_credit.py tests/test_delayed_credit.py tests/test_phase3b_delayed_benchmark.py tests/test_phase3b_learners.py tests/test_phase3b_controls.py tests/test_phase3b_evidence.py
+
+      - name: Phase 3B overlapping protocol gate
+        run: python scripts/benchmark_phase3b_delayed_credit.py --require-protocol-valid
+
+      - name: Verify frozen Phase 3B delayed-credit evidence
+        run: python scripts/verify_phase3b_delayed_credit.py
+
+      - name: Phase 3C anonymous credit tests
+        run: pytest -q tests/test_phase3c_formal_contract.py tests/test_phase3c_schedule.py tests/test_phase3c_learners.py tests/test_phase3c_controls.py tests/test_phase3c_benchmark.py
+
+      - name: Phase 3C Ruff
+        run: ruff check src/neural_state_machine/phase3c_formal_contract.py src/neural_state_machine/phase3c_schedule.py src/neural_state_machine/phase3c_learners.py src/neural_state_machine/phase3c_controls.py src/neural_state_machine/phase3c_benchmark.py scripts/benchmark_phase3c_anonymous_credit.py tests/test_phase3c_formal_contract.py tests/test_phase3c_schedule.py tests/test_phase3c_learners.py tests/test_phase3c_controls.py tests/test_phase3c_benchmark.py
+
+      - name: Phase 3C formal and protocol gate
+        run: python scripts/benchmark_phase3c_anonymous_credit.py --require-formal-valid --require-protocol-valid
+
+      - name: Verify frozen Phase 3C anonymous-credit evidence
+        run: python scripts/verify_phase3c_anonymous_credit.py
+
+      - name: Recreate locked Phase 3C diagnostic environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/phase3c-diagnostic-venv /tmp/phase3c-prospective
+          python -m venv /tmp/phase3c-diagnostic-venv
+          /tmp/phase3c-diagnostic-venv/bin/python -m pip install --upgrade pip==26.2.1
+          /tmp/phase3c-diagnostic-venv/bin/python -m pip install -r requirements/phase3c-diagnostics-python312.lock
+          grep -v '^#' requirements/phase3c-diagnostics-python312.lock | sed '/^$/d' | sort -f > /tmp/phase3c-expected.lock
+          /tmp/phase3c-diagnostic-venv/bin/python -m pip freeze --all | sort -f > /tmp/phase3c-actual.lock
+          diff -u /tmp/phase3c-expected.lock /tmp/phase3c-actual.lock
+          /tmp/phase3c-diagnostic-venv/bin/python -m pip install --no-deps --no-build-isolation -e .
+          /tmp/phase3c-diagnostic-venv/bin/python -m pytest -q tests/test_phase3c_diagnostics_*.py
+          /tmp/phase3c-diagnostic-venv/bin/python -m ruff check src/neural_state_machine/phase3c_diagnostics scripts/diagnose_phase3c_failure.py tests/test_phase3c_diagnostics_*.py
+
+      - name: Prepare prospective Phase 3C diagnostic manifest without fitting
+        shell: bash
+        run: |
+          set -euo pipefail
+          /tmp/phase3c-diagnostic-venv/bin/python scripts/diagnose_phase3c_failure.py prepare \
+            --profile registered-v1 \
+            --output /tmp/phase3c-prospective
+          cat /tmp/phase3c-prospective/manifest.sha256
+
+      - name: Upload prospective diagnostic manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase3c-prospective-manifest-${{ github.sha }}
+          path: /tmp/phase3c-prospective/
+          if-no-files-found: error
+          retention-days: 30

@@ -1,0 +1,285 @@
+{
+  "diagnostic_only": true,
+  "experiment": "phase-3a-credit-comparison",
+  "results": [
+    {
+      "action_sequences_equal": true,
+      "config": {
+        "checkpoint_interval": 100,
+        "evaluation_blocks": 20,
+        "hidden_size": 64,
+        "recurrent_radius": 0.9,
+        "step_size": 0.1,
+        "training_episodes": 2000
+      },
+      "diagnostic_only": true,
+      "discount": 0.9,
+      "evaluation_fixture_digest": "0cb49a228520ebbd80d7fb228b0bf2ffeff45568d8c8c85ee355a26d5968d40e",
+      "experiment": "phase-3a-credit-comparison",
+      "schema_version": 1,
+      "seed": 7,
+      "td0": {
+        "action_digest": "c0c1b44f830eb4b9bec3a4ca357879d2db3df6158f05b397ad64d976698d9ce3",
+        "parameter_digest": "45aa3501f608f0e2936d13dad0b57f68a729a4abf3acdbcd108e853249dd9a59",
+        "per_delay": {
+          "1": {
+            "accuracy": 1.0,
+            "correct": 40,
+            "total": 40
+          },
+          "2": {
+            "accuracy": 1.0,
+            "correct": 40,
+            "total": 40
+          },
+          "3": {
+            "accuracy": 0.975,
+            "correct": 39,
+            "total": 40
+          },
+          "4": {
+            "accuracy": 0.7,
+            "correct": 28,
+            "total": 40
+          },
+          "5": {
+            "accuracy": 0.85,
+            "correct": 34,
+            "total": 40
+          }
+        },
+        "post_training": {
+          "accuracy": 0.905,
+          "correct": 181,
+          "total": 200
+        }
+      },
+      "td_lambda": {
+        "action_digest": "c0c1b44f830eb4b9bec3a4ca357879d2db3df6158f05b397ad64d976698d9ce3",
+        "parameter_digest": "8fe97e333fa407356acf7e2a2614f5fe75a7a69c21518b70cc4e98d4c2f70d71",
+        "per_delay": {
+          "1": {
+            "accuracy": 1.0,
+            "correct": 40,
+            "total": 40
+          },
+          "2": {
+            "accuracy": 1.0,
+            "correct": 40,
+            "total": 40
+          },
+          "3": {
+            "accuracy": 0.675,
+            "correct": 27,
+            "total": 40
+          },
+          "4": {
+            "accuracy": 0.725,
+            "correct": 29,
+            "total": 40
+          },
+          "5": {
+            "accuracy": 0.975,
+            "correct": 39,
+            "total": 40
+          }
+        },
+        "post_training": {
+          "accuracy": 0.875,
+          "correct": 175,
+          "total": 200
+        }
+      },
+      "trace_decay": 0.8,
+      "training_fixture_digest": "39c76061693bb579dc51b7ff14f8feadbb1be989ffd73b3010369b22ccbb6f2d"
+    },
+    {
+      "action_sequences_equal": true,
+      "config": {
+        "checkpoint_interval": 100,
+        "evaluation_blocks": 20,
+        "hidden_size": 64,
+        "recurrent_radius": 0.9,
+        "step_size": 0.1,
+        "training_episodes": 2000
+      },
+      "diagnostic_only": true,
+      "discount": 0.9,
+      "evaluation_fixture_digest": "70900596b8a665b1c35bfe1d6aa59333893e9012da16649d0bd0ae57704e15e5",
+      "experiment": "phase-3a-credit-comparison",
+      "schema_version": 1,
+      "seed": 17,
+      "td0": {
+        "action_digest": "975e8ebaa9a2db8d15bb1711adff3dfda9fd7bb3795366714f63285e36258984",
+        "parameter_digest": "4f4b7cf70536ab4825beff3ca3f807c9fd2c45bd41a0bab5b9a27881d70e20c0",
+        "per_delay": {
+          "1": {
+            "accuracy": 1.0,
+            "correct": 40,
+            "total": 40
+          },
+          "2": {
+            "accuracy": 1.0,
+            "correct": 40,
+            "total": 40
+          },
+          "3": {
+            "accuracy": 1.0,
+            "correct": 40,
+            "total": 40
+          },
+          "4": {
+            "accuracy": 1.0,
+            "correct": 40,
+            "total": 40
+          },
+          "5": {
+            "accuracy": 0.975,
+            "correct": 39,
+            "total": 40
+          }
+        },
+        "post_training": {
+          "accuracy": 0.995,
+          "correct": 199,
+          "total": 200
+        }
+      },
+      "td_lambda": {
+        "action_digest": "975e8ebaa9a2db8d15bb1711adff3dfda9fd7bb3795366714f63285e36258984",
+        "parameter_digest": "c2fb8b3d71395deafcfcbcaa58a35a4b128ea1a53a04961ff500ae1f2f693c8e",
+        "per_delay": {
+          "1": {
+            "accuracy": 1.0,
+            "correct": 40,
+            "total": 40
+          },
+          "2": {
+            "accuracy": 1.0,
+            "correct": 40,
+            "total": 40
+          },
+          "3": {
+            "accuracy": 1.0,
+            "correct": 40,
+            "total": 40
+          },
+          "4": {
+            "accuracy": 1.0,
+            "correct": 40,
+            "total": 40
+          },
+          "5": {
+            "accuracy": 0.975,
+            "correct": 39,
+            "total": 40
+          }
+        },
+        "post_training": {
+          "accuracy": 0.995,
+          "correct": 199,
+          "total": 200
+        }
+      },
+      "trace_decay": 0.8,
+      "training_fixture_digest": "56343ce19ab94f2eef8e538f2d9f5f2e686d2d4cf1e20ffc39529d6138497b5c"
+    },
+    {
+      "action_sequences_equal": true,
+      "config": {
+        "checkpoint_interval": 100,
+        "evaluation_blocks": 20,
+        "hidden_size": 64,
+        "recurrent_radius": 0.9,
+        "step_size": 0.1,
+        "training_episodes": 2000
+      },
+      "diagnostic_only": true,
+      "discount": 0.9,
+      "evaluation_fixture_digest": "ca3ce1b58d52b3d1752f7d3f0b4491640d07d977245e1bcccad5abfb72757e19",
+      "experiment": "phase-3a-credit-comparison",
+      "schema_version": 1,
+      "seed": 29,
+      "td0": {
+        "action_digest": "7b22ab084b419942663b58181200518864bbbf04c81150c08c7ed534cfff796c",
+        "parameter_digest": "83735a2553692bb75154509c39131c5c50dd74df847d7a494cc697abd1250ede",
+        "per_delay": {
+          "1": {
+            "accuracy": 1.0,
+            "correct": 40,
+            "total": 40
+          },
+          "2": {
+            "accuracy": 1.0,
+            "correct": 40,
+            "total": 40
+          },
+          "3": {
+            "accuracy": 1.0,
+            "correct": 40,
+            "total": 40
+          },
+          "4": {
+            "accuracy": 0.925,
+            "correct": 37,
+            "total": 40
+          },
+          "5": {
+            "accuracy": 0.5,
+            "correct": 20,
+            "total": 40
+          }
+        },
+        "post_training": {
+          "accuracy": 0.885,
+          "correct": 177,
+          "total": 200
+        }
+      },
+      "td_lambda": {
+        "action_digest": "7b22ab084b419942663b58181200518864bbbf04c81150c08c7ed534cfff796c",
+        "parameter_digest": "c9852be09336a335cc0eb5473bd9664404980360b73d338f15bd858b6f68d95b",
+        "per_delay": {
+          "1": {
+            "accuracy": 1.0,
+            "correct": 40,
+            "total": 40
+          },
+          "2": {
+            "accuracy": 1.0,
+            "correct": 40,
+            "total": 40
+          },
+          "3": {
+            "accuracy": 1.0,
+            "correct": 40,
+            "total": 40
+          },
+          "4": {
+            "accuracy": 0.875,
+            "correct": 35,
+            "total": 40
+          },
+          "5": {
+            "accuracy": 0.6,
+            "correct": 24,
+            "total": 40
+          }
+        },
+        "post_training": {
+          "accuracy": 0.895,
+          "correct": 179,
+          "total": 200
+        }
+      },
+      "trace_decay": 0.8,
+      "training_fixture_digest": "91d84c32def3fadf1b3dfc94bd21d95deb3f58e10117011fd787b1a68aac2243"
+    }
+  ],
+  "schema_version": 1,
+  "seeds": [
+    7,
+    17,
+    29
+  ]
+}

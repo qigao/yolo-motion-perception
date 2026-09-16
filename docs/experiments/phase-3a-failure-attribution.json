@@ -1,0 +1,574 @@
+{
+  "arms": [
+    {
+      "action_digest": "c0c1b44f830eb4b9bec3a4ca357879d2db3df6158f05b397ad64d976698d9ce3",
+      "action_seed": 7,
+      "action_sequence_equal_to_baseline": true,
+      "arm": "baseline",
+      "evaluation_fixture_digest": "0cb49a228520ebbd80d7fb228b0bf2ffeff45568d8c8c85ee355a26d5968d40e",
+      "fixture_digest": "39c76061693bb579dc51b7ff14f8feadbb1be989ffd73b3010369b22ccbb6f2d",
+      "fixture_seed": 7,
+      "post_per_delay": {
+        "1": {
+          "accuracy": 1.0,
+          "correct": 40,
+          "total": 40
+        },
+        "2": {
+          "accuracy": 1.0,
+          "correct": 40,
+          "total": 40
+        },
+        "3": {
+          "accuracy": 0.975,
+          "correct": 39,
+          "total": 40
+        },
+        "4": {
+          "accuracy": 0.7,
+          "correct": 28,
+          "total": 40
+        },
+        "5": {
+          "accuracy": 0.85,
+          "correct": 34,
+          "total": 40
+        }
+      },
+      "post_training": {
+        "accuracy": 0.905,
+        "correct": 181,
+        "total": 200
+      },
+      "q_margin": {
+        "mean": 0.4611620463617209,
+        "minimum": -0.33352998835429354,
+        "p10": 0.009523128963129134
+      },
+      "reservoir_seed": 7,
+      "reward_digest": "96b73227db8edb095d76eaf1813921bc064d3fc8733a7272260f3dfc89ede87a",
+      "reward_sequence_equal_to_baseline": true,
+      "supervised_per_delay": {
+        "1": {
+          "accuracy": 1.0,
+          "correct": 40,
+          "total": 40
+        },
+        "2": {
+          "accuracy": 1.0,
+          "correct": 40,
+          "total": 40
+        },
+        "3": {
+          "accuracy": 1.0,
+          "correct": 40,
+          "total": 40
+        },
+        "4": {
+          "accuracy": 1.0,
+          "correct": 40,
+          "total": 40
+        },
+        "5": {
+          "accuracy": 1.0,
+          "correct": 40,
+          "total": 40
+        }
+      },
+      "supervised_reference": {
+        "accuracy": 1.0,
+        "correct": 200,
+        "total": 200
+      }
+    },
+    {
+      "action_digest": "c0c1b44f830eb4b9bec3a4ca357879d2db3df6158f05b397ad64d976698d9ce3",
+      "action_seed": 7,
+      "action_sequence_equal_to_baseline": true,
+      "arm": "reservoir",
+      "evaluation_fixture_digest": "0cb49a228520ebbd80d7fb228b0bf2ffeff45568d8c8c85ee355a26d5968d40e",
+      "fixture_digest": "39c76061693bb579dc51b7ff14f8feadbb1be989ffd73b3010369b22ccbb6f2d",
+      "fixture_seed": 7,
+      "post_per_delay": {
+        "1": {
+          "accuracy": 1.0,
+          "correct": 40,
+          "total": 40
+        },
+        "2": {
+          "accuracy": 1.0,
+          "correct": 40,
+          "total": 40
+        },
+        "3": {
+          "accuracy": 1.0,
+          "correct": 40,
+          "total": 40
+        },
+        "4": {
+          "accuracy": 1.0,
+          "correct": 40,
+          "total": 40
+        },
+        "5": {
+          "accuracy": 1.0,
+          "correct": 40,
+          "total": 40
+        }
+      },
+      "post_training": {
+        "accuracy": 1.0,
+        "correct": 200,
+        "total": 200
+      },
+      "q_margin": {
+        "mean": 1.7623242918971436,
+        "minimum": 0.224404646577575,
+        "p10": 1.233239849129639
+      },
+      "reservoir_seed": 17,
+      "reward_digest": "96b73227db8edb095d76eaf1813921bc064d3fc8733a7272260f3dfc89ede87a",
+      "reward_sequence_equal_to_baseline": true,
+      "supervised_per_delay": {
+        "1": {
+          "accuracy": 1.0,
+          "correct": 40,
+          "total": 40
+        },
+        "2": {
+          "accuracy": 1.0,
+          "correct": 40,
+          "total": 40
+        },
+        "3": {
+          "accuracy": 1.0,
+          "correct": 40,
+          "total": 40
+        },
+        "4": {
+          "accuracy": 1.0,
+          "correct": 40,
+          "total": 40
+        },
+        "5": {
+          "accuracy": 1.0,
+          "correct": 40,
+          "total": 40
+        }
+      },
+      "supervised_reference": {
+        "accuracy": 1.0,
+        "correct": 200,
+        "total": 200
+      }
+    },
+    {
+      "action_digest": "c0c1b44f830eb4b9bec3a4ca357879d2db3df6158f05b397ad64d976698d9ce3",
+      "action_seed": 7,
+      "action_sequence_equal_to_baseline": true,
+      "arm": "reservoir",
+      "evaluation_fixture_digest": "0cb49a228520ebbd80d7fb228b0bf2ffeff45568d8c8c85ee355a26d5968d40e",
+      "fixture_digest": "39c76061693bb579dc51b7ff14f8feadbb1be989ffd73b3010369b22ccbb6f2d",
+      "fixture_seed": 7,
+      "post_per_delay": {
+        "1": {
+          "accuracy": 1.0,
+          "correct": 40,
+          "total": 40
+        },
+        "2": {
+          "accuracy": 1.0,
+          "correct": 40,
+          "total": 40
+        },
+        "3": {
+          "accuracy": 1.0,
+          "correct": 40,
+          "total": 40
+        },
+        "4": {
+          "accuracy": 0.925,
+          "correct": 37,
+          "total": 40
+        },
+        "5": {
+          "accuracy": 0.5,
+          "correct": 20,
+          "total": 40
+        }
+      },
+      "post_training": {
+        "accuracy": 0.885,
+        "correct": 177,
+        "total": 200
+      },
+      "q_margin": {
+        "mean": 0.6326844142916075,
+        "minimum": -0.6245755503896899,
+        "p10": -0.0627628732023946
+      },
+      "reservoir_seed": 29,
+      "reward_digest": "96b73227db8edb095d76eaf1813921bc064d3fc8733a7272260f3dfc89ede87a",
+      "reward_sequence_equal_to_baseline": true,
+      "supervised_per_delay": {
+        "1": {
+          "accuracy": 1.0,
+          "correct": 40,
+          "total": 40
+        },
+        "2": {
+          "accuracy": 1.0,
+          "correct": 40,
+          "total": 40
+        },
+        "3": {
+          "accuracy": 1.0,
+          "correct": 40,
+          "total": 40
+        },
+        "4": {
+          "accuracy": 1.0,
+          "correct": 40,
+          "total": 40
+        },
+        "5": {
+          "accuracy": 1.0,
+          "correct": 40,
+          "total": 40
+        }
+      },
+      "supervised_reference": {
+        "accuracy": 1.0,
+        "correct": 200,
+        "total": 200
+      }
+    },
+    {
+      "action_digest": "975e8ebaa9a2db8d15bb1711adff3dfda9fd7bb3795366714f63285e36258984",
+      "action_seed": 17,
+      "action_sequence_equal_to_baseline": false,
+      "arm": "action_rng",
+      "evaluation_fixture_digest": "0cb49a228520ebbd80d7fb228b0bf2ffeff45568d8c8c85ee355a26d5968d40e",
+      "fixture_digest": "39c76061693bb579dc51b7ff14f8feadbb1be989ffd73b3010369b22ccbb6f2d",
+      "fixture_seed": 7,
+      "post_per_delay": {
+        "1": {
+          "accuracy": 1.0,
+          "correct": 40,
+          "total": 40
+        },
+        "2": {
+          "accuracy": 1.0,
+          "correct": 40,
+          "total": 40
+        },
+        "3": {
+          "accuracy": 0.975,
+          "correct": 39,
+          "total": 40
+        },
+        "4": {
+          "accuracy": 0.625,
+          "correct": 25,
+          "total": 40
+        },
+        "5": {
+          "accuracy": 0.675,
+          "correct": 27,
+          "total": 40
+        }
+      },
+      "post_training": {
+        "accuracy": 0.855,
+        "correct": 171,
+        "total": 200
+      },
+      "q_margin": {
+        "mean": 0.45899901955854006,
+        "minimum": -0.45917962757040304,
+        "p10": -0.09540687550718235
+      },
+      "reservoir_seed": 7,
+      "reward_digest": "bf9fcf8074cd1c4982d201b2c173f970c4bf10fbaabf7c1e80829e23ea79e085",
+      "reward_sequence_equal_to_baseline": false,
+      "supervised_per_delay": {
+        "1": {
+          "accuracy": 1.0,
+          "correct": 40,
+          "total": 40
+        },
+        "2": {
+          "accuracy": 1.0,
+          "correct": 40,
+          "total": 40
+        },
+        "3": {
+          "accuracy": 1.0,
+          "correct": 40,
+          "total": 40
+        },
+        "4": {
+          "accuracy": 1.0,
+          "correct": 40,
+          "total": 40
+        },
+        "5": {
+          "accuracy": 1.0,
+          "correct": 40,
+          "total": 40
+        }
+      },
+      "supervised_reference": {
+        "accuracy": 1.0,
+        "correct": 200,
+        "total": 200
+      }
+    },
+    {
+      "action_digest": "7b22ab084b419942663b58181200518864bbbf04c81150c08c7ed534cfff796c",
+      "action_seed": 29,
+      "action_sequence_equal_to_baseline": false,
+      "arm": "action_rng",
+      "evaluation_fixture_digest": "0cb49a228520ebbd80d7fb228b0bf2ffeff45568d8c8c85ee355a26d5968d40e",
+      "fixture_digest": "39c76061693bb579dc51b7ff14f8feadbb1be989ffd73b3010369b22ccbb6f2d",
+      "fixture_seed": 7,
+      "post_per_delay": {
+        "1": {
+          "accuracy": 1.0,
+          "correct": 40,
+          "total": 40
+        },
+        "2": {
+          "accuracy": 1.0,
+          "correct": 40,
+          "total": 40
+        },
+        "3": {
+          "accuracy": 0.975,
+          "correct": 39,
+          "total": 40
+        },
+        "4": {
+          "accuracy": 0.725,
+          "correct": 29,
+          "total": 40
+        },
+        "5": {
+          "accuracy": 0.825,
+          "correct": 33,
+          "total": 40
+        }
+      },
+      "post_training": {
+        "accuracy": 0.905,
+        "correct": 181,
+        "total": 200
+      },
+      "q_margin": {
+        "mean": 0.460824089112768,
+        "minimum": -0.351725714320855,
+        "p10": 0.007358923939022519
+      },
+      "reservoir_seed": 7,
+      "reward_digest": "47e80a2ca882aeb0645950662b2456de0e876dd2ac68eab320333bffab552ba7",
+      "reward_sequence_equal_to_baseline": false,
+      "supervised_per_delay": {
+        "1": {
+          "accuracy": 1.0,
+          "correct": 40,
+          "total": 40
+        },
+        "2": {
+          "accuracy": 1.0,
+          "correct": 40,
+          "total": 40
+        },
+        "3": {
+          "accuracy": 1.0,
+          "correct": 40,
+          "total": 40
+        },
+        "4": {
+          "accuracy": 1.0,
+          "correct": 40,
+          "total": 40
+        },
+        "5": {
+          "accuracy": 1.0,
+          "correct": 40,
+          "total": 40
+        }
+      },
+      "supervised_reference": {
+        "accuracy": 1.0,
+        "correct": 200,
+        "total": 200
+      }
+    },
+    {
+      "action_digest": "c0c1b44f830eb4b9bec3a4ca357879d2db3df6158f05b397ad64d976698d9ce3",
+      "action_seed": 7,
+      "action_sequence_equal_to_baseline": true,
+      "arm": "fixture",
+      "evaluation_fixture_digest": "70900596b8a665b1c35bfe1d6aa59333893e9012da16649d0bd0ae57704e15e5",
+      "fixture_digest": "56343ce19ab94f2eef8e538f2d9f5f2e686d2d4cf1e20ffc39529d6138497b5c",
+      "fixture_seed": 17,
+      "post_per_delay": {
+        "1": {
+          "accuracy": 1.0,
+          "correct": 40,
+          "total": 40
+        },
+        "2": {
+          "accuracy": 1.0,
+          "correct": 40,
+          "total": 40
+        },
+        "3": {
+          "accuracy": 0.95,
+          "correct": 38,
+          "total": 40
+        },
+        "4": {
+          "accuracy": 0.775,
+          "correct": 31,
+          "total": 40
+        },
+        "5": {
+          "accuracy": 0.7,
+          "correct": 28,
+          "total": 40
+        }
+      },
+      "post_training": {
+        "accuracy": 0.885,
+        "correct": 177,
+        "total": 200
+      },
+      "q_margin": {
+        "mean": 0.445882532235158,
+        "minimum": -0.42111592052881797,
+        "p10": -0.024584005171392913
+      },
+      "reservoir_seed": 7,
+      "reward_digest": "8e04c10d261439c4a76d825c15d3f729df57dc36aaeef5e64dc35da1604e0ebe",
+      "reward_sequence_equal_to_baseline": false,
+      "supervised_per_delay": {
+        "1": {
+          "accuracy": 1.0,
+          "correct": 40,
+          "total": 40
+        },
+        "2": {
+          "accuracy": 1.0,
+          "correct": 40,
+          "total": 40
+        },
+        "3": {
+          "accuracy": 1.0,
+          "correct": 40,
+          "total": 40
+        },
+        "4": {
+          "accuracy": 1.0,
+          "correct": 40,
+          "total": 40
+        },
+        "5": {
+          "accuracy": 1.0,
+          "correct": 40,
+          "total": 40
+        }
+      },
+      "supervised_reference": {
+        "accuracy": 1.0,
+        "correct": 200,
+        "total": 200
+      }
+    },
+    {
+      "action_digest": "c0c1b44f830eb4b9bec3a4ca357879d2db3df6158f05b397ad64d976698d9ce3",
+      "action_seed": 7,
+      "action_sequence_equal_to_baseline": true,
+      "arm": "fixture",
+      "evaluation_fixture_digest": "ca3ce1b58d52b3d1752f7d3f0b4491640d07d977245e1bcccad5abfb72757e19",
+      "fixture_digest": "91d84c32def3fadf1b3dfc94bd21d95deb3f58e10117011fd787b1a68aac2243",
+      "fixture_seed": 29,
+      "post_per_delay": {
+        "1": {
+          "accuracy": 1.0,
+          "correct": 40,
+          "total": 40
+        },
+        "2": {
+          "accuracy": 1.0,
+          "correct": 40,
+          "total": 40
+        },
+        "3": {
+          "accuracy": 0.75,
+          "correct": 30,
+          "total": 40
+        },
+        "4": {
+          "accuracy": 0.775,
+          "correct": 31,
+          "total": 40
+        },
+        "5": {
+          "accuracy": 0.9,
+          "correct": 36,
+          "total": 40
+        }
+      },
+      "post_training": {
+        "accuracy": 0.885,
+        "correct": 177,
+        "total": 200
+      },
+      "q_margin": {
+        "mean": 0.4618731172704734,
+        "minimum": -0.28339051234379514,
+        "p10": -0.022837895288210706
+      },
+      "reservoir_seed": 7,
+      "reward_digest": "baedf6a27ddd475f91138e9bdc649656cc9c31fae51ef617ec5d55ae76b95abc",
+      "reward_sequence_equal_to_baseline": false,
+      "supervised_per_delay": {
+        "1": {
+          "accuracy": 1.0,
+          "correct": 40,
+          "total": 40
+        },
+        "2": {
+          "accuracy": 1.0,
+          "correct": 40,
+          "total": 40
+        },
+        "3": {
+          "accuracy": 1.0,
+          "correct": 40,
+          "total": 40
+        },
+        "4": {
+          "accuracy": 1.0,
+          "correct": 40,
+          "total": 40
+        },
+        "5": {
+          "accuracy": 1.0,
+          "correct": 40,
+          "total": 40
+        }
+      },
+      "supervised_reference": {
+        "accuracy": 1.0,
+        "correct": 200,
+        "total": 200
+      }
+    }
+  ],
+  "diagnostic_only": true,
+  "experiment": "phase-3a-failure-attribution",
+  "schema_version": 1
+}

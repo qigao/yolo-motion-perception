@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "repository": "qigao/lean",
+  "module": "NarrativeDynamics/Core/AnonymousTemporalCredit.lean",
+  "commit": "3de297cee2a94a7fc309531334f720f1b34467c9",
+  "lean_version": "4.32.0",
+  "mathlib_version": "v4.32.0",
+  "exact_head_ci_passed": true,
+  "axiom_audit_reviewed": true,
+  "sorry_ax_present": false,
+  "custom_axiom_present": false,
+  "theorems": [
+    "NarrativeDynamics.AnonymousTemporalCredit.aggregate_view_source_noninterference",
+    "NarrativeDynamics.AnonymousTemporalCredit.aggregate_conservation",
+    "NarrativeDynamics.AnonymousTemporalCredit.learner_view_source_relabel_invariant",
+    "NarrativeDynamics.AnonymousTemporalCredit.eligibility_historical_coefficient",
+    "NarrativeDynamics.AnonymousTemporalCredit.immediate_reduction_to_phase3a"
+  ]
+}
