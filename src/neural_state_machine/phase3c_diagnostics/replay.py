@@ -83,6 +83,12 @@ class ReplayResult:
     drain_steps: tuple[StepCapture, ...] = ()
 
 
+@dataclass(frozen=True, slots=True)
+class CapturedTrainingExecution:
+    replay: ReplayResult
+    learner: object
+
+
 def _readonly(values: np.ndarray) -> np.ndarray:
     copied = np.array(values, dtype=np.float64, copy=True)
     copied.flags.writeable = False
@@ -151,7 +157,7 @@ def _capture_training(
     config: AnonymousCreditConfig,
     *,
     reward_override: tuple[float, ...] | None,
-) -> tuple[_ProtocolExecution, tuple[StepCapture, ...], tuple[StepCapture, ...], int]:
+) -> tuple[_ProtocolExecution, tuple[StepCapture, ...], tuple[StepCapture, ...], int, object]:
     av_config = config.action_value_config
     task = DelayedCueTask()
     fixtures = _build_fixture_bundle(seed, av_config)
@@ -328,7 +334,7 @@ def _capture_training(
         audit=audit,
         checkpoints=tuple(checkpoints),
     )
-    return protocol, tuple(steps), tuple(drains), aggregator.pending_count
+    return protocol, tuple(steps), tuple(drains), aggregator.pending_count, learner
 
 
 def _build_replay_result(
@@ -365,6 +371,31 @@ def _build_replay_result(
     )
 
 
+def capture_reward_override_execution(
+    seed: int,
+    arm: str,
+    config: AnonymousCreditConfig,
+    *,
+    reward_override: tuple[float, ...],
+    attempt_id: str = "d1",
+) -> CapturedTrainingExecution:
+    """Capture one reward-override training execution for D1 evidence and scoring."""
+    captured_protocol, steps, drains, pending_final, learner = _capture_training(
+        seed,
+        arm,
+        config,
+        reward_override=reward_override,
+    )
+    replay = _build_replay_result(
+        captured_protocol,
+        steps,
+        drains,
+        pending_final,
+        attempt_id=attempt_id,
+    )
+    return CapturedTrainingExecution(replay=replay, learner=learner)
+
+
 def capture_reward_override_training(
     seed: int,
     arm: str,
@@ -381,24 +412,25 @@ def capture_reward_override_training(
         immediate_control=False,
         reward_override=reward_override,
     )
-    captured_protocol, steps, drains, pending_final = _capture_training(
+    captured = capture_reward_override_execution(
         seed,
         arm,
         config,
         reward_override=reward_override,
+        attempt_id=attempt_id,
     )
-    if captured_protocol != untouched.protocol:
+    if captured.replay.protocol != untouched.protocol:
         raise D0Failure(
             path="protocol",
             expected=untouched.protocol,
-            observed=captured_protocol,
+            observed=captured.replay.protocol,
             attempt_id=attempt_id,
         )
     return _build_replay_result(
         untouched.protocol,
-        steps,
-        drains,
-        pending_final,
+        captured.replay.steps,
+        captured.replay.drain_steps,
+        captured.replay.queue_pending_final,
         attempt_id=attempt_id,
     )
 
@@ -423,7 +455,7 @@ def run_diagnostic_replay(
         immediate_control=False,
         reward_override=reward_override,
     )
-    captured_protocol, steps, drains, pending_final = _capture_training(
+    captured_protocol, steps, drains, pending_final, _learner = _capture_training(
         seed, arm, config, reward_override=reward_override
     )
     if captured_protocol != untouched.protocol:
