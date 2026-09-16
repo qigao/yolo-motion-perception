@@ -2,11 +2,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+import numpy as np
+
+from neural_state_machine.action_value_benchmark import _evaluate, _new_policy
 from neural_state_machine.phase3c_benchmark import AnonymousCreditConfig
+from neural_state_machine.reward_learning import _decision_hidden
 
 from .auxiliary import drain_weight_snapshots, score_weight_snapshot
 from .contracts import ModelId
 from .evaluation import EvaluationBundle
+from .references import RidgeReference
 from .replay import ReplayResult
 
 
@@ -97,11 +102,106 @@ def original_auxiliary_evidence(
     )
 
 
+def _ridge_reset_payload(
+    seed: int,
+    reference: RidgeReference,
+    bundle: EvaluationBundle,
+    config: AnonymousCreditConfig,
+) -> dict[str, object]:
+    policy = _new_policy(seed, config.action_value_config)
+    hidden = np.asarray(
+        [
+            _decision_hidden(policy, episode, reset_before_decision=True)
+            for episode in bundle.fixtures
+        ],
+        dtype=np.float64,
+    )
+    values = reference.predict(hidden)
+    correct = np.asarray(
+        [episode.correct_action_index for episode in bundle.fixtures], dtype=np.int64
+    )
+    predicted = np.argmax(values, axis=1)
+    margins = values[np.arange(len(correct)), correct] - values[
+        np.arange(len(correct)), 1 - correct
+    ]
+    per_delay = []
+    for delay in range(1, 6):
+        mask = np.asarray(
+            [episode.delay_steps == delay for episode in bundle.fixtures], dtype=bool
+        )
+        per_delay.append(
+            {
+                "cue_delay": delay,
+                "correct": int(np.sum(predicted[mask] == correct[mask])),
+                "total": int(np.sum(mask)),
+            }
+        )
+    return {
+        "overall": {
+            "correct": int(np.sum(predicted == correct)),
+            "total": len(correct),
+        },
+        "per_delay": per_delay,
+        "margin_mean": float(np.mean(margins)),
+        "margin_p10": float(np.percentile(margins, 10)),
+        "margin_minimum": float(np.min(margins)),
+    }
+
+
+def _learner_reset_payload(
+    seed: int,
+    reference: object,
+    bundle: EvaluationBundle,
+    config: AnonymousCreditConfig,
+) -> dict[str, object]:
+    evaluation = _evaluate(
+        _new_policy(seed, config.action_value_config),
+        reference,
+        bundle.fixtures,
+        reset_before_decision=True,
+    )
+    return {
+        "overall": {
+            "correct": evaluation.overall.correct,
+            "total": evaluation.overall.total,
+        },
+        "per_delay": [
+            {
+                "cue_delay": delay,
+                "correct": count.correct,
+                "total": count.total,
+            }
+            for delay, count in evaluation.per_delay
+        ],
+        "margin_mean": evaluation.margin_mean,
+        "margin_p10": evaluation.margin_p10,
+        "margin_minimum": evaluation.margin_minimum,
+    }
+
+
 def reference_reset_evidence(
     model: ModelId,
     reference: object,
     bundles: tuple[EvaluationBundle, ...],
     config: AnonymousCreditConfig,
 ) -> tuple[dict[str, object], ...]:
-    del model, reference, bundles, config
-    return ()
+    if not isinstance(model, ModelId) or model.family != "reference":
+        raise ValueError("model must be a reference ModelId")
+    if not isinstance(config, AnonymousCreditConfig):
+        raise ValueError("config must be an AnonymousCreditConfig")
+    selected = _bundles_for_seed(bundles, model.seed)
+    rows: list[dict[str, object]] = []
+    for bundle in selected:
+        evaluation_id = bundle.evaluation_id.evaluation_id
+        if isinstance(reference, RidgeReference):
+            payload = _ridge_reset_payload(model.seed, reference, bundle, config)
+        else:
+            payload = _learner_reset_payload(model.seed, reference, bundle, config)
+        rows.append(
+            {
+                "key": f"reset/{model.stable_key()}/evaluation={evaluation_id}",
+                "evaluation_id": evaluation_id,
+                **payload,
+            }
+        )
+    return tuple(rows)
