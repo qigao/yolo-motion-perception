@@ -100,3 +100,55 @@ jobs:
           path: /tmp/phase3c-prospective/
           if-no-files-found: error
           retention-days: 30
+
+      - name: Phase C4 tests
+        run: pytest -q tests/test_phase_c4_*.py
+
+      - name: Phase C4 Ruff
+        run: >-
+          ruff check src/neural_state_machine/phase_c4_*.py
+          scripts/benchmark_phase_c4_delay_marginalized_credit.py
+          scripts/verify_phase_c4_delay_marginalized_credit.py
+          tests/test_phase_c4_*.py
+
+      - name: Phase C4 protocol gate
+        run: python scripts/benchmark_phase_c4_delay_marginalized_credit.py protocol
+
+      - name: Recreate locked Phase C4 environment and seal C4-A prospectively
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import platform
+          if platform.python_version() != "3.12.14":
+              raise SystemExit(f"expected Python 3.12.14, got {platform.python_version()}")
+          PY
+          rm -rf /tmp/phase-c4-venv /tmp/phase-c4a-prospective
+          python -m venv /tmp/phase-c4-venv
+          /tmp/phase-c4-venv/bin/python -m pip install --upgrade pip==26.2.1
+          /tmp/phase-c4-venv/bin/python -m pip install -r requirements/phase-c4-python312.lock
+          grep -v '^#' requirements/phase-c4-python312.lock | sed '/^$/d' | sort -f > /tmp/phase-c4-expected.lock
+          /tmp/phase-c4-venv/bin/python -m pip freeze --all | sort -f > /tmp/phase-c4-actual.lock
+          diff -u /tmp/phase-c4-expected.lock /tmp/phase-c4-actual.lock
+          /tmp/phase-c4-venv/bin/python -m pip install --no-deps --no-build-isolation -e .
+          /tmp/phase-c4-venv/bin/python -m pytest -q tests/test_phase_c4_*.py
+          /tmp/phase-c4-venv/bin/python -m ruff check \
+            src/neural_state_machine/phase_c4_*.py \
+            scripts/benchmark_phase_c4_delay_marginalized_credit.py \
+            scripts/verify_phase_c4_delay_marginalized_credit.py \
+            tests/test_phase_c4_*.py
+          /tmp/phase-c4-venv/bin/python scripts/benchmark_phase_c4_delay_marginalized_credit.py protocol
+          /tmp/phase-c4-venv/bin/python scripts/benchmark_phase_c4_delay_marginalized_credit.py \
+            prepare-c4a --output /tmp/phase-c4a-prospective
+          /tmp/phase-c4-venv/bin/python scripts/verify_phase_c4_delay_marginalized_credit.py \
+            --stage c4a --root /tmp/phase-c4a-prospective --no-result-ok
+          sha256sum /tmp/phase-c4a-prospective/c4a-manifest.json \
+            | tee /tmp/phase-c4a-prospective/manifest.sha256
+
+      - name: Upload prospective Phase C4-A manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase-c4a-prospective-${{ github.sha }}
+          path: /tmp/phase-c4a-prospective/
+          if-no-files-found: error
+          retention-days: 30
