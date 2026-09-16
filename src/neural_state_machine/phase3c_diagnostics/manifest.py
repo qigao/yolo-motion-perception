@@ -52,6 +52,8 @@ IMMUTABLE_INPUT_PATHS = (
     "src/neural_state_machine/phase3c_formal_contract.py",
     "src/neural_state_machine/phase3c_learners.py",
     "src/neural_state_machine/phase3c_schedule.py",
+    "requirements/phase3c-diagnostics.in",
+    DIAGNOSTIC_LOCK,
 )
 
 
