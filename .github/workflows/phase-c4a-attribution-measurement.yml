@@ -1,0 +1,85 @@
+name: Phase C4-A Attribution Measurement
+
+on:
+  push:
+    branches:
+      - diagnostics/phase-c4a-failure-attribution-v1
+
+permissions:
+  contents: read
+
+env:
+  C4A_ATTRIBUTION_SCIENCE_HEAD: e1a810c6f845d29629afbe4a91ffe6d738fd145b
+  C4A_ATTRIBUTION_MANIFEST_SHA256: 962c214c5173d2a5fc22d7bd87d8ebc9daa09d48c2e9dbed4cb58d2c04a95aa1
+
+jobs:
+  measurement:
+    if: "${{ github.event.head_commit.message == 'measure: run C4-A attribution registered diagnostic' }}"
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout frozen attribution science head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.C4A_ATTRIBUTION_SCIENCE_HEAD }}
+          fetch-depth: 1
+
+      - name: Set up exact Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12.14"
+          cache: pip
+          cache-dependency-path: requirements/phase-c4a-diagnostics-python312.lock
+
+      - name: Recreate exact diagnostic environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$C4A_ATTRIBUTION_SCIENCE_HEAD"
+          rm -rf /tmp/c4a-attribution-venv /tmp/c4a-attribution-prospective /tmp/c4a-attribution-result
+          python -m venv /tmp/c4a-attribution-venv
+          /tmp/c4a-attribution-venv/bin/python -m pip install --upgrade pip==26.2.1
+          /tmp/c4a-attribution-venv/bin/python -m pip install -r requirements/phase-c4a-diagnostics-python312.lock
+          grep -v '^#' requirements/phase-c4a-diagnostics-python312.lock | sed '/^$/d' | sort -f > /tmp/c4a-attribution-expected.lock
+          /tmp/c4a-attribution-venv/bin/python -m pip freeze --all | sort -f > /tmp/c4a-attribution-actual.lock
+          diff -u /tmp/c4a-attribution-expected.lock /tmp/c4a-attribution-actual.lock
+          /tmp/c4a-attribution-venv/bin/python -m pip install --no-deps --no-build-isolation -e .
+
+      - name: Regenerate and verify prospective seal before fitting
+        shell: bash
+        run: |
+          set -euo pipefail
+          /tmp/c4a-attribution-venv/bin/python scripts/diagnose_phase_c4a_failure.py prepare \
+            --output /tmp/c4a-attribution-prospective
+          test "$(find /tmp/c4a-attribution-prospective -maxdepth 1 -type f -printf '%f\n' | sort)" = "manifest.json"
+          actual_sha="$(sha256sum /tmp/c4a-attribution-prospective/manifest.json | awk '{print $1}')"
+          test "$actual_sha" = "$C4A_ATTRIBUTION_MANIFEST_SHA256"
+          /tmp/c4a-attribution-venv/bin/python scripts/verify_phase_c4a_failure_diagnostics.py \
+            --root /tmp/c4a-attribution-prospective --no-result-ok
+
+      - name: Run one registered C4-A attribution measurement
+        shell: bash
+        run: |
+          set -euo pipefail
+          /tmp/c4a-attribution-venv/bin/python scripts/diagnose_phase_c4a_failure.py measure \
+            --manifest /tmp/c4a-attribution-prospective/manifest.json \
+            --output /tmp/c4a-attribution-result
+
+      - name: Strictly verify sealed measurement result
+        shell: bash
+        run: |
+          set -euo pipefail
+          /tmp/c4a-attribution-venv/bin/python scripts/verify_phase_c4a_failure_diagnostics.py \
+            --root /tmp/c4a-attribution-result
+          test "$(find /tmp/c4a-attribution-result -maxdepth 1 -type f -printf '%f\n' | sort)" = $'manifest.json\nprovenance.json\nresult.json\ntrace-index.json'
+          echo "manifest $(sha256sum /tmp/c4a-attribution-result/manifest.json | awk '{print $1}')"
+          echo "result $(sha256sum /tmp/c4a-attribution-result/result.json | awk '{print $1}')"
+          echo "provenance $(sha256sum /tmp/c4a-attribution-result/provenance.json | awk '{print $1}')"
+          echo "trace-index $(sha256sum /tmp/c4a-attribution-result/trace-index.json | awk '{print $1}')"
+
+      - name: Upload sealed attribution measurement bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase-c4a-attribution-measurement-${{ env.C4A_ATTRIBUTION_SCIENCE_HEAD }}
+          path: /tmp/c4a-attribution-result/
+          if-no-files-found: error
+          retention-days: 30
