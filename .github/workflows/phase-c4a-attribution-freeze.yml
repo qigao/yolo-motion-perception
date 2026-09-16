@@ -1,0 +1,156 @@
+name: Phase C4-A Attribution Freeze
+
+on:
+  push:
+    branches:
+      - diagnostics/phase-c4a-failure-attribution-v1
+
+permissions:
+  actions: read
+  contents: write
+
+env:
+  C4A_ATTRIBUTION_SCIENCE_HEAD: e1a810c6f845d29629afbe4a91ffe6d738fd145b
+  C4A_ATTRIBUTION_MEASUREMENT_RUN_ID: "35134241782"
+  C4A_ATTRIBUTION_MANIFEST_SHA256: 962c214c5173d2a5fc22d7bd87d8ebc9daa09d48c2e9dbed4cb58d2c04a95aa1
+  C4A_ATTRIBUTION_RESULT_SHA256: f244086049b82858ce3b9bef942936f270e474c5674133361498a17f195cdba8
+  C4A_ATTRIBUTION_PROVENANCE_SHA256: 78ca9d02d62f9518fefd0adbbc8cf8f2cd0bab2e7a1e922705764f9563d8e651
+  C4A_ATTRIBUTION_TRACE_INDEX_SHA256: 55dabedfe68fa962bce538f23d3b3eca51804b3b638af31ce36f104152d05fa4
+
+jobs:
+  freeze:
+    if: "${{ github.event.head_commit.message == 'freeze: persist C4-A attribution diagnosis' }}"
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout control branch
+        uses: actions/checkout@v4
+        with:
+          ref: diagnostics/phase-c4a-failure-attribution-v1
+          fetch-depth: 0
+
+      - name: Set up exact Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12.14"
+          cache: pip
+          cache-dependency-path: requirements/phase-c4a-diagnostics-python312.lock
+
+      - name: Recreate exact diagnostic environment without measurement
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/c4a-attribution-freeze-venv /tmp/c4a-attribution-sealed
+          python -m venv /tmp/c4a-attribution-freeze-venv
+          /tmp/c4a-attribution-freeze-venv/bin/python -m pip install --upgrade pip==26.2.1
+          /tmp/c4a-attribution-freeze-venv/bin/python -m pip install -r requirements/phase-c4a-diagnostics-python312.lock
+          grep -v '^#' requirements/phase-c4a-diagnostics-python312.lock | sed '/^$/d' | sort -f > /tmp/c4a-attribution-expected.lock
+          /tmp/c4a-attribution-freeze-venv/bin/python -m pip freeze --all | sort -f > /tmp/c4a-attribution-actual.lock
+          diff -u /tmp/c4a-attribution-expected.lock /tmp/c4a-attribution-actual.lock
+          /tmp/c4a-attribution-freeze-venv/bin/python -m pip install --no-deps --no-build-isolation -e .
+
+      - name: Download exact sealed measurement artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: phase-c4a-attribution-measurement-${{ env.C4A_ATTRIBUTION_SCIENCE_HEAD }}
+          path: /tmp/c4a-attribution-sealed
+          github-token: ${{ github.token }}
+          run-id: ${{ env.C4A_ATTRIBUTION_MEASUREMENT_RUN_ID }}
+
+      - name: Verify sealed evidence and reviewed Outcome A basis
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(find /tmp/c4a-attribution-sealed -maxdepth 1 -type f -printf '%f\n' | sort)" = $'manifest.json\nprovenance.json\nresult.json\ntrace-index.json'
+          test "$(sha256sum /tmp/c4a-attribution-sealed/manifest.json | awk '{print $1}')" = "$C4A_ATTRIBUTION_MANIFEST_SHA256"
+          test "$(sha256sum /tmp/c4a-attribution-sealed/result.json | awk '{print $1}')" = "$C4A_ATTRIBUTION_RESULT_SHA256"
+          test "$(sha256sum /tmp/c4a-attribution-sealed/provenance.json | awk '{print $1}')" = "$C4A_ATTRIBUTION_PROVENANCE_SHA256"
+          test "$(sha256sum /tmp/c4a-attribution-sealed/trace-index.json | awk '{print $1}')" = "$C4A_ATTRIBUTION_TRACE_INDEX_SHA256"
+          /tmp/c4a-attribution-freeze-venv/bin/python scripts/verify_phase_c4a_failure_diagnostics.py \
+            --root /tmp/c4a-attribution-sealed
+          /tmp/c4a-attribution-freeze-venv/bin/python - <<'PY'
+          import json
+          from pathlib import Path
+
+          result = json.loads(Path('/tmp/c4a-attribution-sealed/result.json').read_text())
+          assert result['integrity_valid'] is True
+          assert len(result['geometry']) == 3
+          assert len(result['registered_attribution']) == 3
+          assert len(result['permutation_rows']) == 192
+          assert len(result['permutation_summaries']) == 6
+
+          registered = [
+              (row['seed'], row['normal_score'], row['shuffled_score'])
+              for row in result['registered_attribution']
+          ]
+          assert registered == [(7, 200, 147), (17, 200, 170), (29, 200, 160)]
+
+          block = [row for row in result['permutation_rows'] if row['mode'] == 'block10']
+          global_rows = [row for row in result['permutation_rows'] if row['mode'] == 'global']
+          assert len(block) == 96 and len(global_rows) == 96
+          assert sum(row['original_score'] >= 150 for row in block) == 84
+          assert sum(row['original_score'] >= 150 for row in global_rows) == 0
+
+          secondary = {
+              row['seed']: row['shuffled_secondary_scores']
+              for row in result['registered_attribution']
+          }
+          assert secondary[7] == [148, 142, 145, 142, 152, 135, 138, 151]
+          assert secondary[17] == [173, 174, 174, 173, 167, 173, 166, 169]
+          assert secondary[29] == [146, 146, 157, 159, 167, 159, 156, 166]
+          PY
+
+      - name: Render reviewed no-refit Outcome A report
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf docs/experiments/phase-c4a-failure-attribution
+          mkdir -p docs/experiments/phase-c4a-failure-attribution
+          cp /tmp/c4a-attribution-sealed/manifest.json docs/experiments/phase-c4a-failure-attribution/manifest.json
+          cp /tmp/c4a-attribution-sealed/result.json docs/experiments/phase-c4a-failure-attribution/result.json
+          cp /tmp/c4a-attribution-sealed/provenance.json docs/experiments/phase-c4a-failure-attribution/provenance.json
+          cp /tmp/c4a-attribution-sealed/trace-index.json docs/experiments/phase-c4a-failure-attribution/trace-index.json
+          /tmp/c4a-attribution-freeze-venv/bin/python - <<'PY'
+          import json
+          from pathlib import Path
+          from neural_state_machine.phase_c4a_diagnostics.report import (
+              DiagnosticOutcome,
+              MechanismEvidence,
+              render_markdown_report,
+          )
+
+          root = Path('docs/experiments/phase-c4a-failure-attribution')
+          result = json.loads((root / 'result.json').read_text())
+          report_input = dict(result)
+          report_input['mechanism_table'] = tuple(
+              MechanismEvidence(**row) for row in result['mechanism_table']
+          )
+          rationale = (
+              'D0 integrity is valid and the registered normal/shuffled replays reproduce the frozen C4-A scores.',
+              'Across the fixed grid, block10 permutations score at least 150 in 84 of 96 rows, while global permutations do so in 0 of 96 rows.',
+              'The block10-to-global score separation is accompanied by lower target/design parallel ratios under global permutations; this is matched diagnostic association rather than a single-cause claim.',
+              'Secondary evaluation sets do not show a general single-fixture collapse, especially for seed 17; design geometry and readout decomposition remain contextual evidence.',
+              'The reviewed interpretation is therefore Outcome A: residual negative-control predictivity is strongly associated with local block-preserving reward structure under the tested frozen operator.',
+          )
+          text = render_markdown_report(
+              report_input,
+              outcome=DiagnosticOutcome.BLOCK_LOCAL_ASSOCIATION,
+              rationale=rationale,
+          )
+          (root / 'report.md').write_text(text, encoding='utf-8')
+          PY
+
+      - name: Commit exactly five frozen evidence files
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add \
+            docs/experiments/phase-c4a-failure-attribution/manifest.json \
+            docs/experiments/phase-c4a-failure-attribution/result.json \
+            docs/experiments/phase-c4a-failure-attribution/provenance.json \
+            docs/experiments/phase-c4a-failure-attribution/report.md \
+            docs/experiments/phase-c4a-failure-attribution/trace-index.json
+          test "$(git diff --cached --name-only)" = $'docs/experiments/phase-c4a-failure-attribution/manifest.json\ndocs/experiments/phase-c4a-failure-attribution/provenance.json\ndocs/experiments/phase-c4a-failure-attribution/report.md\ndocs/experiments/phase-c4a-failure-attribution/result.json\ndocs/experiments/phase-c4a-failure-attribution/trace-index.json'
+          git commit -m 'docs: freeze C4-A attribution diagnosis'
+          git push origin HEAD:diagnostics/phase-c4a-failure-attribution-v1
