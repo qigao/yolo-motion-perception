@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "repository": "qigao/lean",
+  "module": "NarrativeDynamics/Core/MarginalizedTemporalCredit.lean",
+  "commit": "8b2180ed24b6ff03db4b927ec29cdd9903b0ccac",
+  "lean_version": "4.32.0",
+  "mathlib_version": "v4.32.0",
+  "exact_head_ci_passed": true,
+  "axiom_audit_reviewed": true,
+  "sorry_ax_present": false,
+  "custom_axiom_present": false,
+  "theorems": [
+    "NarrativeDynamics.MarginalizedTemporalCredit.registered_law_valid",
+    "NarrativeDynamics.MarginalizedTemporalCredit.expected_aggregate_decomposition",
+    "NarrativeDynamics.MarginalizedTemporalCredit.candidate_support_bounded",
+    "NarrativeDynamics.MarginalizedTemporalCredit.current_weight_observation",
+    "NarrativeDynamics.MarginalizedTemporalCredit.immediate_reduction_to_phase3a",
+    "NarrativeDynamics.MarginalizedTemporalCredit.invalid_candidates_zero"
+  ]
+}
