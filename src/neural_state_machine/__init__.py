@@ -43,6 +43,15 @@ from .phase3a_credit_compare import (
     run_credit_comparison,
     run_credit_comparison_benchmark,
 )
+from .phase3c_benchmark import (
+    AnonymousCreditConfig,
+    Phase3CMeasurementResult,
+    Phase3CProtocolResult,
+    registered_behavior_passed,
+    run_phase3c_measurement,
+    run_phase3c_measurements,
+    run_phase3c_protocol_gate,
+)
 from .policy import PolicyDecision, RecurrentPolicy
 from .reward_learning import (
     RewardLearningConfig,
@@ -68,6 +77,7 @@ __all__ = [
     "ActionValueCheckpoint",
     "ActionValueExperimentResult",
     "ActionValueUpdate",
+    "AnonymousCreditConfig",
     "AttributionMeasurement",
     "CreditComparison",
     "Cue",
@@ -88,6 +98,8 @@ __all__ = [
     "NormalizedActionValue",
     "EligibilityTraceActionValue",
     "PendingReward",
+    "Phase3CMeasurementResult",
+    "Phase3CProtocolResult",
     "PolicyDecision",
     "ProbeAccuracy",
     "RecurrentController",
@@ -105,6 +117,7 @@ __all__ = [
     "credit_comparison_benchmark_payload",
     "encode_observation",
     "fit_linear_probe",
+    "registered_behavior_passed",
     "replay_equal",
     "run_episode",
     "run_action_value_benchmark",
@@ -116,6 +129,9 @@ __all__ = [
     "run_learning_diagnostics_benchmark",
     "run_memory_probe",
     "run_memory_probe_benchmark",
+    "run_phase3c_measurement",
+    "run_phase3c_measurements",
+    "run_phase3c_protocol_gate",
     "run_reward_learning_benchmark",
     "run_reward_learning_experiment",
 ]
