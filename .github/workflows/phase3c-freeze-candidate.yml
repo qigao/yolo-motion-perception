@@ -11,7 +11,6 @@ permissions:
 
 jobs:
   freeze-candidate:
-    if: ${{ github.event.head_commit.message == 'ci: freeze phase 3c candidate artifact' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -36,10 +35,10 @@ jobs:
           cp "$SOURCE" docs/experiments/phase-3c-anonymous-temporal-credit.json
           test "$(sha256sum docs/experiments/phase-3c-anonymous-temporal-credit.json | awk '{print $1}')" = "$ACTUAL"
 
-      - name: Commit immutable candidate bytes
+      - name: Commit candidate to isolated import branch
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add docs/experiments/phase-3c-anonymous-temporal-credit.json
-          git commit -m "docs: freeze phase 3c registered evidence"
-          git push origin HEAD:experiment/phase3c-anonymous-temporal-credit
+          git commit -m "docs: import phase 3c registered evidence"
+          git push --force origin HEAD:refs/heads/phase3c-evidence-import
