@@ -37,6 +37,7 @@ _MECHANISMS = (
 )
 _STRONG_CAUSAL_PATTERNS = (
     "caused by",
+    "prove that",
     "proves that",
     "only cause",
     "demonstrates causality",
