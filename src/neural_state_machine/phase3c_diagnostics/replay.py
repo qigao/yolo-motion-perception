@@ -7,7 +7,6 @@ from typing import Any
 import numpy as np
 
 from neural_state_machine.action_value_benchmark import (
-    _action_digest,
     _build_fixture_bundle,
     _collect_checkpoint,
     _new_policy,
@@ -17,6 +16,7 @@ from neural_state_machine.memory_task import DelayedCueTask
 from neural_state_machine.phase3c_benchmark import (
     AnonymousCreditConfig,
     _ProtocolExecution,
+    _action_digest,
     _build_audit,
     _execute_training,
     _new_arm,
