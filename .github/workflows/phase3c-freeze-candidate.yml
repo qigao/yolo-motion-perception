@@ -1,0 +1,45 @@
+name: Phase 3C freeze registered candidate
+
+on:
+  push:
+    branches:
+      - experiment/phase3c-anonymous-temporal-credit
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  freeze-candidate:
+    if: github.event.head_commit.message == 'ci: freeze phase 3c candidate artifact'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download the unique verified candidate artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: phase3c-registered-candidate
+          path: /tmp/phase3c-candidate
+          github-token: ${{ github.token }}
+          repository: qigao/yolo-motion-perception
+          run-id: 35046817410
+
+      - name: Import exact candidate bytes
+        run: |
+          set -eu
+          SOURCE=/tmp/phase3c-candidate/phase-3c-anonymous-temporal-credit.json
+          test -f "$SOURCE"
+          ACTUAL=$(sha256sum "$SOURCE" | awk '{print $1}')
+          test "$ACTUAL" = "53b52fb6716daaceeb68b4e5c78f33333c0076b0d727462aa7265b0887798263"
+          test ! -e docs/experiments/phase-3c-anonymous-temporal-credit.json
+          cp "$SOURCE" docs/experiments/phase-3c-anonymous-temporal-credit.json
+          test "$(sha256sum docs/experiments/phase-3c-anonymous-temporal-credit.json | awk '{print $1}')" = "$ACTUAL"
+
+      - name: Commit immutable candidate bytes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/experiments/phase-3c-anonymous-temporal-credit.json
+          git commit -m "docs: freeze phase 3c registered evidence"
+          git push origin HEAD:experiment/phase3c-anonymous-temporal-credit
