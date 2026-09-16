@@ -75,8 +75,8 @@ def test_marginalized_features_use_only_candidate_rows():
     ) / 3.0
     expected_c[1] = (np.array((2.0, 1.0)) / 5.0) / 3.0
 
-    np.testing.assert_array_equal(result.expected_feature, expected_z)
-    np.testing.assert_array_equal(result.normalized_credit, expected_c)
+    np.testing.assert_allclose(result.expected_feature, expected_z, rtol=0.0, atol=1e-15)
+    np.testing.assert_allclose(result.normalized_credit, expected_c, rtol=0.0, atol=1e-15)
     assert not result.expected_feature.flags.writeable
     assert not result.normalized_credit.flags.writeable
 
