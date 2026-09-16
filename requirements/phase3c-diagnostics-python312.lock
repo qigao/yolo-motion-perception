@@ -1,1 +1,12 @@
-# RED placeholder; Task 10 will pin the reviewed Python 3.12 diagnostic environment.
+# Python 3.12.14 diagnostic lock resolved on GitHub Actions run #419.
+# Direct scientific-tool anchors match the passing #414 environment.
+iniconfig==2.3.0
+numpy==2.5.3
+packaging==26.3
+pip==26.2.1
+pluggy==1.6.0
+Pygments==2.21.0
+pytest==9.1.1
+ruff==0.15.22
+setuptools==84.0.0
+wheel==0.48.0
