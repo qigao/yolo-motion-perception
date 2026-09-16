@@ -10,6 +10,8 @@ from neural_state_machine.phase3c_benchmark import (
     Phase3CProtocolResult,
     run_phase3c_protocol_gate,
 )
+from neural_state_machine.phase3c_formal_contract import APPROVED_FORMAL_COMMIT
+from scripts.benchmark_phase3c_anonymous_credit import build_payload
 
 
 SMALL = AnonymousCreditConfig(
@@ -27,6 +29,14 @@ SMALL = AnonymousCreditConfig(
 
 def _by_arm(results: tuple[Phase3CProtocolResult, ...]) -> dict[str, Phase3CProtocolResult]:
     return {result.arm: result for result in results}
+
+
+def _all_keys(value: object) -> set[str]:
+    if isinstance(value, dict):
+        return set(value) | set().union(*(_all_keys(item) for item in value.values()), set())
+    if isinstance(value, list):
+        return set().union(*(_all_keys(item) for item in value), set())
+    return set()
 
 
 def test_protocol_result_has_no_behavioral_surface() -> None:
@@ -125,3 +135,48 @@ def test_config_rejects_values_that_break_registered_protocol(kwargs: dict[str, 
     values.update(kwargs)
     with pytest.raises(ValueError):
         AnonymousCreditConfig(**values)
+
+
+def test_protocol_cli_payload_binds_formal_gate_and_contains_only_structure() -> None:
+    payload = build_payload(seeds=(7,), config=SMALL)
+
+    assert payload["experiment"] == "phase-3c-anonymous-temporal-credit"
+    assert payload["schema_version"] == 1
+    assert payload["formal_valid"] is True
+    assert payload["formal_contract"]["commit"] == APPROVED_FORMAL_COMMIT
+    assert payload["protocol_valid"] is True
+    assert payload["seeds"] == [7]
+    assert payload["delay_support"] == [1, 3, 5]
+    assert [(row["seed"], row["arm"]) for row in payload["results"]] == [
+        (7, "td0"),
+        (7, "eligibility"),
+    ]
+
+    forbidden = {
+        "behavior_passed",
+        "all_passed",
+        "post_training",
+        "state_reset",
+        "shuffled_control",
+        "per_delay",
+        "reset_per_delay",
+        "shuffled_per_delay",
+        "accuracy",
+    }
+    assert _all_keys(payload).isdisjoint(forbidden)
+
+
+def test_protocol_cli_payload_exposes_required_gate_p_structure() -> None:
+    payload = build_payload(seeds=(7,), config=SMALL)
+
+    for row in payload["results"]:
+        audit = row["audit"]
+        assert row["immediate_continuity"] is True
+        assert row["repeatable"] is True
+        assert audit["inversion_count"] > 0
+        assert audit["collision_step_count"] > 0
+        assert audit["latent_record_count"] == SMALL.training_decisions
+        assert audit["delivered_record_count"] == SMALL.training_decisions
+        assert audit["queue_pending_final"] == 0
+        assert audit["source_relabel_invariant"] is True
+        assert audit["hidden_multiplicity_invariant"] is True
