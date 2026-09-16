@@ -10,10 +10,12 @@ from pathlib import Path
 from neural_state_machine.phase3c_diagnostics.manifest import (
     canonical_json_bytes,
     load_json_object,
+    safe_path,
     sha256_file,
 )
 from neural_state_machine.phase3c_diagnostics.report import (
     AttributionCandidate,
+    build_evidence_summary,
     build_report_summary,
     render_markdown,
 )
@@ -64,9 +66,33 @@ def _cmd_verify(args: argparse.Namespace) -> int:
     return 0
 
 
+def _load_verified_report_evidence(
+    manifest: dict[str, object],
+    execution: dict[str, object],
+    attempt_dir: Path,
+) -> dict[str, object]:
+    model_ids = manifest.get("model_ids")
+    if not isinstance(model_ids, list):
+        raise RuntimeError("verified manifest model_ids are missing")
+    rows_dir = safe_path(attempt_dir, "rows")
+    model_rows = [
+        load_json_object(safe_path(rows_dir, f"{index:04d}.json"))
+        for index in range(len(model_ids))
+    ]
+    auxiliary_meta = execution.get("auxiliary")
+    if not isinstance(auxiliary_meta, dict):
+        raise RuntimeError("verified execution auxiliary metadata is missing")
+    auxiliary_relative = auxiliary_meta.get("path")
+    if not isinstance(auxiliary_relative, str) or not auxiliary_relative:
+        raise RuntimeError("verified auxiliary path is missing")
+    auxiliary = load_json_object(safe_path(attempt_dir, auxiliary_relative))
+    return build_evidence_summary(model_rows, execution, auxiliary)
+
+
 def _cmd_report(args: argparse.Namespace) -> int:
     execution = verify_attempt(args.manifest, args.attempt_dir)
     manifest = load_json_object(args.manifest)
+    evidence = _load_verified_report_evidence(manifest, execution, args.attempt_dir)
     if args.output.exists():
         raise FileExistsError(f"refusing to overwrite report directory: {args.output}")
     args.output.mkdir(parents=True)
@@ -74,11 +100,11 @@ def _cmd_report(args: argparse.Namespace) -> int:
     # Causal status is intentionally conservative until a reviewed interpretation
     # maps diagnostic fields to a stronger conclusion.
     candidates = (
-        AttributionCandidate("control_residual_structure", "unresolved", ("models",)),
-        AttributionCandidate("representation_or_readout_limit", "unresolved", ("models",)),
-        AttributionCandidate("prediction_target_mismatch", "unresolved", ("accounting",)),
-        AttributionCandidate("history_interaction", "unresolved", ("accounting",)),
-        AttributionCandidate("terminal_drain_contribution", "unresolved", ("accounting",)),
+        AttributionCandidate("control_residual_structure", "unresolved", ("evidence", "permutation_distributions")),
+        AttributionCandidate("representation_or_readout_limit", "unresolved", ("evidence", "privileged_references")),
+        AttributionCandidate("prediction_target_mismatch", "unresolved", ("evidence", "accounting")),
+        AttributionCandidate("history_interaction", "unresolved", ("evidence", "accounting")),
+        AttributionCandidate("terminal_drain_contribution", "unresolved", ("evidence", "accounting")),
     )
     summary = build_report_summary(
         diagnostic_valid=bool(execution["diagnostic_valid"]),
@@ -93,6 +119,7 @@ def _cmd_report(args: argparse.Namespace) -> int:
     summary["manifest_sha256"] = sha256_file(args.manifest)
     summary["manifest_profile"] = manifest.get("profile")
     summary["attempt_id"] = execution.get("attempt_id")
+    summary["evidence"] = evidence
     _write_new(args.output / "summary.json", canonical_json_bytes(summary))
     _write_new(args.output / "report.md", render_markdown(summary).encode("utf-8"))
     print(json.dumps({"output": str(args.output)}, sort_keys=True))
