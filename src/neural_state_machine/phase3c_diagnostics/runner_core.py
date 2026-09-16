@@ -362,8 +362,8 @@ def run_registered_measurement(
         expected_models = tuple(
             ModelId.from_dict(item).stable_key() for item in manifest["model_ids"]
         )
-        validate_complete_keys(expected_models, tuple(model_keys))
-        validate_complete_keys(
+        _base.validate_complete_keys(expected_models, tuple(model_keys))
+        _base.validate_complete_keys(
             tuple(manifest["main_score_keys"]), tuple(main_score_keys)
         )
         execution["accounting"] = [
