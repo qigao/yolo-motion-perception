@@ -1,0 +1,5 @@
+# Phase 3C diagnostic replay anchors observed on exact-head run #414.
+# Build tools are frozen in phase3c-diagnostics-python312.lock.
+numpy==2.5.3
+pytest==9.1.1
+ruff==0.15.22
