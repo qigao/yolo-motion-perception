@@ -22,6 +22,7 @@ from .phase3c_controls import (
     AnonymousProtocolAudit,
     integer_sequence_digest,
     learner_call_digest,
+    relabel_feedback_sources,
     validate_anonymous_protocol,
 )
 from .phase3c_formal_contract import load_phase3c_formal_contract
@@ -190,12 +191,21 @@ def _new_arm(
 
 
 def _source_relabel_invariant(feedbacks: tuple[AggregateFeedback, ...]) -> bool:
-    original = tuple(feedback.value for feedback in feedbacks)
-    relabeled = tuple(
-        float(sum(record.reward for record in feedback.records))
-        for feedback in feedbacks
+    relabeled = relabel_feedback_sources(feedbacks)
+    original_values = tuple(feedback.value for feedback in feedbacks)
+    relabeled_values = tuple(feedback.value for feedback in relabeled)
+    original_sources = tuple(
+        record.source_step for feedback in feedbacks for record in feedback.records
     )
-    return learner_call_digest(original) == learner_call_digest(relabeled)
+    relabeled_sources = tuple(
+        record.source_step for feedback in relabeled for record in feedback.records
+    )
+    return (
+        bool(original_sources)
+        and original_sources != relabeled_sources
+        and original_values == relabeled_values
+        and learner_call_digest(original_values) == learner_call_digest(relabeled_values)
+    )
 
 
 def _hidden_multiplicity_invariant(feedbacks: tuple[AggregateFeedback, ...]) -> bool:
