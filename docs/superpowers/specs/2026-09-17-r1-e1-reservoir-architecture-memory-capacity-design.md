@@ -139,7 +139,7 @@ Two serial reservoir layers of size `N/2` each. Layer 1 receives the external ob
 
 Four serial reservoir layers of size `N/4` each. Layer `k+1` receives the current state of layer `k`. Concatenate all layer states in layer order, so final `state_dim = N`.
 
-No architecture may receive more trainable readout dimensions than another architecture at the same budget.
+No architecture may receive more readout dimensions than another architecture at the same budget.
 
 ## 8. Deterministic lineages
 
@@ -151,26 +151,60 @@ Registered base seeds are:
 
 Seeds 7/17/29 preserve continuity with earlier project measurements; 43/61 add prospective reservoir realizations.
 
-Every architecture/subreservoir gets an isolated deterministic RNG lineage derived from:
+### 8.1 Reservoir enum and RNG lineage
+
+Use these fixed identifiers:
+
+```text
+budget_id:
+  0 = N64
+  1 = N256
+
+architecture_id:
+  0 = shallow
+  1 = grouped2
+  2 = grouped4
+  3 = deep2
+  4 = deep4
+
+component_id:
+  zero-based group/layer index
+```
+
+Every architecture/subreservoir gets an isolated deterministic RNG lineage:
 
 ```text
 SeedSequence([base_seed, 0x52314531, budget_id, architecture_id, component_id])
 ```
 
-where identifiers are fixed integer enums committed before measurement. Fixture/noise RNGs use separate lineage tags and must never consume reservoir RNG state.
+### 8.2 Fixture/noise lineages
 
-The same semantic fixture realization and corruption mask must be presented to every architecture arm for a given base seed.
+Fixture RNG streams are independent of budget and architecture so every arm sees the same semantic examples for a base seed:
+
+```text
+E1-A train:      SeedSequence([seed, 0x45314154])
+E1-A evaluation: SeedSequence([seed, 0x45314145])
+E1-B train:      SeedSequence([seed, 0x45314254])
+E1-B evaluation: SeedSequence([seed, 0x45314245])
+E1-C train:      SeedSequence([seed, 0x45314354])
+E1-C evaluation: SeedSequence([seed, 0x45314345])
+E1-C corruption: SeedSequence([seed, 0x45314343])
+```
+
+No fixture/noise path may consume reservoir RNG state. Do not reject or resample inconvenient fixtures or corruptions.
 
 ## 9. Fixed readout
 
-All R1 E1 supervised measurements use the same linear Ridge probe:
+All R1 E1 supervised measurements use Ridge regularization:
 
 ```text
 regularization = 1e-6
-bias = enabled
+bias = enabled and unpenalized
 ```
 
-The probe is fitted only from frozen collected reservoir states and training labels. It must not alter reservoir parameters. Use a stable SVD/least-squares implementation; do not form an explicit matrix inverse.
+The probe is fitted only from frozen collected reservoir states and training labels. It must not alter reservoir parameters. Use a stable SVD/least-squares formulation; do not form an explicit matrix inverse.
+
+E1-A uses the existing Phase 2A binary target convention (`-1/+1`, threshold `>0`, tie to class 0) for continuity. E1-B and E1-C use one-hot multi-output Ridge and deterministic `argmax`; exact ties choose the lowest class index.
 
 For every fitted probe record:
 
@@ -201,7 +235,7 @@ For every architecture/budget/seed:
 - cue classes: binary and exactly balanced;
 - decision-time/current observation is class-independent;
 - labels are attached only after reservoir states are collected;
-- the same Ridge probe law is used for every arm.
+- the same binary Ridge probe law is used for every arm.
 
 ### 10.1 Reset negative control
 
@@ -223,7 +257,7 @@ Do not collapse all evidence into a single winner score.
 
 ### 10.3 Phase 2A continuity check
 
-The `N=64` shallow arm must additionally reproduce the existing Phase 2A behavior on the original delays 1–5 using an explicit compatibility path. A continuity mismatch is a protocol blocker and must be resolved before registered E1 measurement.
+The `N=64` shallow arm must additionally reproduce the existing Phase 2A behavior on the original delays 1–5 using an explicit compatibility path with the existing Phase 2A fixture/readout law. A continuity mismatch is a protocol blocker and must be resolved before registered E1 measurement.
 
 ## 11. E1-B — Multi-event history separability
 
@@ -231,7 +265,7 @@ Memory of one binary cue is insufficient to characterize behavior context. E1-B 
 
 ### 11.1 Event fixture
 
-Use event channels:
+Use two event channels:
 
 ```text
 A = [1, 0]
@@ -242,10 +276,10 @@ neutral = [0, 0]
 The four history classes are:
 
 ```text
-AB
-BA
-AA
-BB
+0 = AB
+1 = BA
+2 = AA
+3 = BB
 ```
 
 The first event occurs at step 0 and the second at step 2. After the second event, append a neutral tail of registered length:
@@ -254,7 +288,7 @@ The first event occurs at step 0 and the second at step 2. After the second even
 H = [1, 5, 20, 40]
 ```
 
-Add four class-independent nuisance channels. For each paired fixture group, all four history classes receive the same deterministic nuisance stream; nuisance values are zero-mean Rademacher values scaled by `0.25`. Training and evaluation use disjoint fixture lineages.
+Add four class-independent nuisance channels. For each paired fixture group, all four history classes receive the same deterministic nuisance stream; each nuisance value is independently sampled from `{-0.25,+0.25}`. Training and evaluation use the fixed disjoint RNG lineages in Section 8.
 
 The readout sees only the terminal reservoir state and predicts one of the four history classes.
 
@@ -267,7 +301,7 @@ For every architecture/budget/seed/horizon:
 
 ### 11.3 Reset control
 
-Reset immediately after the second event and before the class-independent neutral/nuisance tail. Because each four-class group then receives identical post-reset inputs, the terminal states within that group must be byte-identical. With balanced labels, reset classification must be exactly `25%`.
+Reset immediately after the second event and before the class-independent neutral/nuisance tail. Because each four-class group then receives identical post-reset inputs, the terminal states within that group must be byte-identical. With balanced labels, reset classification must be exactly `50/200 = 25%` for every horizon.
 
 ### 11.4 Separability metrics
 
@@ -277,7 +311,7 @@ Report:
 - macro accuracy;
 - normalized correct-class margin distributions;
 - within-class and between-class terminal-state cosine-distance summaries;
-- contiguous 80% separability horizon using the same all-shorter-horizons rule.
+- **contiguous 80% separability horizon:** largest registered horizon `h` such that every tested horizon `<= h` is at least `80%` accurate.
 
 These are representation measurements. They do not establish semantic attractors.
 
@@ -285,40 +319,95 @@ These are representation measurements. They do not establish semantic attractors
 
 E1-C is synthetic and detector-like; it does not run YOLO or use video. Its purpose is to test whether reservoir topology changes robustness when primitive temporal observations are missing, wrong, occluded or jittered.
 
-### 12.1 Clean primitive sequences
+### 12.1 Feature vector
 
-Use 20-step normalized primitive feature sequences with four behavior classes:
+Each frame is a 9-dimensional float64 vector:
 
-1. `approach` — hand/object distance decreases; no overlap; object remains static.
-2. `touch` — approach followed by overlap; object remains static.
-3. `pick_up` — approach, overlap, then object motion follows hand motion.
-4. `pass_by` — distance decreases then increases; no overlap; object remains static.
+```text
+0 relative_distance      in [0,1]
+1 overlap                in {0,1}
+2 hand_speed             in [0,1]
+3 object_speed           in [0,1]
+4 motion_match           in [0,1]
+5 vertical_progress      in [0,1]
+6 visible                in {0,1}
+7 nuisance_0             in [-0.1,0.1]
+8 nuisance_1             in [-0.1,0.1]
+```
 
-Primitive features are numeric detector/tracker-style signals only: relative distance, overlap/contact indicator, hand motion, object motion, relative motion consistency, and visibility/missingness indicators. No class label is encoded in any input field.
+Within each paired four-class fixture group, nuisance channels are identical across classes and independently take values `-0.05` or `+0.05` at each frame. They prevent the clean fixture from being a single duplicated state while remaining class-independent.
 
-Training uses clean sequences only. Evaluation applies the same trained probe to clean and corrupted sequences.
+The explicit missing-observation token is the all-zero 9-vector. `visible=0` distinguishes it from ordinary visible observations.
 
-### 12.2 Registered corruption arms
+### 12.2 Clean behavior templates
 
-For each evaluation sequence, generate fixed paired corruption masks shared across architecture arms:
+Every sequence has exactly 20 frames, `t=0..19`. Frames `16..19` are an identical terminal neutral suffix for every behavior:
 
-- `clean`;
-- `drop10`: exactly 2 of 20 frames replaced by the explicit missing-observation token;
-- `wrong10`: exactly 2 of 20 frames replaced by the same-time primitive observation from a fixed incorrect donor class;
-- `occlusion4`: one contiguous four-frame missing window crossing the behavior's interaction region;
-- `jitter`: zero-mean Gaussian noise with `sigma = 0.05` on continuous features only, clipped to the registered normalized feature bounds;
-- `mixed`: exactly 2 dropped frames, exactly 1 wrong donor frame, plus `sigma = 0.05` continuous jitter.
+```text
+[0.5, 0, 0, 0, 0, 0, 1, nuisance_0, nuisance_1]
+```
 
-Corruption locations/donor identities come from an isolated deterministic fixture lineage. Do not resample inconvenient corruptions.
+Thus the final current observation cannot identify the behavior without temporal state.
 
-### 12.3 Robustness metrics
+Behavior-bearing frames `0..15` use these fixed templates before nuisance channels are appended:
+
+1. **`approach`**
+   - `relative_distance = 1 - 0.8*t/15`;
+   - `overlap = 0`;
+   - `hand_speed = 0.8`;
+   - object/match/vertical features = `0`;
+   - `visible = 1`.
+
+2. **`touch`**
+   - for `t=0..10`: `relative_distance = 1 - t/10`, `overlap=0`, `hand_speed=1`;
+   - for `t=11..15`: `relative_distance=0`, `overlap=1`, `hand_speed=0`;
+   - object/match/vertical features = `0`, `visible=1`.
+
+3. **`pick_up`**
+   - for `t=0..8`: `relative_distance = 1 - t/8`, `overlap=0`, `hand_speed=1`, object/match/vertical=`0`;
+   - for `t=9..15`: `relative_distance=0`, `overlap=1`, `hand_speed=1`;
+   - `object_speed=0` at `t=9` and `1` at `t=10..15`;
+   - `motion_match=0` at `t=9` and `1` at `t=10..15`;
+   - `vertical_progress=(t-9)/6`;
+   - `visible=1`.
+
+4. **`pass_by`**
+   - for `t=0..7`: `relative_distance = 1 - 0.9*t/7`;
+   - for `t=8..15`: `relative_distance = 0.1 + 0.9*(t-8)/7`;
+   - `overlap=0`, `hand_speed=1`, object/match/vertical=`0`, `visible=1`.
+
+No class index is an input feature.
+
+### 12.3 Counts and clean fitting
+
+For every architecture/budget/seed:
+
+- training: `200` paired nuisance realizations × 4 behavior classes = `800` clean sequences;
+- evaluation: `50` paired nuisance realizations × 4 behavior classes = `200` clean sequences;
+- the probe is fitted only on terminal reservoir states from clean training sequences;
+- the same frozen probe is then evaluated on clean and all corrupted evaluation arms.
+
+### 12.4 Registered corruption arms
+
+Corrupt only behavior-bearing frames `0..15` unless otherwise stated. Masks are paired across architectures and budgets.
+
+- `clean`: no corruption.
+- `drop10`: choose exactly 2 distinct frames from `0..15` without replacement and replace each with the missing-observation token.
+- `wrong10`: choose exactly 2 distinct frames from `0..15` without replacement and replace each with the same-time observation from the fixed donor-class cycle `approach→touch→pick_up→pass_by→approach`. The paired nuisance values remain the same.
+- `occlusion4`: replace exactly frames `8,9,10,11` with the missing-observation token.
+- `jitter`: add independent zero-mean Gaussian noise with `sigma=0.05` to continuous dimensions `0,2,3,4,5,7,8`; clip dimensions `0,2,3,4,5` to `[0,1]` and nuisance dimensions `7,8` to `[-0.1,0.1]`. Do not alter `overlap` or `visible`.
+- `mixed`: exactly 2 distinct dropped frames plus exactly 1 distinct wrong-donor frame from the remaining behavior-bearing frames, plus the same `sigma=0.05` jitter law on all non-missing frames.
+
+The corruption RNG is the isolated E1-C corruption lineage from Section 8. Do not resample inconvenient masks.
+
+### 12.5 Robustness metrics
 
 Report for every architecture/budget/seed:
 
 - clean classification accuracy;
 - accuracy for every corruption arm;
 - absolute accuracy drop from clean for each corruption;
-- macro corrupted accuracy;
+- macro corrupted accuracy over the five non-clean arms;
 - worst registered corrupted-arm accuracy;
 - confusion matrix by behavior and corruption.
 
@@ -332,7 +421,7 @@ A registered E1 result is scientifically valid only if all of the following hold
 2. every arm returns `state_dim = N`;
 3. reservoir weights are unchanged before/after all state collection and probe fitting;
 4. all required parameter/fixture/prediction digests are present;
-5. fixture and corruption lineages are identical across architecture arms where required;
+5. fixture and corruption lineages are identical across architecture arms and budgets where required;
 6. reset negative controls are exact for E1-A and E1-B;
 7. the shallow-64 Phase 2A compatibility gate passes;
 8. repeated protocol-only runs are deterministic;
@@ -385,13 +474,13 @@ The prospective manifest must bind at minimum:
 - architecture enum and definitions;
 - budgets `64/256`;
 - seeds `[7,17,29,43,61]`;
-- all RNG lineage tags;
+- all RNG lineage tags and enums from Section 8;
 - `tanh`, radius `0.9`, leak `1.0`, no recurrent bias;
 - input/recurrent initialization laws;
-- Ridge `1e-6`;
-- E1-A delays/counts/threshold definitions;
+- Ridge `1e-6` with unpenalized bias and exact binary/multiclass decision laws;
+- E1-A delays/counts/horizon definition;
 - E1-B templates/horizons/counts/nuisance law;
-- E1-C sequence schema and corruption laws;
+- E1-C exact feature schema, templates, counts and corruption laws;
 - exact Python/NumPy environment;
 - reference AutoESN commit for provenance only.
 
