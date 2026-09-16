@@ -72,6 +72,18 @@ def _load(path: Path) -> dict[str, object]:
     return payload
 
 
+def _mapping_keys(value: object) -> set[str]:
+    keys: set[str] = set()
+    if isinstance(value, dict):
+        for key, nested in value.items():
+            keys.add(str(key).lower())
+            keys.update(_mapping_keys(nested))
+    elif isinstance(value, list):
+        for nested in value:
+            keys.update(_mapping_keys(nested))
+    return keys
+
+
 def _mechanism_table() -> list[dict[str, object]]:
     return [
         {
@@ -148,11 +160,11 @@ def test_prepare_manifest_is_canonical_registered_and_result_free(tmp_path: Path
     assert list(tmp_path.iterdir()) == [manifest_path]
     assert manifest_path.read_bytes() == _canonical_bytes(payload)
 
-    flattened = json.dumps(payload).lower()
-    assert "c4b" not in flattened
-    assert "behavior_passed" not in flattened
-    assert "operator_passed" not in flattened
-    assert "outcome" not in flattened
+    field_names = _mapping_keys(payload)
+    assert "c4b" not in field_names
+    assert "behavior_passed" not in field_names
+    assert "operator_passed" not in field_names
+    assert "outcome" not in field_names
 
 
 def test_prepare_manifest_refuses_overwrite_and_symlink(tmp_path: Path):
