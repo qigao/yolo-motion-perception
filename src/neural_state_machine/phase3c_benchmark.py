@@ -6,7 +6,7 @@ import hashlib
 import math
 import struct
 from collections import Counter
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 
 import numpy as np
 
