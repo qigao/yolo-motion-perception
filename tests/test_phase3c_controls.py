@@ -8,8 +8,10 @@ from neural_state_machine.phase3c_controls import (
     AnonymousProtocolAudit,
     integer_sequence_digest,
     learner_call_digest,
+    relabel_feedback_sources,
     validate_anonymous_protocol,
 )
+from neural_state_machine.phase3c_schedule import AggregateFeedback, LatentRewardRecord
 
 
 TRACE = (
@@ -124,14 +126,44 @@ def test_gate_rejects_wrong_trace_coefficient() -> None:
 
 
 def test_source_relabeling_cannot_change_learner_call_digest() -> None:
-    scalar_stream = (0.0, 1.0, -1.0, 2.0)
-    original_sources = (0, 1, 2, 3)
-    relabeled_sources = (99, 42, 7, 123)
-
-    assert integer_sequence_digest(original_sources) != integer_sequence_digest(
-        relabeled_sources
+    original = (
+        AggregateFeedback(
+            delivery_step=3,
+            value=0.0,
+            multiplicity=2,
+            records=(
+                LatentRewardRecord(0, 1, 1.0, 3, 3),
+                LatentRewardRecord(2, 0, -1.0, 1, 3),
+            ),
+        ),
+        AggregateFeedback(
+            delivery_step=4,
+            value=1.0,
+            multiplicity=1,
+            records=(LatentRewardRecord(1, 1, 1.0, 3, 4),),
+        ),
     )
-    assert learner_call_digest(scalar_stream) == learner_call_digest(scalar_stream)
+    relabeled = relabel_feedback_sources(original)
+
+    original_sources = tuple(
+        record.source_step for feedback in original for record in feedback.records
+    )
+    relabeled_sources = tuple(
+        record.source_step for feedback in relabeled for record in feedback.records
+    )
+    assert original_sources != relabeled_sources
+    assert tuple(feedback.value for feedback in original) == tuple(
+        feedback.value for feedback in relabeled
+    )
+    assert tuple(feedback.delivery_step for feedback in original) == tuple(
+        feedback.delivery_step for feedback in relabeled
+    )
+    assert tuple(feedback.multiplicity for feedback in original) == tuple(
+        feedback.multiplicity for feedback in relabeled
+    )
+    assert learner_call_digest(tuple(feedback.value for feedback in original)) == (
+        learner_call_digest(tuple(feedback.value for feedback in relabeled))
+    )
 
 
 def test_hidden_multiplicity_with_same_scalar_has_same_learner_call_encoding() -> None:
