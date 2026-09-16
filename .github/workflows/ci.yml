@@ -21,46 +21,8 @@ jobs:
       - name: Install project
         run: python -m pip install -e '.[dev]'
 
-      - name: Diagnose Phase 3C frozen replay
-        run: |
-          python - <<'PY'
-          import json
-          import platform
-          from pathlib import Path
-          import numpy as np
-          from scripts.benchmark_phase3c_anonymous_credit import build_measurement_payload
-          from scripts.verify_phase3c_anonymous_credit import _portable_projection, _validate
-
-          committed = json.loads(Path("docs/experiments/phase-3c-anonymous-temporal-credit.json").read_text())
-          runtime = build_measurement_payload()
-          _validate(committed)
-          _validate(runtime)
-          differences = []
-
-          def compare(expected, actual, path="$", diagnostic=False):
-              if isinstance(expected, dict) and isinstance(actual, dict):
-                  for key in sorted(expected.keys() | actual.keys()):
-                      if key not in expected or key not in actual:
-                          differences.append({"path": f"{path}.{key}", "kind": "missing-key"})
-                      else:
-                          compare(expected[key], actual[key], f"{path}.{key}")
-              elif isinstance(expected, list) and isinstance(actual, list):
-                  if len(expected) != len(actual):
-                      differences.append({"path": path, "kind": "length"})
-                  for index, (left, right) in enumerate(zip(expected, actual)):
-                      compare(left, right, f"{path}[{index}]")
-              elif expected != actual:
-                  item = {"path": path, "committed": expected, "runtime": actual}
-                  if type(expected) in (int, float) and type(actual) in (int, float):
-                      item["absolute_difference"] = abs(expected - actual)
-                  differences.append(item)
-
-          compare(_portable_projection(committed), _portable_projection(runtime))
-          print(json.dumps({"python": platform.python_version(), "numpy": np.__version__, "difference_count": len(differences)}, sort_keys=True))
-          for difference in differences[:100]:
-              print(json.dumps(difference, sort_keys=True))
-          assert not differences, "Phase 3C portable replay differs; see field diagnostics above"
-          PY
+      - name: Phase 3C evidence verifier regression tests
+        run: pytest -q tests/test_phase3c_verifier_portability.py
 
       - name: Unit tests
         run: pytest -q
