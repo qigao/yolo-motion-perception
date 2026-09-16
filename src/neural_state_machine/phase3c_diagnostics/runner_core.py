@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import numpy as np
+
 from neural_state_machine.action_value_benchmark import _build_fixture_bundle
 from neural_state_machine.phase3c_benchmark import AnonymousCreditConfig
 from neural_state_machine.phase3c_schedule import build_hidden_delay_schedule
 
 from . import runner_core_base as _base
+from .accounting import eligibility_history_split
 from .contracts import ModelId
 from .evaluation import EvaluationBundle
 from .provenance import (
@@ -135,3 +138,90 @@ def _anonymous_model_row(
         "scores": scores,
         "d1": d1,
     }
+
+
+def _accounting_summary(
+    replay: ReplayResult,
+    arm: str,
+    config: AnonymousCreditConfig,
+) -> dict[str, object]:
+    """Extend the preserved D3 summary with Arm-B source/history decomposition."""
+    base = _base._accounting_summary(replay, arm, config)
+    if arm == "td0":
+        return base
+    if arm != "eligibility":
+        raise ValueError("arm must be td0 or eligibility")
+
+    history = tuple((step.action, step.hidden) for step in replay.steps)
+    q_by_source = {
+        step.step: float(step.action_values[step.action]) for step in replay.steps
+    }
+    rho = config.discount * config.trace_decay
+    rows: list[dict[str, object]] = []
+    for step in replay.steps:
+        if step.eligibility is None or step.prediction_trace is None:
+            raise RuntimeError("eligibility replay is missing captured E/P state")
+        source_steps = tuple(
+            int(record["source_step"]) for record in step.metadata["records"]
+        )
+        reference_direction = np.zeros_like(step.weights_after)
+        for record in step.metadata["records"]:
+            source = int(record["source_step"])
+            source_capture = replay.steps[source]
+            feature = np.concatenate(
+                (source_capture.hidden, np.array([1.0], dtype=np.float64))
+            )
+            denominator = float(np.dot(feature, feature))
+            action = source_capture.action
+            reward = float(record["reward"])
+            reference_direction[action] += (
+                reward - q_by_source[source]
+            ) * feature / denominator
+        split = eligibility_history_split(
+            history=history,
+            step=step.step,
+            source_steps=source_steps,
+            captured_eligibility=step.eligibility,
+            feedback=step.feedback,
+            prediction_trace=step.prediction_trace,
+            step_size=config.step_size,
+            rho=rho,
+            actual_update=step.weights_after - step.weights_before,
+            reference_direction=reference_direction,
+        )
+        rows.append(
+            {
+                "step": step.step,
+                "source_steps": list(source_steps),
+                "source_count": len(source_steps),
+                "eligibility_reconstruction_max_residual": split[
+                    "eligibility_reconstruction_max_residual"
+                ],
+                "update_reconstruction_max_residual": split[
+                    "update_reconstruction_max_residual"
+                ],
+                "source_update_norm": split["source_update_norm"],
+                "other_update_norm": split["other_update_norm"],
+                "actual_update_norm": split["actual_update_norm"],
+                "reference_norm": split["reference_norm"],
+                "source_reference_inner_product": split[
+                    "source_reference_inner_product"
+                ],
+                "other_reference_inner_product": split[
+                    "other_reference_inner_product"
+                ],
+                "actual_reference_inner_product": split[
+                    "actual_reference_inner_product"
+                ],
+                "source_vs_reference_cosine": split[
+                    "source_vs_reference_cosine"
+                ],
+                "other_vs_reference_cosine": split[
+                    "other_vs_reference_cosine"
+                ],
+                "actual_vs_reference_cosine": split[
+                    "actual_vs_reference_cosine"
+                ],
+            }
+        )
+    return {**base, "history_components": rows}
