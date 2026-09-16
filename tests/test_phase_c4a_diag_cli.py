@@ -41,6 +41,12 @@ def test_prepare_cli_writes_only_registered_manifest(tmp_path: Path):
     assert payload["stage"] == "c4a-failure-attribution"
     assert payload["diagnostic_config"]["permutation_replicates"] == 32
     assert payload["permutation_lineage"] == 0x43344144
+    assert {
+        "scripts/diagnose_phase_c4a_failure.py",
+        "scripts/verify_phase_c4a_failure_diagnostics.py",
+        "requirements/phase-c4a-diagnostics.in",
+        "requirements/phase-c4a-diagnostics-python312.lock",
+    } <= set(payload["scientific_hashes"])
 
 
 def test_verify_cli_accepts_prospective_manifest(tmp_path: Path):
