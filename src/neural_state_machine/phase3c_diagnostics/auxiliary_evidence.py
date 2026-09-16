@@ -95,3 +95,13 @@ def original_auxiliary_evidence(
         reverse_checks=tuple(reverse_rows),
         drain_scores=tuple(drain_rows),
     )
+
+
+def reference_reset_evidence(
+    model: ModelId,
+    reference: object,
+    bundles: tuple[EvaluationBundle, ...],
+    config: AnonymousCreditConfig,
+) -> tuple[dict[str, object], ...]:
+    del model, reference, bundles, config
+    return ()
