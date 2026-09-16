@@ -5,7 +5,9 @@ from __future__ import annotations
 import hashlib
 import math
 import struct
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+
+from .phase3c_schedule import AggregateFeedback
 
 
 _TRACE_ATOL = 1e-15
@@ -16,6 +18,7 @@ _REGISTERED_TRACE_COEFFICIENTS = (
     (3, 0.72**3),
     (5, 0.72**5),
 )
+_SOURCE_RELABEL_OFFSET = 1_000_000_007
 
 
 @dataclass(frozen=True)
@@ -75,6 +78,24 @@ def learner_call_digest(values: tuple[float, ...]) -> str:
     for scalar in resolved:
         digest.update(struct.pack(">d", scalar))
     return digest.hexdigest()
+
+
+def relabel_feedback_sources(
+    feedbacks: tuple[AggregateFeedback, ...],
+) -> tuple[AggregateFeedback, ...]:
+    """Change only hidden source identities while preserving learner-visible feedback."""
+    if not isinstance(feedbacks, tuple):
+        raise ValueError("feedbacks must be a tuple")
+    relabeled: list[AggregateFeedback] = []
+    for feedback in feedbacks:
+        if not isinstance(feedback, AggregateFeedback):
+            raise ValueError("feedbacks must contain AggregateFeedback values")
+        records = tuple(
+            replace(record, source_step=record.source_step + _SOURCE_RELABEL_OFFSET)
+            for record in feedback.records
+        )
+        relabeled.append(replace(feedback, records=records))
+    return tuple(relabeled)
 
 
 def _is_sha256(value: object) -> bool:
