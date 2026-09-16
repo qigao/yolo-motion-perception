@@ -4,7 +4,7 @@ import copy
 
 import pytest
 
-from neural_state_machine.phase3c_diagnostics import registered_verifier
+from neural_state_machine.phase3c_diagnostics import runner
 from neural_state_machine.phase3c_diagnostics.contracts import (
     REGISTERED_ARMS,
     REGISTERED_CONDITIONS,
@@ -13,6 +13,12 @@ from neural_state_machine.phase3c_diagnostics.contracts import (
 )
 
 TRAINING_DECISIONS = 2_000
+
+
+def _validator():
+    validator = getattr(runner, "validate_registered_evidence", None)
+    assert validator is not None, "registered evidence validator must be implemented"
+    return validator
 
 
 def _metric(value: float | None = 0.25, reason: str | None = None) -> dict[str, object]:
@@ -132,43 +138,33 @@ def _manifest() -> dict[str, object]:
 
 
 def test_registered_evidence_validator_accepts_complete_d0_d1_d3_schema() -> None:
-    validator = getattr(registered_verifier, "validate_registered_evidence", None)
-    assert validator is not None, "registered evidence validator must be implemented"
-    validator(_manifest(), _execution(), _model_rows())
+    _validator()(_manifest(), _execution(), _model_rows())
 
 
 def test_registered_evidence_validator_rejects_anonymous_row_without_d1() -> None:
-    validator = getattr(registered_verifier, "validate_registered_evidence", None)
-    assert validator is not None, "registered evidence validator must be implemented"
     rows = _model_rows()
     rows[0].pop("d1")
     with pytest.raises(RuntimeError, match="D1|d1"):
-        validator(_manifest(), _execution(), rows)
+        _validator()(_manifest(), _execution(), rows)
 
 
 def test_registered_evidence_validator_rejects_missing_d0_trajectory() -> None:
-    validator = getattr(registered_verifier, "validate_registered_evidence", None)
-    assert validator is not None, "registered evidence validator must be implemented"
     execution = _execution()
     execution["d0"] = execution["d0"][:-1]
     with pytest.raises(RuntimeError, match="D0|d0"):
-        validator(_manifest(), execution, _model_rows())
+        _validator()(_manifest(), execution, _model_rows())
 
 
 def test_registered_evidence_validator_rejects_missing_accounting_trajectory() -> None:
-    validator = getattr(registered_verifier, "validate_registered_evidence", None)
-    assert validator is not None, "registered evidence validator must be implemented"
     execution = _execution()
     execution["accounting"] = execution["accounting"][:-1]
     with pytest.raises(RuntimeError, match="accounting"):
-        validator(_manifest(), execution, _model_rows())
+        _validator()(_manifest(), execution, _model_rows())
 
 
 def test_registered_evidence_validator_rejects_large_reconstruction_residual() -> None:
-    validator = getattr(registered_verifier, "validate_registered_evidence", None)
-    assert validator is not None, "registered evidence validator must be implemented"
     execution = copy.deepcopy(_execution())
     eligibility = next(row for row in execution["accounting"] if row["arm"] == "eligibility")
     eligibility["history_components"][0]["update_reconstruction_max_residual"] = 1e-4
     with pytest.raises(RuntimeError, match="residual"):
-        validator(_manifest(), execution, _model_rows())
+        _validator()(_manifest(), execution, _model_rows())
