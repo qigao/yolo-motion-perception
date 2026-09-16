@@ -51,7 +51,7 @@ _CHECKPOINT_FLOAT_FIELDS = (
     "td_error_p90",
     "td_error_maximum",
 )
-_PORTABLE_FLOAT_DECIMALS = 14
+_PORTABLE_FLOAT_DECIMALS = 13
 
 
 def _repository_root() -> Path:
