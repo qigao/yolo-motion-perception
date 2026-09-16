@@ -1,0 +1,31 @@
+{
+  "artifact": {
+    "id": 10439985654,
+    "name": "phase3c-diagnostics-task12-20260916-a-env-audit",
+    "sha256": "939178582c3c997bbf4ddd72942e26200f10e98cb42bb9c8b7ab1bff3dea015c"
+  },
+  "attempt_id": "task12-20260916-a",
+  "claim_boundary": "Post-result diagnostic; permutation ranks are descriptive rather than calibrated p-values. Privileged references and observer-only accounting do not satisfy the original anonymous behavioral gate.",
+  "counts": {
+    "drain_scores": 558,
+    "main_scores": 3645,
+    "models": 405,
+    "reset_scores": 189,
+    "reverse_checks": 108
+  },
+  "invalid_preflight_reason": "runtime environment did not equal sealed environment; no fitting began",
+  "invalid_preflight_run_id": 35078223151,
+  "manifest_sha256": "7e4df48a0d73fcdad7de9dc0c8e8a15e64f041388a5c6044dd9fa79b938ebc9b",
+  "original_phase3c_status": {
+    "all_passed": false,
+    "behavior_passed": false,
+    "formal_valid": true,
+    "protocol_valid": true
+  },
+  "report_rendered": true,
+  "reviewed_implementation_sha": "3934360384483a50f3132badf709bec2e598d453",
+  "schema_version": 1,
+  "status": "registered diagnostic valid; original Phase 3C behavior status unchanged",
+  "valid_run_id": 35078403826,
+  "verifier_passed": true
+}
