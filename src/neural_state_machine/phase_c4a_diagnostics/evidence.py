@@ -54,6 +54,10 @@ _REGISTERED_SCORES = (
 )
 _SCIENCE_PATHS = (
     "docs/superpowers/specs/2026-09-16-phase-c4a-failure-attribution-diagnostics-design.md",
+    "scripts/diagnose_phase_c4a_failure.py",
+    "scripts/verify_phase_c4a_failure_diagnostics.py",
+    "requirements/phase-c4a-diagnostics.in",
+    "requirements/phase-c4a-diagnostics-python312.lock",
     "src/neural_state_machine/action_value.py",
     "src/neural_state_machine/action_value_benchmark.py",
     "src/neural_state_machine/memory_benchmark.py",
