@@ -51,7 +51,10 @@ _CHECKPOINT_FLOAT_FIELDS = (
     "td_error_p90",
     "td_error_maximum",
 )
-_PORTABLE_FLOAT_DECIMALS = 13
+# Only non-gating checkpoint diagnostics admit bounded floating-point noise.
+# Independent decimal rounding can put adjacent floats in different buckets.
+# Keep an absolute bound (no relative scaling); all other evidence stays exact.
+_CHECKPOINT_FLOAT_ABS_TOL = 1e-12
 
 
 def _repository_root() -> Path:
@@ -342,21 +345,6 @@ def _validate(payload: dict[str, object]) -> None:
         raise RuntimeError("inconsistent behavior_passed")
 
 
-def _normalize_checkpoint_diagnostics(row: dict[str, object]) -> None:
-    """Canonicalize only non-gating floating checkpoint diagnostics for replay."""
-    for checkpoint_key in ("normal_checkpoints", "shuffled_checkpoints"):
-        checkpoints = row.get(checkpoint_key)
-        if not isinstance(checkpoints, list):
-            continue
-        for checkpoint in checkpoints:
-            if not isinstance(checkpoint, dict):
-                continue
-            for field in _CHECKPOINT_FLOAT_FIELDS:
-                value = checkpoint.get(field)
-                if type(value) is float:
-                    checkpoint[field] = round(value, _PORTABLE_FLOAT_DECIMALS)
-
-
 def _portable_projection(payload: dict[str, object]) -> dict[str, object]:
     """Project deterministic evidence into a cross-version comparison surface."""
     projection = json.loads(json.dumps(payload, sort_keys=True, allow_nan=False))
@@ -371,8 +359,57 @@ def _portable_projection(payload: dict[str, object]) -> dict[str, object]:
             raise RuntimeError("portable projection requires protocol rows")
         protocol.pop("parameter_digest", None)
         row.pop("shuffled_parameter_digest", None)
-        _normalize_checkpoint_diagnostics(row)
     return projection
+
+
+def _portable_difference(
+    expected: object,
+    actual: object,
+    path: tuple[str | int, ...] = (),
+) -> str | None:
+    """Return the first mismatch; tolerate noise only at registered diagnostic paths."""
+    location = "$" + "".join(
+        f"[{part}]" if type(part) is int else f".{part}" for part in path
+    )
+    checkpoint_float = (
+        len(path) == 5
+        and path[0] == "results"
+        and type(path[1]) is int
+        and path[2] in ("normal_checkpoints", "shuffled_checkpoints")
+        and type(path[3]) is int
+        and path[4] in _CHECKPOINT_FLOAT_FIELDS
+    )
+    if checkpoint_float:
+        if _finite_number(expected) and _finite_number(actual):
+            if math.isclose(
+                expected, actual, rel_tol=0.0, abs_tol=_CHECKPOINT_FLOAT_ABS_TOL
+            ):
+                return None
+        return f"{location}: committed={expected!r}, runtime={actual!r}"
+    if type(expected) is not type(actual):
+        return (
+            f"{location}: committed type={type(expected).__name__}, "
+            f"runtime type={type(actual).__name__}"
+        )
+    if isinstance(expected, dict):
+        if expected.keys() != actual.keys():
+            return f"{location}: object keys differ"
+        for key in sorted(expected):
+            difference = _portable_difference(expected[key], actual[key], path + (key,))
+            if difference is not None:
+                return difference
+        return None
+    if isinstance(expected, list):
+        if len(expected) != len(actual):
+            return f"{location}: committed length={len(expected)}, runtime length={len(actual)}"
+        for index, (left, right) in enumerate(zip(expected, actual)):
+            difference = _portable_difference(left, right, path + (index,))
+            if difference is not None:
+                return difference
+        return None
+    if expected != actual:
+        return f"{location}: committed={expected!r}, runtime={actual!r}"
+    return None
 
 
 def verify_phase3c_anonymous_credit(path: Path | None = None) -> dict[str, object]:
@@ -386,9 +423,13 @@ def verify_phase3c_anonymous_credit(path: Path | None = None) -> dict[str, objec
         config=AnonymousCreditConfig(),
     )
     _validate(runtime)
-    if _portable_projection(runtime) != _portable_projection(committed):
+    difference = _portable_difference(
+        _portable_projection(committed), _portable_projection(runtime)
+    )
+    if difference is not None:
         raise RuntimeError(
-            "committed Phase 3C portable evidence differs from deterministic replay"
+            "committed Phase 3C portable evidence differs from deterministic replay: "
+            + difference
         )
     return committed
 
