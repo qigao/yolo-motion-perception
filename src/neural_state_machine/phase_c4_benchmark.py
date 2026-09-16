@@ -551,3 +551,15 @@ def registered_c4_gate(
         and shuffled.total == 200
         and shuffled.correct < 150
     )
+
+
+def measure_c4a_from_protocol(protocol: PhaseC4ProtocolResult, config: PhaseC4Config):
+    from .phase_c4_measurement import measure_c4a_from_protocol as measure
+
+    return measure(protocol, config)
+
+
+def measure_c4b_from_protocol(protocol: PhaseC4ProtocolResult, config: PhaseC4Config):
+    from .phase_c4_measurement import measure_c4b_from_protocol as measure
+
+    return measure(protocol, config)
