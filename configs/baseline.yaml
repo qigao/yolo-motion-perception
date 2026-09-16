@@ -1,7 +1,0 @@
-history_seconds: 1.0
-min_samples: 5
-min_duration: 0.3
-stationary_speed_threshold: 0.02
-radial_rate_threshold: 0.15
-min_radial_confidence: 0.60
-min_trend_consistency: 0.75
