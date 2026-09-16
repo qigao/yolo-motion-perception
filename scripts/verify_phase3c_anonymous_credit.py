@@ -117,10 +117,21 @@ def _validate_checkpoint_rows(value: object, key: str) -> None:
     for row in value:
         if not isinstance(row, dict):
             raise RuntimeError(f"invalid checkpoint row: {key}")
-        if type(row.get("decision_count")) is not int or row["decision_count"] <= 0:
-            raise RuntimeError(f"invalid checkpoint decision count: {key}")
-        if not _is_hex64(row.get("parameter_digest")):
-            raise RuntimeError(f"invalid checkpoint digest: {key}")
+        episode = row.get("episode")
+        if type(episode) is not int or episode <= 0:
+            raise RuntimeError(f"invalid checkpoint episode: {key}")
+        _validate_count(row.get("accuracy"), f"{key}.accuracy")
+        for field in (
+            "margin_mean",
+            "margin_p10",
+            "margin_minimum",
+            "td_error_mean",
+            "td_error_abs_mean",
+            "td_error_p90",
+            "td_error_maximum",
+        ):
+            if not _finite_number(row.get(field)):
+                raise RuntimeError(f"invalid checkpoint field: {key}.{field}")
 
 
 def _validate_audit(value: object) -> None:
@@ -343,18 +354,6 @@ def _portable_projection(payload: dict[str, object]) -> dict[str, object]:
             raise RuntimeError("portable projection requires protocol rows")
         protocol.pop("parameter_digest", None)
         row.pop("shuffled_parameter_digest", None)
-        for checkpoint_key in ("normal_checkpoints", "shuffled_checkpoints"):
-            checkpoints = row.get(checkpoint_key)
-            if not isinstance(checkpoints, list):
-                raise RuntimeError(
-                    f"portable projection requires checkpoint rows: {checkpoint_key}"
-                )
-            for checkpoint in checkpoints:
-                if not isinstance(checkpoint, dict):
-                    raise RuntimeError(
-                        f"portable projection requires object checkpoints: {checkpoint_key}"
-                    )
-                checkpoint.pop("parameter_digest", None)
     return projection
 
 
