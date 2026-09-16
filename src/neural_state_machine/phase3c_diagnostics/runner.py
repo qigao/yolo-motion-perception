@@ -37,9 +37,29 @@ def prepare_manifest(
     return manifest_path, sha256_file(manifest_path)
 
 
+def _registered_model_rows(
+    manifest: dict[str, object], attempt_dir: Path
+) -> list[dict[str, object]]:
+    model_ids = manifest.get("model_ids")
+    if not isinstance(model_ids, list):
+        raise RuntimeError("registered manifest model_ids are missing")
+    rows_dir = attempt_dir / "rows"
+    rows: list[dict[str, object]] = []
+    for index in range(len(model_ids)):
+        rows.append(load_json_object(rows_dir / f"{index:04d}.json"))
+    return rows
+
+
 def verify_attempt(manifest_path: Path, attempt_dir: Path) -> dict[str, object]:
+    manifest = load_json_object(manifest_path)
     execution = _core.verify_attempt(manifest_path, attempt_dir)
-    verify_auxiliary_artifact(load_json_object(manifest_path), execution, attempt_dir)
+    verify_auxiliary_artifact(manifest, execution, attempt_dir)
+    if manifest.get("registered_valid_profile") is True:
+        validate_registered_evidence(
+            manifest,
+            execution,
+            _registered_model_rows(manifest, attempt_dir),
+        )
     return execution
 
 
