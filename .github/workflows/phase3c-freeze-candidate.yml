@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   freeze-candidate:
-    if: github.event.head_commit.message == 'ci: freeze phase 3c candidate artifact'
+    if: ${{ github.event.head_commit.message == 'ci: freeze phase 3c candidate artifact' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
