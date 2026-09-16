@@ -5,6 +5,8 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from neural_state_machine.action_value import ActionValueDecision
+
 
 @dataclass(frozen=True, slots=True)
 class RidgeReference:
@@ -45,13 +47,7 @@ class SourceVisibleDelayedReference:
         self._weights = np.zeros((2, hidden_size + 1), dtype=np.float64)
         self._records: dict[int, SourceDecision] = {}
 
-    def record_decision(self, source_step: int, action: int, hidden: np.ndarray) -> float:
-        if type(source_step) is not int or source_step < 0:
-            raise ValueError("source_step must be a non-negative integer")
-        if source_step in self._records:
-            raise RuntimeError("source_step has already been recorded")
-        if type(action) is not int or action not in (0, 1):
-            raise ValueError("action must be 0 or 1")
+    def _feature(self, hidden: np.ndarray) -> tuple[np.ndarray, float]:
         vector = np.asarray(hidden, dtype=np.float64)
         if vector.shape != (self.hidden_size,) or not np.all(np.isfinite(vector)):
             raise ValueError("hidden must be a finite vector matching hidden_size")
@@ -59,8 +55,18 @@ class SourceVisibleDelayedReference:
         denominator = float(np.dot(feature, feature))
         if not math.isfinite(denominator) or denominator <= 0.0:
             raise ValueError("feature normalization is invalid")
-        feature = np.array(feature, dtype=np.float64, copy=True)
-        feature.flags.writeable = False
+        frozen = np.array(feature, dtype=np.float64, copy=True)
+        frozen.flags.writeable = False
+        return frozen, denominator
+
+    def record_decision(self, source_step: int, action: int, hidden: np.ndarray) -> float:
+        if type(source_step) is not int or source_step < 0:
+            raise ValueError("source_step must be a non-negative integer")
+        if source_step in self._records:
+            raise RuntimeError("source_step has already been recorded")
+        if type(action) is not int or action not in (0, 1):
+            raise ValueError("action must be 0 or 1")
+        feature, denominator = self._feature(hidden)
         prediction = float(self._weights[action] @ feature)
         self._records[source_step] = SourceDecision(
             source_step=source_step,
@@ -93,6 +99,21 @@ class SourceVisibleDelayedReference:
                 raise ValueError("source-visible update would overflow")
             self._weights[record.action] = candidate
 
+    def select_greedy(
+        self, hidden_state: object, legal_action_indices: object
+    ) -> ActionValueDecision:
+        feature, _ = self._feature(np.asarray(hidden_state, dtype=np.float64))
+        legal = tuple(legal_action_indices)
+        if not legal or any(type(action) is not int or action not in (0, 1) for action in legal):
+            raise ValueError("legal actions must be a non-empty subset of 0,1")
+        values = self._weights @ feature
+        masked = np.full(2, -np.inf, dtype=np.float64)
+        masked[list(legal)] = values[list(legal)]
+        maximum = max(masked[action] for action in legal)
+        selected = min(action for action in legal if masked[action] == maximum)
+        masked.flags.writeable = False
+        return ActionValueDecision(selected, masked)
+
     @property
     def pending_count(self) -> int:
         return len(self._records)
@@ -121,16 +142,13 @@ def fit_supervised_ridge(
     penalty = float(regularization)
     if not math.isfinite(penalty) or penalty <= 0.0:
         raise ValueError("regularization must be finite and positive")
-
     design = np.column_stack((values, np.ones(values.shape[0], dtype=np.float64)))
     targets = -np.ones((values.shape[0], 2), dtype=np.float64)
     targets[np.arange(values.shape[0]), np.asarray(correct_actions, dtype=np.int64)] = 1.0
     dimension = design.shape[1]
     augmented_design = np.vstack((design, math.sqrt(penalty) * np.eye(dimension)))
     augmented_targets = np.vstack((targets, np.zeros((dimension, 2), dtype=np.float64)))
-    weights, _, rank, _ = np.linalg.lstsq(
-        augmented_design, augmented_targets, rcond=None
-    )
+    weights, _, rank, _ = np.linalg.lstsq(augmented_design, augmented_targets, rcond=None)
     if not np.all(np.isfinite(weights)):
         raise ValueError("ridge solution must be finite")
     frozen = np.array(weights, dtype=np.float64, copy=True)

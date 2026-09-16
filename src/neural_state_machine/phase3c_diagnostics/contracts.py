@@ -10,6 +10,8 @@ REGISTERED_CONDITIONS = ("normal", "original_shuffle")
 PERMUTATION_MODES = ("block10", "global")
 REFERENCE_KINDS = ("supervised_ridge", "immediate_identified", "source_visible_delayed")
 REGISTERED_DELAY_SUPPORT = (1, 3, 5)
+REGISTERED_PROFILE = "registered-v1"
+SMOKE_PROFILE = "smoke"
 
 _REGISTERED_CONFIG = {
     "hidden_size": 64,
@@ -115,6 +117,14 @@ class ModelId:
             reference_kind=mapping["reference_kind"],
         )
 
+    def stable_key(self) -> str:
+        parts = [self.family, f"seed={self.seed}"]
+        for name in ("condition", "mode", "replicate", "arm", "reference_kind"):
+            value = getattr(self, name)
+            if value is not None:
+                parts.append(f"{name}={value}")
+        return "/".join(parts)
+
 
 @dataclass(frozen=True, slots=True)
 class EvaluationId:
@@ -132,6 +142,9 @@ class EvaluationId:
     @property
     def is_original(self) -> bool:
         return self.evaluation_id == -1
+
+    def stable_key(self) -> str:
+        return f"seed={self.seed}/evaluation={self.evaluation_id}"
 
 
 @dataclass(frozen=True, slots=True)
@@ -179,9 +192,7 @@ def registered_model_ids() -> tuple[ModelId, ...]:
         for mode in PERMUTATION_MODES:
             for replicate in range(32):
                 for arm in REGISTERED_ARMS:
-                    rows.append(
-                        ModelId("permutation", seed, arm=arm, mode=mode, replicate=replicate)
-                    )
+                    rows.append(ModelId("permutation", seed, arm=arm, mode=mode, replicate=replicate))
         for reference_kind in REFERENCE_KINDS:
             rows.append(ModelId("reference", seed, reference_kind=reference_kind))
     result = tuple(rows)
@@ -190,9 +201,23 @@ def registered_model_ids() -> tuple[ModelId, ...]:
     return result
 
 
+def profile_model_ids(profile: str) -> tuple[ModelId, ...]:
+    if profile == REGISTERED_PROFILE:
+        return registered_model_ids()
+    if profile == SMOKE_PROFILE:
+        return (
+            ModelId("original", 7, arm="td0", condition="normal"),
+            ModelId("permutation", 7, arm="td0", mode="global", replicate=0),
+            ModelId("reference", 7, reference_kind="supervised_ridge"),
+        )
+    raise ValueError("profile must be registered-v1 or smoke")
+
+
+def profile_is_registered(profile: str) -> bool:
+    if profile not in (REGISTERED_PROFILE, SMOKE_PROFILE):
+        raise ValueError("profile must be registered-v1 or smoke")
+    return profile == REGISTERED_PROFILE
+
+
 def registered_evaluation_ids() -> tuple[EvaluationId, ...]:
-    return tuple(
-        EvaluationId(seed, evaluation_id)
-        for seed in REGISTERED_SEEDS
-        for evaluation_id in (-1, *range(8))
-    )
+    return tuple(EvaluationId(seed, evaluation_id) for seed in REGISTERED_SEEDS for evaluation_id in (-1, *range(8)))
