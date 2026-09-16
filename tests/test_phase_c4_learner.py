@@ -41,6 +41,15 @@ def _prepared_registered_learner() -> DelayMarginalizedAnonymousCredit:
     return learner
 
 
+def _assert_history_equal(left, right) -> None:
+    assert len(left) == len(right)
+    for left_row, right_row in zip(left, right, strict=True):
+        assert left_row.decision_index == right_row.decision_index
+        assert left_row.action_index == right_row.action_index
+        assert left_row.denominator == right_row.denominator
+        np.testing.assert_array_equal(left_row.feature, right_row.feature)
+
+
 def test_registered_learner_starts_zero_with_bounded_anonymous_state():
     learner = DelayMarginalizedAnonymousCredit(2, 2)
     assert learner.law == DelayLaw.registered()
@@ -138,7 +147,7 @@ def test_drain_rejects_pending_real_decision_atomically():
         learner.learn_drain(0.0)
 
     assert learner.parameter_snapshot().tobytes() == before.tobytes()
-    assert learner.history_snapshot() == history
+    _assert_history_equal(learner.history_snapshot(), history)
     assert learner.has_pending_feedback is True
 
 
@@ -157,7 +166,7 @@ def test_invalid_feedback_preserves_online_state(bad: object):
         learner.learn(bad)
 
     assert learner.parameter_snapshot().tobytes() == before_weights.tobytes()
-    assert learner.history_snapshot() == before_history
+    _assert_history_equal(learner.history_snapshot(), before_history)
     assert learner.has_pending_feedback is True
 
 
@@ -175,7 +184,7 @@ def test_same_scalar_feedback_is_indistinguishable_from_collision_origin():
         right.learn(+1.0 + -1.0)
 
     assert left.parameter_digest() == right.parameter_digest()
-    assert left.history_snapshot() == right.history_snapshot()
+    _assert_history_equal(left.history_snapshot(), right.history_snapshot())
 
 
 def test_immediate_boundary_is_byte_exact_phase3a_across_multiple_steps():
