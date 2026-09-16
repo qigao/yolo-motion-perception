@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import numpy as np
 import pytest
 
 from neural_state_machine.phase3c_benchmark import AnonymousCreditConfig, _execute_training
@@ -52,4 +53,34 @@ def test_reward_override_capture_matches_untouched_endpoint_and_exposes_actual_c
     )
     assert len(observed.scalar_calls) == (
         SMALL.training_decisions + expected.protocol.audit.drain_feedback_count
+    )
+
+
+@pytest.mark.parametrize("arm", ["td0", "eligibility"])
+def test_single_pass_capture_returns_the_same_endpoint_learner_for_scoring(arm: str) -> None:
+    baseline = _execute_training(7, arm, SMALL, immediate_control=False)
+    reward_override = tuple(reversed(baseline.protocol.rewards))
+    expected = _execute_training(
+        7,
+        arm,
+        SMALL,
+        immediate_control=False,
+        reward_override=reward_override,
+    )
+
+    capture = getattr(replay, "capture_reward_override_execution", None)
+    assert capture is not None, "single-pass D1 capture endpoint must be implemented"
+    observed = capture(
+        7,
+        arm,
+        SMALL,
+        reward_override=reward_override,
+        attempt_id="d1-single-pass",
+    )
+
+    assert observed.replay.protocol == expected.protocol
+    assert observed.learner.parameter_digest() == expected.protocol.parameter_digest
+    np.testing.assert_array_equal(
+        observed.learner.parameter_snapshot(),
+        expected.learner.parameter_snapshot(),
     )
