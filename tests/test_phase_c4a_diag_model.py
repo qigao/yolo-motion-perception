@@ -45,14 +45,14 @@ def test_registered_diagnostic_config_is_exact():
     assert config.permutation_lineage == 0x43344144
     assert config.modes == ("block10", "global")
     assert config.near_zero_margin == 1e-9
-    assert config.registered is True
+    assert config.is_registered is True
 
 
 def test_testing_config_is_explicitly_unregistered():
     config = DiagnosticConfig.testing(2)
 
     assert config.permutation_replicates == 2
-    assert config.registered is False
+    assert config.is_registered is False
     with pytest.raises(ValueError, match="positive"):
         DiagnosticConfig.testing(0)
 
