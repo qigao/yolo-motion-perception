@@ -1,0 +1,11 @@
+# Phase C4-A failure-attribution diagnostics exact Python 3.12.14 environment; provenance is sealed by preflight.
+iniconfig==2.3.0
+numpy==2.5.3
+packaging==26.3
+pip==26.2.1
+pluggy==1.6.0
+Pygments==2.21.0
+pytest==9.1.1
+ruff==0.15.22
+setuptools==84.0.0
+wheel==0.48.0
