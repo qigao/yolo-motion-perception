@@ -137,8 +137,6 @@ def expected_current_donor_matches(due_steps: tuple[int, ...], mode: str) -> flo
         for slot, due_step in enumerate(due_steps)
     )
     if mode == "block10":
-        if count % 10:
-            raise ValueError("block10 expectation requires count divisible by 10")
         return eligible / 10.0
     if mode == "global":
         return eligible / float(count)
