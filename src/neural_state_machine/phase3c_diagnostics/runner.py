@@ -10,6 +10,7 @@ from .auxiliary_verifier import verify_auxiliary_artifact
 from .evaluation import build_evaluation_bundles
 from .manifest import canonical_json_bytes, load_json_object, sha256_file
 from .measurement_gate import seal_auxiliary_artifact
+from .registered_verifier import validate_registered_evidence
 from .replay import run_diagnostic_replay
 from .runner_core import *  # noqa: F403
 
