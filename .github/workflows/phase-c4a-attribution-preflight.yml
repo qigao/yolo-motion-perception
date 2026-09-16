@@ -1,0 +1,70 @@
+name: Phase C4-A Attribution Preflight
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  preflight:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12.14"
+          cache: pip
+
+      - name: Recreate exact diagnostic environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import platform
+          if platform.python_version() != "3.12.14":
+              raise SystemExit(f"expected Python 3.12.14, got {platform.python_version()}")
+          PY
+          rm -rf /tmp/phase-c4a-attribution-venv /tmp/phase-c4a-attribution-prospective
+          python -m venv /tmp/phase-c4a-attribution-venv
+          /tmp/phase-c4a-attribution-venv/bin/python -m pip install --upgrade pip==26.2.1
+          /tmp/phase-c4a-attribution-venv/bin/python -m pip install -r requirements/phase-c4a-diagnostics-python312.lock
+          grep -v '^#' requirements/phase-c4a-diagnostics-python312.lock | sed '/^$/d' | sort -f > /tmp/phase-c4a-attribution-expected.lock
+          /tmp/phase-c4a-attribution-venv/bin/python -m pip freeze --all | sort -f > /tmp/phase-c4a-attribution-actual.lock
+          diff -u /tmp/phase-c4a-attribution-expected.lock /tmp/phase-c4a-attribution-actual.lock
+          /tmp/phase-c4a-attribution-venv/bin/python -m pip install --no-deps --no-build-isolation -e .
+
+      - name: Attribution tests
+        run: /tmp/phase-c4a-attribution-venv/bin/python -m pytest -q tests/test_phase_c4a_diag_*.py
+
+      - name: Attribution Ruff
+        shell: bash
+        run: |
+          set -euo pipefail
+          /tmp/phase-c4a-attribution-venv/bin/python -m ruff check \
+            src/neural_state_machine/phase_c4a_diagnostics \
+            scripts/diagnose_phase_c4a_failure.py \
+            scripts/verify_phase_c4a_failure_diagnostics.py \
+            tests/test_phase_c4a_diag_*.py
+
+      - name: Registered D0 protocol reproduction
+        run: /tmp/phase-c4a-attribution-venv/bin/python scripts/diagnose_phase_c4a_failure.py protocol
+
+      - name: Prepare prospective attribution manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          /tmp/phase-c4a-attribution-venv/bin/python scripts/diagnose_phase_c4a_failure.py \
+            prepare --output /tmp/phase-c4a-attribution-prospective
+          /tmp/phase-c4a-attribution-venv/bin/python scripts/verify_phase_c4a_failure_diagnostics.py \
+            --root /tmp/phase-c4a-attribution-prospective --no-result-ok
+          test -f /tmp/phase-c4a-attribution-prospective/manifest.json
+          test "$(find /tmp/phase-c4a-attribution-prospective -maxdepth 1 -type f | wc -l)" -eq 1
+          sha256sum /tmp/phase-c4a-attribution-prospective/manifest.json
+
+      - name: Upload prospective attribution manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase-c4a-attribution-prospective-${{ github.sha }}
+          path: /tmp/phase-c4a-attribution-prospective/manifest.json
+          if-no-files-found: error
+          retention-days: 30
