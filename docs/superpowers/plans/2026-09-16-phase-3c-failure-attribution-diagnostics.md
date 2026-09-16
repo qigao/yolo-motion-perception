@@ -27,8 +27,8 @@ Keep these boundaries separate:
 | Gate | Authorized work after that gate | Mandatory stop |
 |---|---|---|
 | Plan review, current checkpoint | Read and revise this plan | Before production/test implementation |
-| Execution approval | Tasks 1-10: diagnostic-only implementation, small tests and existing-evidence replay verification | Before the new registered diagnostic measurement |
-| Measurement approval of exact implementation and sealed manifest | Tasks 11-12: D0, complete D1/D2/D3 measurement and report | Before learner changes, new scientific phase or merge |
+| Execution approval | Tasks 1-10 implementation/verification, then Task 11 audit and prospective manifest preparation | End of Task 11, before new registered diagnostic measurement |
+| Measurement approval of exact implementation and sealed manifest | Task 12: D0, complete D1/D2/D3 measurement and report | Before learner changes, new scientific phase or merge |
 
 The frozen evidence path is `docs/experiments/phase-3c-anonymous-temporal-credit.json`; required SHA-256 is `53b52fb6716daaceeb68b4e5c78f33333c0076b0d727462aa7265b0887798263`. The original measurement run is `35046817410` at `4d13a55545e67aa97ce1e67fd40aaeef044b19a8`; the bound formal reference is `3de297cee2a94a7fc309531334f720f1b34467c9`. Validate actual bytes and binding, not just this prose.
 
@@ -203,7 +203,7 @@ def test_due_time_belongs_to_slot_not_donor():
 
 **Files:** create `evaluation.py`; test `test_phase3c_diagnostics_evaluation.py`.
 
-- [ ] Write RED tests for 27 per-seed evaluation bundles (three original plus 24 additional), distinct typed IDs, deterministic hashes, 200 cases per bundle and 40 per cue delay. Repeated cue/delay categories are legal; identity is bundle/index, not just category.
+- [ ] Write RED tests for 27 evaluation bundles across the three seeds (nine per seed; three original plus 24 additional), distinct typed IDs, deterministic hashes, 200 cases per bundle and 40 per cue delay. Repeated cue/delay categories are legal; identity is bundle/index, not just category.
 - [ ] Run `python -m pytest -q tests/test_phase3c_diagnostics_evaluation.py`. Instrument a fake fitter to prove all evaluation bundles/hashes are sealed before any fit call is allowed.
 - [ ] Reuse `_build_fixtures(DelayedCueTask(), rng, 20)` and the existing fixture digest, with only the registered evaluation lineages. Keep the original bundle unchanged. Precompute/hash the complete manifest without training a new model.
 - [ ] Score each snapshot with fresh policy/learner copies and `_evaluate`; never change the live training object. Verify a copied snapshot's greedy outputs and tie handling against the original class. Evaluation labels are scoring-only, never supplied to fit/training.
