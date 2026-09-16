@@ -25,7 +25,8 @@
 - C4-A ridge penalty is exactly `1e-6`, including action-block bias coordinates. No scaling, hyperparameter search, feature selection, checkpoint selection, or evaluation-label fitting.
 - C4-B uses `P_t=<W_t,Z_t>` with the current pre-update weights. It stores no prediction trace and uses no stale decision-time prediction.
 - Normal C4-B credit support is exactly lags `(1,3,5)`. The learner receives one finite scalar per delivery clock and no realized source ID, delay, due step, multiplicity, latent reward, or environment queue metadata.
-- Terminal drain uses the same observation/update equation, adds no synthetic action, and ends after the last possible registered delay.
+- Terminal drain uses the same observation/update equation, adds no synthetic action, and consumes every anonymous delivery clock through the **public support horizon** `N - 1 + max(delay_support)`, even when the frozen aggregator returns `0.0` for an empty bucket. It must not stop early at `max(actual_due_steps)`, because that would reveal realized hidden-schedule information through run length.
+- For registered support `(1,3,5)`, drain clocks are exactly `N, N+1, N+2, N+3, N+4`: five scalar calls after the final real decision.
 - Protocol control `{0:1}` must match frozen Phase 3A exactly in the same environment: action sequence, scalar update fields, full weight bytes, and parameter digest.
 - For exact `{0:1}` continuity, preserve Phase 3A arithmetic order `step_size * td_error * feature / denominator` on the selected row. Do not substitute a mathematically equivalent matrix operation with a different floating-point order.
 - C4-A code, C4-B code, formal binding, registered config, thresholds, and lineages are frozen before the first C4-A registered measurement. After observing C4-A, no C4 scientific code change is permitted inside C4 v1.
@@ -472,7 +473,7 @@ Use two actions and one hidden coordinate. Build three candidate historical rows
 
 - [ ] **Step 3: Write RED drain tests.**
 
-After the final real decision, call `learn_drain` for clocks `N` through `N+5`. Assert no new decision row is appended, candidates shrink according to support `(1,3,5)`, and history is empty after support expires. When `Z=C=0`, a finite scalar is still validated but weights remain byte-identical and `applied` is false.
+For `N=4` and registered support `(1,3,5)`, make real decisions at clocks `0..3`, then call `learn_drain` exactly at clocks `4,5,6,7,8`, corresponding to `N` through `N-1+max(support)`. Assert no new decision row is appended, candidate sets shrink only by public age, and completed history is empty after clock `8`. Do not call clock `9`; it is outside the registered public support horizon.
 
 - [ ] **Step 4: Write exact `{0:1}` Phase 3A continuity RED test.**
 
@@ -512,7 +513,7 @@ Update only the selected row after finite validation.
 
 - [ ] **Step 7: Implement atomic drain.**
 
-`learn_drain` requires no current decision, accepts only the scalar, computes current-weight `P_t`, validates candidate weights before mutation, evicts history by age after feedback, and increments the internal clock. It accepts no source/delay/count/timestamp parameter.
+`learn_drain` requires no current decision, accepts only the scalar, computes current-weight `P_t`, validates candidate weights before mutation, evicts history by age after feedback, and increments the internal clock. It accepts no source/delay/count/timestamp parameter. The orchestrator, not the learner, guarantees exactly five registered drain scalar calls for support `(1,3,5)`.
 
 - [ ] **Step 8: Run GREEN and regressions.**
 
@@ -564,7 +565,7 @@ Add a case that distinguishes penalized versus unpenalized bias.
 
 - [ ] **Step 3: Write RED terminal-drain design-row test.**
 
-For `N=4`, support `(1,3,5)`, and feedback clocks `0..8`, assert one design row per scalar call. Post-training rows contain only valid pre-`N` candidate decisions and end with zero feature after support expires.
+For `N=4`, support `(1,3,5)`, and scalar feedback clocks `0..8`, assert exactly nine design rows. The final real drain row at clock `8` contains only source decision `3` as its valid lag-five candidate. Separately assert the pure helper reports no candidate at clock `9`; no learner/environment scalar call is made at clock `9`.
 
 - [ ] **Step 4: Run RED.**
 
@@ -616,7 +617,7 @@ git push origin experiment/phase-c4-delay-marginalized-credit
 
 - [ ] **Step 1: Write one valid synthetic audit and mutate every field independently.**
 
-Reject count mismatch, nonzero pending final, malformed/changed digest, false non-interference, false current-weight probe, false bounded-history check, false immediate continuity, or false repeatability. The audit type has no behavioral score or behavior-gate field.
+Reject action/latent/delivered count mismatch, `real_feedback_count != N`, registered `drain_feedback_count != 5`, nonzero pending final, malformed/changed digest, false non-interference, false current-weight probe, false bounded-history check, false immediate continuity, or false repeatability. The audit type has no behavioral score or behavior-gate field.
 
 - [ ] **Step 2: Add independent reconstruction tests for `Z_t/P_t/C_t`.**
 
@@ -667,7 +668,7 @@ Pre-generate expected actions from `[seed,0x33414354]`. Build the frozen hidden-
 
 - [ ] **Step 3: Write exact immediate-continuity integration test.**
 
-For each registered seed, run full fixture lineage with immediate law and compare against `run_action_value_experiment`: action tuple/digest, reward tuple/digest, training/evaluation fixture digests, final weight bytes and parameter digest. Do not evaluate delayed C4 behavior in this test.
+For each registered seed, run full fixture lineage with immediate law and compare against `run_action_value_experiment`: action tuple/digest, reward tuple/digest, training/evaluation fixture digests, final weight bytes and parameter digest. Immediate law has no terminal drain calls because `max(support)=0`. Do not evaluate delayed C4 behavior in this test.
 
 - [ ] **Step 4: Implement Task 12 secondary evaluation bundles independently.**
 
@@ -687,7 +688,7 @@ Build fixtures with frozen `_build_fixtures` and digest them with `_episode_dige
 
 Test overall `179/180`, per-delay `33/34`, reset `19/20/21`, shuffled `149/150`, and exact totals. Do not call the gate during protocol-only execution.
 
-- [ ] **Step 6: Implement protocol-only orchestration.**
+- [ ] **Step 6: Implement protocol-only orchestration with public-horizon drain.**
 
 Real-step order is:
 
@@ -695,7 +696,16 @@ Real-step order is:
 hidden -> random behavior action -> latent reward -> enqueue -> feedback_at(t) -> scalar-only C4 call
 ```
 
-C4-A protocol collection records rows/scalars but never calls the ridge fitter. C4-B protocol executes online updates. Drain from `training_decisions` through `max(due_steps)` with no action selection. Validate external protocol audit before returning.
+C4-A protocol collection records rows/scalars but never calls the ridge fitter. C4-B protocol executes online updates. After decision `N-1`, continue calling `aggregator.feedback_at(t)` and the C4 scalar drain API for every public clock:
+
+```python
+last_delivery_clock = config.training_decisions - 1 + max(law.support)
+for delivery_step in range(config.training_decisions, last_delivery_clock + 1):
+    feedback = aggregator.feedback_at(delivery_step)
+    learner.learn_drain(feedback.value)
+```
+
+This is exactly five drain calls for registered support `(1,3,5)`, including zero-valued empty buckets. Never stop at `max(schedule.due_steps)`. At the end require aggregator pending count zero and C4 completed history empty. Validate the external protocol audit before returning.
 
 - [ ] **Step 7: Run GREEN and commit.**
 
@@ -732,7 +742,7 @@ git push origin experiment/phase-c4-delay-marginalized-credit
 
 - [ ] **Step 1: Write C4-A tiny unregistered measurement RED test.**
 
-Require a validated protocol result first. Fit normal and original-block-shuffled scalar streams separately with fixed ridge, install each fitted matrix into a fresh evaluation-only action-value object, and score original plus secondary bundles. The fit API receives no labels/source metadata.
+Require a validated protocol result first. Fit normal and original-block-shuffled scalar streams separately with fixed ridge, install each fitted matrix into a fresh evaluation-only action-value object, and score original plus secondary bundles. The fit API receives no labels/source metadata. Assert registered C4-A design rows total `N + 5` under support `(1,3,5)`.
 
 - [ ] **Step 2: Write C4-B tiny unregistered measurement RED test.**
 
@@ -743,13 +753,13 @@ shuffle_rng = np.random.default_rng(np.random.SeedSequence([seed, 0x33534846]))
 shuffled_rewards = _permute_reward_blocks(normal_rewards, shuffle_rng, block_size=10)
 ```
 
-Require unchanged action/schedule lineages.
+Require unchanged action/schedule lineages and exactly five drain scalar calls in both normal and shuffled registered paths.
 
 - [ ] **Step 3: Write evidence-schema mutation tests.**
 
-C4-A prospective manifest includes exact scientific implementation reference, formal contract SHA/hash, C3 frozen hashes, config, seeds, lineages, evaluation manifest, environment fields, expected result keys, thresholds, and `stage="c4a"`. No result exists before measurement.
+C4-A prospective manifest includes exact scientific implementation reference, formal contract SHA/hash, C3 frozen hashes, config, seeds, lineages, evaluation manifest, public drain horizon, expected `N+5` scalar/design rows, environment fields, expected result keys, thresholds, and `stage="c4a"`. No result exists before measurement.
 
-C4-B manifest additionally binds frozen C4-A result/provenance hashes and requires verifier-recomputed `operator_passed=true`. Reject extra/missing keys, bool-as-int, count changes, non-finite values, changed thresholds, changed `1e-6`, changed delay law, altered formal SHA, altered lineages, or a result present in no-result mode.
+C4-B manifest additionally binds frozen C4-A result/provenance hashes and requires verifier-recomputed `operator_passed=true`. Reject extra/missing keys, bool-as-int, count changes, non-finite values, changed thresholds, changed `1e-6`, changed delay law, changed drain horizon, altered formal SHA, altered lineages, or a result present in no-result mode.
 
 - [ ] **Step 4: Implement canonical JSON and strict verifier.**
 
@@ -879,7 +889,7 @@ Record the literal output as `C4_SCIENCE_HEAD`. From this point C4-A and C4-B sc
 
 - [ ] **Step 4: Require exact-head CI and inspect prospective evidence.**
 
-Require repository tests, Ruff, C3 verifier, C4 protocol, exact locked environment, C4 no-result verifier and prospective manifest preparation all green on the exact head. Read the uploaded manifest and confirm exact scientific/formal/environment/input hashes.
+Require repository tests, Ruff, C3 verifier, C4 protocol, exact locked environment, C4 no-result verifier and prospective manifest preparation all green on the exact head. Read the uploaded manifest and confirm exact scientific/formal/environment/input hashes and five registered drain calls.
 
 - [ ] **Step 5: Mandatory STOP.**
 
@@ -917,7 +927,7 @@ A preflight failure is provenance only. Do not inspect partial fit/evaluation da
 
 - [ ] **Step 3: Verify complete C4-A evidence.**
 
-Require all three seeds, normal and original shuffled fits, primary original-set score fields, reset/per-delay fields, eight secondary sets per seed, fit rank/residual diagnostics, frozen lineages and verifier-recomputed `operator_passed`.
+Require all three seeds, normal and original shuffled fits, primary original-set score fields, reset/per-delay fields, eight secondary sets per seed, fit rank/residual diagnostics, exactly `2005` scalar/design rows per registered training condition, frozen lineages and verifier-recomputed `operator_passed`.
 
 - [ ] **Step 4: Commit result/provenance only.**
 
@@ -956,7 +966,7 @@ Hash C4 delay model, batch probe, learner, controls, benchmark, evidence code, s
 
 - [ ] **Step 2: Prepare C4-B manifest.**
 
-Bind original `C4_SCIENCE_HEAD`, current execution head separately, exact formal SHA/hash, C4-A result/provenance hashes, verifier-recomputed `operator_passed=true`, registered config/thresholds/lineages, secondary evaluation manifest, exact environment, expected result keys, and absence of C4-B result.
+Bind original `C4_SCIENCE_HEAD`, current execution head separately, exact formal SHA/hash, C4-A result/provenance hashes, verifier-recomputed `operator_passed=true`, registered config/thresholds/lineages, five-call public drain horizon, secondary evaluation manifest, exact environment, expected result keys, and absence of C4-B result.
 
 - [ ] **Step 3: Run no-result verifier and exact-head CI.**
 
@@ -989,7 +999,7 @@ Recreate the exact lock, verify scientific hashes against `C4_SCIENCE_HEAD`, val
 
 - [ ] **Step 2: Execute one valid sealed measurement.**
 
-A preflight failure is provenance only. A valid run scores all three seeds for normal/reset/original shuffled plus the fixed secondary surfaces without changing any scientific parameter.
+A preflight failure is provenance only. A valid run scores all three seeds for normal/reset/original shuffled plus the fixed secondary surfaces without changing any scientific parameter. Every registered normal/shuffled training path must contain `2000` real scalar calls plus exactly `5` drain scalar calls.
 
 - [ ] **Step 3: Recompute status from raw evidence.**
 
@@ -1025,12 +1035,12 @@ Rerun full CI/verifier, prove every frozen C3 path is unchanged and every C4 sci
 
 ## Plan Self-Review
 
-- **Spec coverage:** Tasks 1-2 cover Gate F; Tasks 3-7 cover the fixed delay operator, C4-A, C4-B, current-weight semantics, bounded history, drain, Gate P and exact Phase 3A continuity; Task 8 covers evidence and lock; Task 9 seals before behavior; Tasks 10-12 enforce independent C4-A/C4-B measurement checkpoints.
+- **Spec coverage:** Tasks 1-2 cover Gate F; Tasks 3-7 cover the fixed delay operator, C4-A, C4-B, current-weight semantics, bounded history, public-horizon drain, Gate P and exact Phase 3A continuity; Task 8 covers evidence and lock; Task 9 seals before behavior; Tasks 10-12 enforce independent C4-A/C4-B measurement checkpoints.
 - **Anti-tuning:** C4-B implementation is complete and frozen before C4-A measurement. A C4-A failure terminates C4 v1. A C4-A success cannot change C4-B scientific bytes.
-- **Information boundary:** batch and online APIs contain no realized source/delay/due/multiplicity/latent-reward fields. Observer metadata remains outside learner calls.
+- **Information boundary:** batch and online APIs contain no realized source/delay/due/multiplicity/latent-reward fields. Observer metadata remains outside learner calls. Public run length is fixed by support, not actual hidden due times.
 - **Current-weight contract:** formal and Python paths use `P_t=<W_t,Z_t>` with no prediction trace.
 - **Immediate continuity:** `{0:1}` has both formal reduction and exact Python arithmetic/byte continuity.
-- **Drain:** no synthetic action or special trace state; the same marginalized equation is used until candidate support expires.
+- **Drain:** no synthetic action or special trace state; registered support forces exactly five post-decision scalar clocks, including empty-bucket zeros, so hidden schedule realization is not exposed by early termination.
 - **Frozen history:** C3 scientific/evidence files remain read-only and are hashed at protocol/measurement gates.
 - **Concrete execution:** runtime-captured identifiers such as the Task 2 Lean head are generated directly from reviewed commands and written literally before staging; no unresolved implementation bodies or proof holes are allowed in committed production/test/formal files.
 
