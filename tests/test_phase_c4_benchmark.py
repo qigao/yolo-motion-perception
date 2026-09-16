@@ -13,6 +13,8 @@ from neural_state_machine.phase3c_diagnostics.evaluation import evaluation_manif
 from neural_state_machine.phase_c4_benchmark import (
     PhaseC4Config,
     PhaseC4ProtocolResult,
+    measure_c4a_from_protocol,
+    measure_c4b_from_protocol,
     registered_c4_gate,
     run_phase_c4_protocol_gate,
     secondary_evaluation_manifest,
@@ -99,6 +101,41 @@ def test_secondary_evaluation_manifest_matches_frozen_task12_lineage():
     assert len(c4_rows) == 27
     assert c4_rows == c3_rows
     assert len({(row["seed"], row["evaluation_id"]) for row in c4_rows}) == 27
+
+
+def test_tiny_c4a_measurement_fits_only_after_validated_protocol():
+    config = _small_config()
+    protocol = run_phase_c4_protocol_gate(seeds=(7,), config=config)[0]
+
+    measured = measure_c4a_from_protocol(protocol, config)
+
+    assert measured.seed == 7
+    assert measured.design_row_count == 25
+    assert measured.normal_fit.row_count == 25
+    assert measured.shuffled_fit.row_count == 25
+    assert measured.normal_fit.penalty == 1e-6
+    assert measured.shuffled_fit.penalty == 1e-6
+    assert measured.post_training.total == 20
+    assert measured.state_reset.total == 20
+    assert measured.shuffled_control.total == 20
+    assert len(measured.secondary_scores) == 8
+
+
+def test_tiny_c4b_measurement_replays_matched_lineages_with_five_drain_calls():
+    config = _small_config()
+    protocol = run_phase_c4_protocol_gate(seeds=(17,), config=config)[0]
+
+    measured = measure_c4b_from_protocol(protocol, config)
+
+    assert measured.seed == 17
+    assert measured.normal_drain_feedback_count == 5
+    assert measured.shuffled_drain_feedback_count == 5
+    assert measured.action_lineage_equal is True
+    assert measured.schedule_lineage_equal is True
+    assert measured.post_training.total == 20
+    assert measured.state_reset.total == 20
+    assert measured.shuffled_control.total == 20
+    assert len(measured.secondary_scores) == 8
 
 
 def test_registered_gate_accepts_only_exact_frozen_thresholds():
