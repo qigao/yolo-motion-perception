@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   sealed-c4a-measurement:
-    if: github.event.head_commit.message == 'measure: run sealed C4-A operator probe'
+    if: "${{ github.event.head_commit.message == 'measure: run sealed C4-A operator probe' }}"
     runs-on: ubuntu-24.04
     env:
       C4_SCIENCE_HEAD: 8ae3154950ed53c4d0a0f555463042ff72674d31
