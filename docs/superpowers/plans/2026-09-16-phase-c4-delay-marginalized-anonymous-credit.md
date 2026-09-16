@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build and register Phase C4 as a two-stage experiment that first tests anonymous batch operator sufficiency and, only if that passes, tests a prospectively frozen online delay-marginalized credit learner without exposing realized reward-source metadata.
+**Goal:** Build and register Phase C4 as a two-stage experiment that first tests whether the fixed anonymous delay-mixture operator admits a successful batch fit and, only if that gate passes, tests a prospectively frozen online delay-marginalized credit learner.
 
-**Architecture:** Extend the proven Phase 3C anonymous-credit theory with a separate Lean `MarginalizedTemporalCredit` module, bind the exact passing theorem head into C4, then add additive Python modules for a fixed delay-law observation operator, the C4-A batch ridge probe, the C4-B online learner, fail-closed protocol controls, orchestration, and strict evidence handling. Both C4-A and C4-B implementations are completed and frozen **before the first C4-A registered measurement** so the C4-A result cannot tune C4-B. C4-A and C4-B then use separate sealed-environment measurement checkpoints and one-shot workflows.
+**Architecture:** Extend the proven Phase 3C anonymous-credit theory with a separate Lean `MarginalizedTemporalCredit` module. Bind the exact passing theorem head into additive Python modules for the fixed delay-law operator, C4-A batch ridge, C4-B online learner, protocol controls, orchestration, sealed evidence, and stage-specific verification. Both C4-A and C4-B scientific implementations are completed and frozen before the first C4-A registered measurement, so the C4-A result cannot be used to tune C4-B.
 
 **Tech Stack:** Lean 4.32.0, Mathlib v4.32.0, Lake, Python 3.12.14 for registered measurement, NumPy 2.5.3, pytest 9.1.1, Ruff 0.15.22, setuptools 84.0.0, GitHub Actions.
 
@@ -12,26 +12,27 @@
 
 ## Global Constraints
 
-- Planning base is exact `qigao/yolo-motion-perception@f018384a6bdc25bd6b20dd393a7058df04912f08`; implementation starts on a new branch `experiment/phase-c4-delay-marginalized-credit` from that exact commit after execution approval.
-- Formal work starts from exact proven Phase 3C formal head `qigao/lean@3de297cee2a94a7fc309531334f720f1b34467c9` on branch `formal/marginalized-temporal-credit-v1`.
-- Do not modify `qigao/lean/NarrativeDynamics/Core/AnonymousTemporalCredit.lean`, `NarrativeDynamics/Core/TemporalCredit.lean`, or their existing tests. C4 adds a new module.
+- Planning base is exact `qigao/yolo-motion-perception@f018384a6bdc25bd6b20dd393a7058df04912f08`.
+- Implementation starts on `experiment/phase-c4-delay-marginalized-credit` from that exact commit only after execution approval.
+- Formal work starts from exact proven Phase 3C formal head `qigao/lean@3de297cee2a94a7fc309531334f720f1b34467c9` on `formal/marginalized-temporal-credit-v1`.
+- Do not modify `qigao/lean/NarrativeDynamics/Core/AnonymousTemporalCredit.lean`, `NarrativeDynamics/Core/TemporalCredit.lean`, or their existing tests.
 - Do not modify these C3 scientific files: `src/neural_state_machine/action_value.py`, `src/neural_state_machine/phase3c_schedule.py`, `src/neural_state_machine/phase3c_learners.py`, `src/neural_state_machine/phase3c_controls.py`, `src/neural_state_machine/phase3c_benchmark.py`, `src/neural_state_machine/reward_learning.py`, `src/neural_state_machine/action_value_benchmark.py`, or `scripts/verify_phase3c_anonymous_credit.py`.
-- Do not modify any existing Phase 3C evidence or `docs/experiments/phase-3c-failure-attribution-v1/**`.
-- Registered seeds remain exactly `(7, 17, 29)`; training decisions `2000`; evaluation blocks `20`; hidden size `64`; recurrent radius `0.9`; step size `0.1`; cue delays `(1,2,3,4,5)`; hidden feedback delays `(1,3,5)` with public prior `(1/3,1/3,1/3)`.
-- Reuse the frozen training/evaluation fixture lineages, action RNG lineage `[seed, 0x33414354]`, hidden-delay lineage `[seed, 0x3343444C]`, and original shuffled-control lineage `[seed, 0x33534846]`.
-- Primary behavior thresholds remain exactly: normal `>=180/200`, every cue delay `>=34/40`, reset exactly `100/200` and each reset delay exactly `20/40`, shuffled `<150/200`.
-- The eight Task 12 additional evaluation sets use `PCG64(SeedSequence([seed, 0x33434641, 2, evaluation_id]))`, IDs `0..7`; they are secondary stability surfaces only and never select a model, parameter, threshold, or checkpoint.
-- C4-A ridge penalty is exactly `1e-6`, including action-block bias coordinates. No scaling, search, feature selection, checkpoint selection, or evaluation-label fitting.
-- C4-B must use current pre-update weights for `P_t=<W_t,Z_t>`; it must not store or use a prediction trace or stale decision-time prediction.
-- The normal C4-B credit support is exactly lags `(1,3,5)`. The learner receives one finite scalar per delivery clock and no realized source ID, delay, due step, multiplicity, latent reward, or queue metadata.
-- Terminal drain uses the same C4 observation/update equation, adds no synthetic action, and stops after the last possible registered delay.
-- Protocol control `{0:1}` must match frozen Phase 3A in the same environment exactly: actions, scalar update fields, full weight bytes, and parameter digest. No tolerance is allowed for this check.
-- For exact `{0:1}` Python continuity, preserve the Phase 3A arithmetic order `step_size * td_error * feature / denominator` on the selected row; do not substitute a mathematically equivalent matrix expression with different floating-point operation order.
-- C4-B code, C4-A code, formal binding, thresholds, lineages, and registered config must all be frozen before the first C4-A measurement. After observing C4-A, no scientific C4-B code change is permitted inside C4 v1.
-- Gate F failure stops Python scientific execution. Gate P failure means `harness invalid`; do not inspect or serialize C4-A/C4-B registered behavior.
-- C4-A failure records `operator_passed=false` and terminates C4 v1 before C4-B registered measurement. Do not tune in place.
-- C4-A success does not authorize C4-B automatically. A second explicit human approval is required after a separately sealed C4-B manifest is reviewed.
-- Never claim Lean proves NumPy floating-point execution, batch identifiability in general, convergence, source reconstruction, or production readiness.
+- Do not modify existing Phase 3C evidence or `docs/experiments/phase-3c-failure-attribution-v1/**`.
+- Registered seeds are exactly `(7, 17, 29)`; training decisions `2000`; evaluation blocks `20`; hidden size `64`; recurrent radius `0.9`; step size `0.1`; cue delays `(1,2,3,4,5)`; hidden feedback delays `(1,3,5)`; public probabilities `(1/3,1/3,1/3)`.
+- Reuse training/evaluation fixture lineages, action RNG `[seed, 0x33414354]`, hidden-delay lineage `[seed, 0x3343444C]`, and original shuffled-control lineage `[seed, 0x33534846]`.
+- Primary behavior thresholds remain exactly: normal `>=180/200`, every cue delay `>=34/40`, reset exactly `100/200`, every reset delay exactly `20/40`, shuffled `<150/200`.
+- The eight Task 12 additional evaluation sets use `PCG64(SeedSequence([seed, 0x33434641, 2, evaluation_id]))`, IDs `0..7`; they are secondary stability surfaces only.
+- C4-A ridge penalty is exactly `1e-6`, including action-block bias coordinates. No scaling, hyperparameter search, feature selection, checkpoint selection, or evaluation-label fitting.
+- C4-B uses `P_t=<W_t,Z_t>` with the current pre-update weights. It stores no prediction trace and uses no stale decision-time prediction.
+- Normal C4-B credit support is exactly lags `(1,3,5)`. The learner receives one finite scalar per delivery clock and no realized source ID, delay, due step, multiplicity, latent reward, or environment queue metadata.
+- Terminal drain uses the same observation/update equation, adds no synthetic action, and ends after the last possible registered delay.
+- Protocol control `{0:1}` must match frozen Phase 3A exactly in the same environment: action sequence, scalar update fields, full weight bytes, and parameter digest.
+- For exact `{0:1}` continuity, preserve Phase 3A arithmetic order `step_size * td_error * feature / denominator` on the selected row. Do not substitute a mathematically equivalent matrix operation with a different floating-point order.
+- C4-A code, C4-B code, formal binding, registered config, thresholds, and lineages are frozen before the first C4-A registered measurement. After observing C4-A, no C4 scientific code change is permitted inside C4 v1.
+- Gate F failure stops Python scientific execution. Gate P failure means `harness invalid`; registered behavior must not be inspected or serialized.
+- C4-A failure records `operator_passed=false` and terminates C4 v1 before C4-B measurement. Do not tune in place.
+- C4-A success does not authorize C4-B. A second explicit human approval is required after a separately sealed C4-B manifest is reviewed.
+- Lean proves the real-number contract only. It does not prove NumPy execution, behavioral success, general identifiability, convergence, source reconstruction, or production readiness.
 
 ## File Ownership Map
 
@@ -39,34 +40,34 @@
 
 | Path | Responsibility |
 |---|---|
-| `NarrativeDynamics/Core/MarginalizedTemporalCredit.lean` | Finite delay law, candidate support, weighted aggregate observation, current-weight prediction, bounded credit, boundary truncation, update equation, immediate reduction. |
-| `NarrativeDynamics/Tests/MarginalizedTemporalCredit.lean` | F1-F6 examples, registered `{1,3,5}` law, `{0}` immediate law, boundary/drain examples, axiom audit. |
-| `NarrativeDynamics.lean` | Export the new C4 module. |
-| `.github/workflows/proof.yml` | Permanent focused C4 theorem test before full Lean build. |
+| `NarrativeDynamics/Core/MarginalizedTemporalCredit.lean` | Finite delay law, candidate support, weighted observation, current-weight prediction, bounded credit, boundary truncation, update equation, immediate reduction. |
+| `NarrativeDynamics/Tests/MarginalizedTemporalCredit.lean` | Registered/immediate laws, boundary/drain examples, update theorems, axiom audit. |
+| `NarrativeDynamics.lean` | Export C4 formal module. |
+| `.github/workflows/proof.yml` | Permanent focused C4 theorem gate. |
 
 ### `qigao/yolo-motion-perception`
 
 | Path | Responsibility |
 |---|---|
-| `docs/experiments/phase-c4-delay-marginalized-credit/formal-contract.json` | Exact passing C4 Lean SHA and theorem binding. |
+| `docs/experiments/phase-c4-delay-marginalized-credit/formal-contract.json` | Exact passing C4 Lean SHA and theorem names. |
 | `src/neural_state_machine/phase_c4_delay_model.py` | Fixed delay laws, learner-owned decision rows, candidate indices, `Z_t`, `C_t`, current-weight `P_t`. |
-| `src/neural_state_machine/phase_c4_batch_probe.py` | C4-A design matrix, fixed ridge solve, fit diagnostics; no evaluation labels/source metadata. |
-| `src/neural_state_machine/phase_c4_learner.py` | C4-B online learner with five-step history plus one current pending decision. |
-| `src/neural_state_machine/phase_c4_controls.py` | Formal-contract loader, frozen-input hashes, protocol audit, information-boundary checks, immediate continuity. |
-| `src/neural_state_machine/phase_c4_benchmark.py` | Fixed training streams, C4-A/C4-B protocol-only orchestration, evaluation bundles, normal/shuffled execution, fixed gates. |
-| `src/neural_state_machine/phase_c4_evidence.py` | Strict stage-specific schemas, canonical JSON, prospective manifest and result validation. |
-| `scripts/benchmark_phase_c4_delay_marginalized_credit.py` | Protocol CLI and explicitly authorized stage measurement entry point. |
-| `scripts/verify_phase_c4_delay_marginalized_credit.py` | Fail-closed formal/manifest/result verifier, including no-result mode. |
-| `requirements/phase-c4.in` | Direct C4 scientific/test tool anchors. |
-| `requirements/phase-c4-python312.lock` | Exact Python 3.12.14 registered measurement environment. |
-| `.github/workflows/ci.yml` | Permanent C4 tests, Ruff, protocol-only gate, lock recreation, prospective manifest preparation. |
-| `.github/workflows/phase-c4a-measurement-once.yml` | Created only after explicit C4-A measurement approval; removed after valid/invalid attempt is frozen. |
-| `.github/workflows/phase-c4b-measurement-once.yml` | Created only after C4-A passes and explicit C4-B measurement approval; removed after measurement. |
-| `tests/test_phase_c4_delay_model.py` | Pure operator and boundary tests. |
+| `src/neural_state_machine/phase_c4_batch_probe.py` | C4-A design matrix and fixed ridge solve. |
+| `src/neural_state_machine/phase_c4_learner.py` | C4-B online learner. |
+| `src/neural_state_machine/phase_c4_controls.py` | Formal-contract loader, frozen-input hashes, protocol audit, non-interference and continuity controls. |
+| `src/neural_state_machine/phase_c4_benchmark.py` | Fixed streams, protocol-only orchestration, evaluation bundles, normal/shuffled execution, fixed gates. |
+| `src/neural_state_machine/phase_c4_evidence.py` | Canonical manifests/results and stage-specific schema validation. |
+| `scripts/benchmark_phase_c4_delay_marginalized_credit.py` | Protocol CLI and authorized stage measurement entry point. |
+| `scripts/verify_phase_c4_delay_marginalized_credit.py` | Strict no-result/result verifier. |
+| `requirements/phase-c4.in` | Direct C4 dependency anchors. |
+| `requirements/phase-c4-python312.lock` | Exact registered Python 3.12.14 environment. |
+| `.github/workflows/ci.yml` | Permanent C4 tests, Ruff, protocol gate, locked-environment recreation, prospective manifest preparation. |
+| `.github/workflows/phase-c4a-measurement-once.yml` | Created only after explicit C4-A measurement approval; removed after the attempt is frozen. |
+| `.github/workflows/phase-c4b-measurement-once.yml` | Created only after C4-A passes and explicit C4-B approval; removed after measurement. |
+| `tests/test_phase_c4_delay_model.py` | Pure operator tests. |
 | `tests/test_phase_c4_batch_probe.py` | Fixed ridge and information-boundary tests. |
-| `tests/test_phase_c4_learner.py` | Online arithmetic, current-weight prediction, bounded history, drain, exact immediate reduction. |
-| `tests/test_phase_c4_controls.py` | Formal contract, frozen inputs, fail-closed Gate P mutations, non-interference. |
-| `tests/test_phase_c4_benchmark.py` | Matched lineages, protocol anti-peeking, secondary evaluation lineage, fixed gate. |
+| `tests/test_phase_c4_learner.py` | Online arithmetic, bounded history, current-weight prediction, drain, exact immediate reduction. |
+| `tests/test_phase_c4_controls.py` | Formal contract, frozen inputs, Gate P mutations, non-interference. |
+| `tests/test_phase_c4_benchmark.py` | Matched lineages, anti-peeking, secondary evaluation lineage, fixed gate. |
 | `tests/test_phase_c4_evidence.py` | Manifest/result/writer/verifier mutation tests. |
 
 ---
@@ -82,14 +83,9 @@
 - Create: `NarrativeDynamics/Tests/MarginalizedTemporalCredit.lean`
 - Frozen: `NarrativeDynamics/Core/AnonymousTemporalCredit.lean`
 
-**Interfaces:**
-- Imports: `NarrativeDynamics.Core.AnonymousTemporalCredit`
-- Produces namespace: `NarrativeDynamics.MarginalizedTemporalCredit`
-- Produces: `DelayLaw`, `registeredLaw`, `immediateLaw`, `validSource`, `expectedAggregate`, `candidateCredit`, `candidate_support_bounded`, `registered_law_valid`, `immediate_law_valid`, `expected_aggregate_decomposition`, `boundary_truncation`
+**Interfaces:** `DelayLaw`, `DelayLaw.Valid`, `registeredLaw`, `immediateLaw`, `validSource`, `expectedAggregate`, `candidateCredit`, `registered_law_valid`, `immediate_law_valid`, `expected_aggregate_decomposition`, `candidate_support_bounded`.
 
-- [ ] **Step 1: Write RED theorem tests for the public C4 formal surface.**
-
-Create the test module first and require these exact theorem names:
+- [ ] **Step 1: Write RED theorem tests before the module exists.**
 
 ```lean
 import NarrativeDynamics.Core.MarginalizedTemporalCredit
@@ -103,7 +99,6 @@ example : registeredLaw.support = {1, 3, 5} := by
 example : registeredLaw.weight 1 = (1 : ℝ) / 3 := by norm_num [registeredLaw]
 example : registeredLaw.weight 3 = (1 : ℝ) / 3 := by norm_num [registeredLaw]
 example : registeredLaw.weight 5 = (1 : ℝ) / 3 := by norm_num [registeredLaw]
-
 example : registeredLaw.Valid := by exact registered_law_valid
 example : immediateLaw.Valid := by exact immediate_law_valid
 
@@ -121,19 +116,15 @@ example (law : DelayLaw) (r : Nat → ℝ) (n t j : Nat)
 end NarrativeDynamics.MarginalizedTemporalCredit
 ```
 
-- [ ] **Step 2: Run RED and confirm only the new module/theorem surface is missing.**
-
-Run:
+- [ ] **Step 2: Run RED.**
 
 ```bash
 lake env lean NarrativeDynamics/Tests/MarginalizedTemporalCredit.lean
 ```
 
-Expected: import/module or unknown-identifier failures for `MarginalizedTemporalCredit`; no failure in existing `AnonymousTemporalCredit`.
+Expected: missing new module or identifiers; existing anonymous-credit files still compile.
 
 - [ ] **Step 3: Implement the minimum finite law and candidate equations.**
-
-Use a finite support plus real weights, with validity carried as a predicate rather than embedding proof fields into every value:
 
 ```lean
 import NarrativeDynamics.Core.AnonymousTemporalCredit
@@ -173,9 +164,9 @@ noncomputable def candidateCredit
     if validSource n t d ∧ t - d = j then law.weight d * credit j else 0
 ```
 
-Prove `registered_law_valid` and `immediate_law_valid` by finite-set simplification and `norm_num`. Prove `expected_aggregate_decomposition` by unfolding `expectedAggregate`. Prove `candidate_support_bounded` by `Finset.sum_eq_zero` using the supplied exclusion hypothesis. Add a boundary example at `t=0` for `registeredLaw` and a drain example with `n=4,t=8`, showing only valid historical indices can contribute.
+Prove the two law-validity theorems with finite-set simplification and `norm_num`. Prove `expected_aggregate_decomposition` by unfolding `expectedAggregate`. Prove `candidate_support_bounded` with `Finset.sum_eq_zero` and the supplied exclusion hypothesis. Add concrete boundary tests at `t=0` and a post-training clock where only one valid historical candidate remains.
 
-The expectation theorem is deliberately an expectation **operator** over the fixed marginal delay law. The Python schedule separately audits independent pre-generation. Do not add an unnecessary probability monad to C4 v1.
+The formal expectation is a finite marginal-delay expectation operator. Independent schedule generation is audited separately in Python; C4 v1 does not need a probability monad.
 
 - [ ] **Step 4: Run focused GREEN.**
 
@@ -198,7 +189,7 @@ git push origin formal/marginalized-temporal-credit-v1
 
 ---
 
-### Task 2: Prove current-weight update, immediate reduction, boundary/drain contract, and add permanent Lean CI
+### Task 2: Prove current-weight update, immediate reduction, boundary/drain contract, and permanent Lean CI
 
 **Repository:** `qigao/lean`
 
@@ -208,12 +199,9 @@ git push origin formal/marginalized-temporal-credit-v1
 - Modify: `NarrativeDynamics.lean`
 - Modify: `.github/workflows/proof.yml`
 
-**Interfaces:**
-- Produces: `Vector`, `dot`, `marginalizedPrediction`, `marginalizedUpdate`, `current_weight_observation`, `immediate_reduction_to_phase3a`, `invalid_candidates_zero`, `drain_uses_same_equation`
+**Interfaces:** `Vector`, `zeroVector`, `dot`, `marginalizedFeature`, `marginalizedPrediction`, `marginalizedUpdate`, `current_weight_observation`, `immediate_reduction_to_phase3a`, `invalid_candidates_zero`, `drain_uses_same_equation`.
 
-- [ ] **Step 1: Add RED tests for current-weight semantics and exact mathematical reduction.**
-
-Append tests requiring:
+- [ ] **Step 1: Add RED tests for current-weight semantics and immediate reduction.**
 
 ```lean
 example (w z : Vector n) :
@@ -221,15 +209,17 @@ example (w z : Vector n) :
   exact current_weight_observation w z
 
 example (w feature : Vector n) (denominator alpha reward : ℝ) :
-    marginalizedUpdate w alpha reward feature (normalizedCredit feature denominator) =
+    marginalizedUpdate w alpha reward feature
+        (AnonymousTemporalCredit.normalizedCredit feature denominator) =
       AnonymousTemporalCredit.normalizedPhase3AUpdate
-        w alpha reward (dot w feature) (normalizedCredit feature denominator) := by
+        w alpha reward (dot w feature)
+        (AnonymousTemporalCredit.normalizedCredit feature denominator) := by
   exact immediate_reduction_to_phase3a w feature denominator alpha reward
 
-example (law : DelayLaw) (x : Nat → Vector n) (n t : Nat)
-    (h : ∀ d ∈ law.support, ¬ validSource n t d) :
-    marginalizedFeature law x n t = zeroVector := by
-  exact invalid_candidates_zero law x n t h
+example (law : DelayLaw) (x : Nat → Vector n) (count t : Nat)
+    (h : ∀ d ∈ law.support, ¬ validSource count t d) :
+    marginalizedFeature law x count t = zeroVector := by
+  exact invalid_candidates_zero law x count t h
 ```
 
 - [ ] **Step 2: Run RED.**
@@ -238,11 +228,9 @@ example (law : DelayLaw) (x : Nat → Vector n) (n t : Nat)
 lake env lean NarrativeDynamics/Tests/MarginalizedTemporalCredit.lean
 ```
 
-Expected: unknown new update definitions/theorems.
+Expected: unknown update definitions/theorems.
 
-- [ ] **Step 3: Implement the vector observation/update layer without prediction history.**
-
-Use flattened finite vectors for the formal contract:
+- [ ] **Step 3: Implement flattened finite-vector observation and update.**
 
 ```lean
 abbrev Vector (n : Nat) := Fin n → ℝ
@@ -268,9 +256,9 @@ noncomputable def marginalizedUpdate
       normalizedCredit i
 ```
 
-`marginalizedUpdate` receives no historical prediction value. Prove `current_weight_observation` by `rfl`. Prove `immediate_reduction_to_phase3a` by `funext`, unfolding both updates and the existing Phase 3A update. Prove invalid candidates contribute zero by `Finset.sum_eq_zero`. State and prove `drain_uses_same_equation` as equality between the generic update at any post-training clock and the same `marginalizedUpdate`; do not introduce a second drain update definition.
+Prove `current_weight_observation` by reflexivity. Prove immediate reduction by function extensionality and unfolding both updates. Prove invalid candidates produce `zeroVector`. Define `drain_uses_same_equation` as a theorem about the same generic `marginalizedUpdate`; do not create a second drain update function.
 
-- [ ] **Step 4: Add axiom audit and permanent focused CI.**
+- [ ] **Step 4: Add axiom audit and focused permanent CI.**
 
 Append:
 
@@ -282,7 +270,7 @@ Append:
 #print axioms NarrativeDynamics.MarginalizedTemporalCredit.invalid_candidates_zero
 ```
 
-Export the module from `NarrativeDynamics.lean`. In `.github/workflows/proof.yml`, add a focused step before the full library build:
+Export the module from `NarrativeDynamics.lean`. Add before the full Lean build:
 
 ```yaml
       - name: Marginalized temporal credit theorem tests
@@ -304,7 +292,7 @@ git grep -nE '\b(sorry|admit)\b' -- \
 git diff --check
 ```
 
-Expected: all commands exit 0; grep has no proof holes.
+Expected: build/test exit 0; grep returns no proof holes.
 
 - [ ] **Step 6: Commit and require exact-head GitHub proof CI.**
 
@@ -317,7 +305,7 @@ git push origin formal/marginalized-temporal-credit-v1
 git rev-parse HEAD
 ```
 
-Record the exact 40-hex head. Do not start Python scientific implementation until its GitHub proof workflow passes and the `#print axioms` output is reviewed with no `sorryAx` or project-defined custom axiom.
+Record the exact head. Python scientific implementation does not begin until that exact-head proof workflow passes and the axiom log is reviewed with no `sorryAx` or project-defined custom axiom.
 
 ---
 
@@ -325,7 +313,7 @@ Record the exact 40-hex head. Do not start Python scientific implementation unti
 
 **Repository:** `qigao/yolo-motion-perception`
 
-**Branch:** create `experiment/phase-c4-delay-marginalized-credit` from exact `f018384a6bdc25bd6b20dd393a7058df04912f08` only after Task 2 Gate F passes.
+**Branch:** `experiment/phase-c4-delay-marginalized-credit` from exact `f018384a6bdc25bd6b20dd393a7058df04912f08` after Task 2 Gate F passes.
 
 **Files:**
 - Create: `docs/experiments/phase-c4-delay-marginalized-credit/formal-contract.json`
@@ -335,43 +323,14 @@ Record the exact 40-hex head. Do not start Python scientific implementation unti
 - Create: `tests/test_phase_c4_controls.py`
 
 **Interfaces:**
+- `DelayLaw.registered() -> DelayLaw`
+- `DelayLaw.immediate() -> DelayLaw`
+- `candidate_indices(feedback_step: int, decision_count: int, law: DelayLaw) -> tuple[int, ...]`
+- `build_marginalized_features(rows: tuple[DecisionCreditRow, ...], feedback_step: int, action_count: int, law: DelayLaw) -> MarginalizedFeatures`
+- `current_weight_prediction(weights: np.ndarray, expected_feature: np.ndarray) -> float`
+- `load_phase_c4_formal_contract(root: Path | None = None) -> PhaseC4FormalContract`
 
-```python
-@dataclass(frozen=True, slots=True)
-class DelayLaw:
-    support: tuple[int, ...]
-    probabilities: tuple[float, ...]
-
-    @classmethod
-    def registered(cls) -> "DelayLaw": ...
-
-    @classmethod
-    def immediate(cls) -> "DelayLaw": ...
-
-@dataclass(frozen=True, slots=True)
-class DecisionCreditRow:
-    decision_index: int
-    action_index: int
-    feature: np.ndarray
-    denominator: float
-
-@dataclass(frozen=True, slots=True)
-class MarginalizedFeatures:
-    candidate_indices: tuple[int, ...]
-    expected_feature: np.ndarray
-    normalized_credit: np.ndarray
-
-
-def candidate_indices(feedback_step: int, decision_count: int, law: DelayLaw) -> tuple[int, ...]: ...
-def build_marginalized_features(rows: tuple[DecisionCreditRow, ...], feedback_step: int, action_count: int, law: DelayLaw) -> MarginalizedFeatures: ...
-def current_weight_prediction(weights: np.ndarray, expected_feature: np.ndarray) -> float: ...
-```
-
-The literal `...` above denotes the signature in this plan only; production code must contain complete implementations and no placeholder bodies.
-
-- [ ] **Step 1: Write fail-closed formal-contract and pure operator RED tests.**
-
-Tests must reject a formal manifest with wrong repo/module/Lean/Mathlib version, missing theorem, non-40-hex SHA, false CI/axiom flags, or symlinked path. Delay-model tests must cover:
+- [ ] **Step 1: Write formal-contract and pure-operator RED tests.**
 
 ```python
 def test_registered_candidate_indices_are_only_1_3_5_lags():
@@ -392,7 +351,7 @@ def test_current_weight_prediction_uses_supplied_weights():
     assert current_weight_prediction(w2, z) == 7.0
 ```
 
-Use tiny `DecisionCreditRow` fixtures to hand-check that `Z_t` uses unnormalized action-blocked features while `C_t` uses `feature/denominator`, each weighted by exactly `1/3`.
+Also reject wrong formal repository/module/version/theorem set, non-40-hex commit, false CI/axiom flags, symlink path, duplicate/negative delay support, non-finite/negative probabilities, and invalid decision-row shapes.
 
 - [ ] **Step 2: Run RED.**
 
@@ -400,63 +359,64 @@ Use tiny `DecisionCreditRow` fixtures to hand-check that `Z_t` uses unnormalized
 python -m pytest -q tests/test_phase_c4_delay_model.py tests/test_phase_c4_controls.py
 ```
 
-Expected: missing C4 modules/manifest.
+Expected: missing C4 modules/formal manifest.
 
-- [ ] **Step 3: Commit the exact Gate F manifest.**
+- [ ] **Step 3: Generate the formal-contract JSON from the captured Task 2 SHA.**
 
-Use this shape, replacing only the `commit` value with the literal exact Task 2 passing SHA captured from `git rev-parse HEAD`:
+From the C4 Python repo root, set `LEAN_HEAD` to the exact reviewed Task 2 head and run:
 
-```json
-{
-  "schema_version": 1,
-  "repository": "qigao/lean",
-  "module": "NarrativeDynamics/Core/MarginalizedTemporalCredit.lean",
-  "commit": "THE_EXACT_TASK_2_40_HEX_SHA_IS_WRITTEN_HERE_AT_EXECUTION",
-  "lean_version": "4.32.0",
-  "mathlib_version": "v4.32.0",
-  "exact_head_ci_passed": true,
-  "axiom_audit_reviewed": true,
-  "sorry_ax_present": false,
-  "custom_axiom_present": false,
-  "theorems": [
-    "NarrativeDynamics.MarginalizedTemporalCredit.registered_law_valid",
-    "NarrativeDynamics.MarginalizedTemporalCredit.expected_aggregate_decomposition",
-    "NarrativeDynamics.MarginalizedTemporalCredit.candidate_support_bounded",
-    "NarrativeDynamics.MarginalizedTemporalCredit.current_weight_observation",
-    "NarrativeDynamics.MarginalizedTemporalCredit.immediate_reduction_to_phase3a",
-    "NarrativeDynamics.MarginalizedTemporalCredit.invalid_candidates_zero"
-  ]
+```bash
+export LEAN_HEAD="$(git -C ../lean rev-parse HEAD)"
+python - <<'PY'
+import json
+import os
+from pathlib import Path
+
+head = os.environ["LEAN_HEAD"]
+if len(head) != 40 or any(ch not in "0123456789abcdef" for ch in head):
+    raise SystemExit("LEAN_HEAD must be lowercase 40-hex")
+
+payload = {
+    "schema_version": 1,
+    "repository": "qigao/lean",
+    "module": "NarrativeDynamics/Core/MarginalizedTemporalCredit.lean",
+    "commit": head,
+    "lean_version": "4.32.0",
+    "mathlib_version": "v4.32.0",
+    "exact_head_ci_passed": True,
+    "axiom_audit_reviewed": True,
+    "sorry_ax_present": False,
+    "custom_axiom_present": False,
+    "theorems": [
+        "NarrativeDynamics.MarginalizedTemporalCredit.registered_law_valid",
+        "NarrativeDynamics.MarginalizedTemporalCredit.expected_aggregate_decomposition",
+        "NarrativeDynamics.MarginalizedTemporalCredit.candidate_support_bounded",
+        "NarrativeDynamics.MarginalizedTemporalCredit.current_weight_observation",
+        "NarrativeDynamics.MarginalizedTemporalCredit.immediate_reduction_to_phase3a",
+        "NarrativeDynamics.MarginalizedTemporalCredit.invalid_candidates_zero",
+    ],
 }
+path = Path("docs/experiments/phase-c4-delay-marginalized-credit/formal-contract.json")
+path.parent.mkdir(parents=True, exist_ok=True)
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
 ```
 
-At execution time the uppercase sentence is not committed; it is replaced by the captured literal SHA before staging.
+Before staging, compare the generated `commit` value with the exact GitHub passing formal head recorded in Task 2.
 
-- [ ] **Step 4: Implement strict delay-law values and immutable decision rows.**
+- [ ] **Step 4: Implement strict delay laws and immutable decision rows.**
 
-`DelayLaw.registered()` returns exactly `(1,3,5)` and three Python `1.0/3.0` probabilities. `DelayLaw.immediate()` returns `(0,)` and `(1.0,)`. Reject booleans, duplicate/negative support, non-finite/negative probabilities, length mismatch, and a probability sum not equal to `1.0` within absolute `1e-15` solely for validating the float representation of the fixed law.
+`DelayLaw.registered()` returns support `(1,3,5)` and three `1.0/3.0` probabilities. `DelayLaw.immediate()` returns `(0,)` and `(1.0,)`. Probability sum validation uses absolute `1e-15` only to validate the fixed float law.
 
-`DecisionCreditRow` copies `feature` to a read-only contiguous float64 vector and validates `denominator == np.dot(feature, feature)` with exact same-value construction by callers; it stores no reward, delay, due step, multiplicity, source identity, prediction, or queue state.
+`DecisionCreditRow` stores exactly `decision_index`, `action_index`, a read-only contiguous float64 `feature`, and finite positive `denominator`. It stores no reward, realized delay, due step, multiplicity, source ID, prediction, or pending-source flag.
 
-`build_marginalized_features` creates `(action_count, feature_size)` float64 matrices. For every valid candidate `(delay,index)`, add `probability * feature` to `expected_feature[action_index]` and `probability * feature / denominator` to `normalized_credit[action_index]`. Return read-only copies and the candidate indices in law-support order.
+`build_marginalized_features` returns read-only `(action_count, feature_size)` matrices. For each valid candidate, add `probability * feature` to `expected_feature[action_index]` and `probability * feature / denominator` to `normalized_credit[action_index]`.
 
-- [ ] **Step 5: Implement the formal-contract loader in `phase_c4_controls.py`.**
+- [ ] **Step 5: Implement strict formal-contract loading in `phase_c4_controls.py`.**
 
-Expose:
+Define immutable `PhaseC4FormalContract(commit: str, theorems: tuple[str, ...])`. `load_phase_c4_formal_contract` uses stdlib `json/pathlib`, a fixed theorem tuple, root containment checks, and symlink rejection. It performs no network access.
 
-```python
-@dataclass(frozen=True, slots=True)
-class PhaseC4FormalContract:
-    commit: str
-    theorems: tuple[str, ...]
-
-
-def load_phase_c4_formal_contract(root: Path | None = None) -> PhaseC4FormalContract:
-    ...
-```
-
-Use stdlib `json`, `pathlib`, and a fixed expected theorem tuple. Resolve the repository root, reject symlinks and paths outside the root, hash the manifest bytes for later evidence binding, and never perform a network call at runtime.
-
-- [ ] **Step 6: Run GREEN and freeze-file diff checks.**
+- [ ] **Step 6: Run GREEN and frozen-file diff checks.**
 
 ```bash
 python -m pytest -q tests/test_phase_c4_delay_model.py tests/test_phase_c4_controls.py
@@ -494,39 +454,29 @@ git push origin experiment/phase-c4-delay-marginalized-credit
 - Frozen/read-only reuse: `src/neural_state_machine/action_value.py`
 
 **Interfaces:**
+- `DelayMarginalizedAnonymousCredit(hidden_size, action_count, step_size=0.1, law=None)`
+- `select_for_training(hidden_state, legal_action_indices, rng) -> ActionValueDecision`
+- `learn(aggregate_reward) -> MarginalizedCreditUpdate`
+- `learn_drain(aggregate_reward) -> MarginalizedCreditUpdate`
+- `history_snapshot() -> tuple[DecisionCreditRow, ...]`
 
-```python
-@dataclass(frozen=True, slots=True)
-class MarginalizedCreditUpdate:
-    feedback_step: int
-    reward: float
-    prediction: float
-    td_error: float
-    applied: bool
-
-class DelayMarginalizedAnonymousCredit(NormalizedActionValue):
-    def __init__(self, hidden_size: int, action_count: int, step_size: float = 0.1, *, law: DelayLaw | None = None) -> None: ...
-    def select_for_training(self, hidden_state: object, legal_action_indices: object, rng: np.random.Generator) -> ActionValueDecision: ...
-    def learn(self, aggregate_reward: object) -> MarginalizedCreditUpdate: ...
-    def learn_drain(self, aggregate_reward: object) -> MarginalizedCreditUpdate: ...
-    def history_snapshot(self) -> tuple[DecisionCreditRow, ...]: ...
-```
+`MarginalizedCreditUpdate` contains exactly `feedback_step`, `reward`, `prediction`, `td_error`, and `applied`.
 
 - [ ] **Step 1: Write RED tests for selection lifecycle and bounded history.**
 
-Require uniform RNG selection with the same `[seed,0x33414354]` semantics as Phase 3A/C. Before real-step feedback, keep exactly one `_current` row plus at most five completed historical decision rows. The historical row contains only decision index/action/feature/denominator. Assert by dataclass fields and object `__dict__` that no prediction, reward, delay, due step, multiplicity, source ID, pending-source flag, eligibility, or prediction trace exists.
+Require the same uniform behavior-action RNG semantics as Phase 3A/C. Before real-step feedback, the learner owns one current decision row plus at most five completed rows. Inspect private state in tests and reject prediction trace, eligibility, reward, realized-delay, due-step, multiplicity, source-ID, or environment pending-source fields.
 
 - [ ] **Step 2: Write RED hand-arithmetic test for current-weight prediction.**
 
-Use two actions and one hidden coordinate. Force three historical rows at candidate lags and set known weights. Immediately before `learn`, mutate the test learner's weights through a controlled test helper/snapshot restoration so that current `W_t` differs from every decision-time `W`. Assert `prediction` equals `<W_t,Z_t>` and changes with `W_t`. The test must fail for an implementation that cached decision-time predictions.
+Use two actions and one hidden coordinate. Build three candidate historical rows with hand-computed `Z_t/C_t`, then set a known current weight matrix immediately before feedback. Assert returned `prediction` equals `<W_t,Z_t>`. Repeat from the same history with a different current matrix and assert the prediction changes exactly through the changed matrix, which would fail for cached decision-time predictions.
 
 - [ ] **Step 3: Write RED drain tests.**
 
-After the final real decision, call `learn_drain` for clocks `N..N+5`. Assert no new `DecisionCreditRow` is appended, candidate indices shrink according to `(1,3,5)`, history becomes empty after the last useful candidate, and every call uses the same update function. A zero-source final clock with `Z=C=0` must validate the scalar and return `applied=False` without changing weights.
+After the final real decision, call `learn_drain` for clocks `N` through `N+5`. Assert no new decision row is appended, candidates shrink according to support `(1,3,5)`, and history is empty after support expires. When `Z=C=0`, a finite scalar is still validated but weights remain byte-identical and `applied` is false.
 
 - [ ] **Step 4: Write exact `{0:1}` Phase 3A continuity RED test.**
 
-For the same hidden states, forced action RNG, rewards, and `step_size=0.1`, compare a fresh `NormalizedActionValue` with `DelayMarginalizedAnonymousCredit(..., law=DelayLaw.immediate())` after every step:
+For identical hidden states, RNG and rewards, compare a fresh `NormalizedActionValue` with C4 immediate-law learner after every step:
 
 ```python
 assert c4_action == baseline_action
@@ -543,32 +493,26 @@ assert c4.parameter_digest() == baseline.parameter_digest()
 python -m pytest -q tests/test_phase_c4_learner.py
 ```
 
-Expected: module/class missing.
+Expected: C4 learner module/class missing.
 
 - [ ] **Step 6: Implement real-step lifecycle.**
 
-On `select_for_training`, compute the frozen Phase 3A feature, legal action set, random behavior action, denominator, and one current `DecisionCreditRow`. Do not append it to completed history yet. On `learn` at feedback clock `t`, build candidates from the completed history for registered law `(1,3,5)`; for immediate law include the current row as lag zero. Compute `P_t` from `self._weights` immediately before update.
+On selection, reuse frozen `_feature` and `_legal_actions`, select uniformly with the supplied NumPy generator, compute denominator, and keep one current `DecisionCreditRow`. Do not append it to completed history before feedback.
 
-For registered law, apply:
+For registered law, `learn` builds `Z/C` from completed history, computes `td_error = reward - <W_t,Z_t>`, validates the full candidate weight matrix, then mutates. After the update, append the current row, clear current state, evict completed rows older than five decisions, and advance the internal feedback clock.
 
-```python
-candidate_weights = self._weights + self.step_size * td_error * normalized_credit
-```
-
-only after validating all intermediates are finite. Then append the current row to history, clear `_current`, evict completed rows older than five decisions, and increment the internal feedback clock.
-
-For immediate law, preserve Phase 3A arithmetic order exactly:
+For immediate law, include the current row at lag zero and update with exact Phase 3A arithmetic order:
 
 ```python
 delta = self.step_size * td_error * current.feature / current.denominator
-candidate = self._weights[current.action_index] + delta
+candidate_row = self._weights[current.action_index] + delta
 ```
 
-Update only the selected row before appending/evicting history. This special arithmetic path is a Python continuity requirement, not a different scientific law.
+Update only the selected row after finite validation.
 
 - [ ] **Step 7: Implement atomic drain.**
 
-`learn_drain` requires `_current is None`, validates the scalar first, builds `Z/C` from completed history at the internal feedback clock, computes current-weight prediction, validates candidate weights before mutation, evicts by age after the update, and increments the clock. It accepts no source/delay/count/timestamp argument.
+`learn_drain` requires no current decision, accepts only the scalar, computes current-weight `P_t`, validates candidate weights before mutation, evicts history by age after feedback, and increments the internal clock. It accepts no source/delay/count/timestamp parameter.
 
 - [ ] **Step 8: Run GREEN and regressions.**
 
@@ -596,34 +540,31 @@ git push origin experiment/phase-c4-delay-marginalized-credit
 - Create: `tests/test_phase_c4_batch_probe.py`
 
 **Interfaces:**
-
-```python
-@dataclass(frozen=True, slots=True)
-class BatchProbeFit:
-    weights: np.ndarray
-    row_count: int
-    column_count: int
-    augmented_rank: int
-    residual_norm: float
-    singular_values: np.ndarray
-    penalty: float
-
-
-def build_batch_design(rows: tuple[DecisionCreditRow, ...], feedback: tuple[float, ...], *, action_count: int, law: DelayLaw) -> tuple[np.ndarray, np.ndarray]: ...
-def fit_anonymous_batch_probe(design: np.ndarray, target: np.ndarray, *, action_count: int, feature_size: int, penalty: float = 1e-6) -> BatchProbeFit: ...
-```
+- `build_batch_design(rows, feedback, action_count, law) -> tuple[np.ndarray, np.ndarray]`
+- `fit_anonymous_batch_probe(design, target, action_count, feature_size, penalty=1e-6) -> BatchProbeFit`
+- `BatchProbeFit` contains read-only `weights`, row/column counts, augmented rank, residual norm, read-only singular values, and penalty.
 
 - [ ] **Step 1: Write RED analytic ridge tests.**
 
-Use a tiny full-rank matrix where the augmented least-squares solution can be checked against `np.linalg.solve(Z.T @ Z + 1e-6*I, Z.T @ F)` **in the test only**. Production must use `np.linalg.lstsq` on the augmented system. Assert bias columns are included in the penalty by constructing a design where an unpenalized bias would produce a different solution.
+Use a tiny full-rank matrix and compare the production result to this test-only reference:
+
+```python
+reference = np.linalg.solve(
+    design.T @ design + 1e-6 * np.eye(design.shape[1]),
+    design.T @ target,
+)
+np.testing.assert_allclose(fit.weights.reshape(-1), reference, rtol=0.0, atol=1e-12)
+```
+
+Add a case that distinguishes penalized versus unpenalized bias.
 
 - [ ] **Step 2: Write RED information-boundary tests.**
 
-`build_batch_design` accepts only `DecisionCreditRow`, scalar feedback, action count, and `DelayLaw`. Its module must not import `LatentRewardRecord`, `AggregateFeedback.records`, diagnostic provenance, `DelayedCueEpisode.correct_action_index`, or Task 12 reference modules. Add a source-inspection guard that fails if forbidden identifier strings occur in `phase_c4_batch_probe.py`.
+`build_batch_design` accepts only learner-owned decision rows, scalar feedback, action count, and delay law. Add source-inspection assertions that `phase_c4_batch_probe.py` does not import or reference `LatentRewardRecord`, `AggregateFeedback.records`, correct-action labels, Task 12 provenance, or source-visible references.
 
-- [ ] **Step 3: Write RED drain-row test.**
+- [ ] **Step 3: Write RED terminal-drain design-row test.**
 
-For `N=4` and support `(1,3,5)`, provide `N+5` scalar feedback calls. Assert the design contains one row per delivery clock, including post-training drain clocks, and later rows contain only still-valid pre-`N` candidate decisions.
+For `N=4`, support `(1,3,5)`, and feedback clocks `0..8`, assert one design row per scalar call. Post-training rows contain only valid pre-`N` candidate decisions and end with zero feature after support expires.
 
 - [ ] **Step 4: Run RED.**
 
@@ -631,9 +572,9 @@ For `N=4` and support `(1,3,5)`, provide `N+5` scalar feedback calls. Assert the
 python -m pytest -q tests/test_phase_c4_batch_probe.py
 ```
 
-- [ ] **Step 5: Implement canonical design construction and fixed ridge.**
+- [ ] **Step 5: Implement canonical design and fixed ridge.**
 
-Build each `Z_t` with `build_marginalized_features`, flatten in C-order from shape `(action_count, feature_size)` to `action_count*feature_size`, and pair it with the actual scalar learner-call stream. Fit exactly:
+Each design row is `expected_feature.reshape(-1, order="C")`. Fit exactly with augmented least squares:
 
 ```python
 sqrt_penalty = math.sqrt(1e-6)
@@ -647,7 +588,7 @@ coef, residuals, rank, singular_values = np.linalg.lstsq(
 )
 ```
 
-Reject any penalty other than exactly `1e-6` in the registered fit API. Validate finite inputs/results and return read-only copies.
+The registered API rejects a penalty different from `1e-6`. Validate all inputs/results as finite; reshape coefficients to `(action_count, feature_size)` and return read-only arrays.
 
 - [ ] **Step 6: Run GREEN and commit.**
 
@@ -662,56 +603,32 @@ git push origin experiment/phase-c4-delay-marginalized-credit
 
 ---
 
-### Task 6: Build fail-closed C4 protocol controls and current-weight/non-interference audits
+### Task 6: Build fail-closed C4 protocol controls and non-interference audits
 
 **Files:**
 - Modify: `src/neural_state_machine/phase_c4_controls.py`
 - Modify: `tests/test_phase_c4_controls.py`
 
 **Interfaces:**
-
-```python
-@dataclass(frozen=True, slots=True)
-class PhaseC4ProtocolAudit:
-    action_count: int
-    latent_record_count: int
-    delivered_record_count: int
-    real_feedback_count: int
-    drain_feedback_count: int
-    pending_final: int
-    action_digest: str
-    delay_digest: str
-    due_step_digest: str
-    aggregate_feedback_digest: str
-    learner_call_digest: str
-    candidate_feature_digest: str
-    parameter_digest: str
-    source_relabel_invariant: bool
-    multiplicity_hidden_invariant: bool
-    current_weight_probe_passed: bool
-    bounded_history_passed: bool
-    immediate_continuity_passed: bool
-    repeated_run_equal: bool
-
-
-def validate_phase_c4_protocol(audit: PhaseC4ProtocolAudit, *, expected_actions: int) -> None: ...
-```
+- `PhaseC4ProtocolAudit` contains counts, action/schedule/call/candidate/parameter digests and booleans for source relabel invariance, hidden multiplicity, current-weight probe, bounded history, immediate continuity, repeatability.
+- `validate_phase_c4_protocol(audit, expected_actions)` raises `ValueError` on any mismatch.
+- `frozen_input_hashes(root) -> tuple[tuple[str, str], ...]` hashes all required C3 scientific/evidence inputs and rejects symlinks/missing paths.
 
 - [ ] **Step 1: Write one valid synthetic audit and mutate every field independently.**
 
-Require `ValueError` for count mismatch, pending final nonzero, changed digest lengths/hex, false non-interference, false current-weight probe, false bounded-history check, false immediate continuity, or false repeatability. No behavioral score field exists in this dataclass.
+Reject count mismatch, nonzero pending final, malformed/changed digest, false non-interference, false current-weight probe, false bounded-history check, false immediate continuity, or false repeatability. The audit type has no behavioral score or behavior-gate field.
 
 - [ ] **Step 2: Add independent reconstruction tests for `Z_t/P_t/C_t`.**
 
-Capture learner-owned decision rows externally and independently call `build_marginalized_features`. For each synthetic step compare reconstructed matrices and prediction with learner debug snapshots exposed only as read-only protocol data. Change weights before a synthetic feedback call and require the predicted change to equal `<delta_W,Z_t>` within exact NumPy operation ordering used by the helper; a stale prediction implementation must fail.
+Capture learner-owned rows externally and reconstruct terms through `build_marginalized_features`. Compare to learner protocol snapshots. Perturb current weights immediately before feedback and require the prediction delta to match the same `Z_t`, proving no stale prediction state is used.
 
-- [ ] **Step 3: Add source/multiplicity non-interference tests using the frozen C3 aggregator externally.**
+- [ ] **Step 3: Add source/multiplicity non-interference tests with C3 aggregator metadata kept external.**
 
-Use `phase3c_schedule.AnonymousRewardAggregator` only in the harness. Create two observer histories with relabeled `records[*].source_step` and altered observer multiplicity metadata but identical `.value` scalar streams. Feed only scalar values into two fresh C4 learners and require action/parameter digests equal.
+Create two observer histories that differ in record source labels or multiplicity metadata but expose identical scalar `.value` streams. Feed only scalars to fresh C4 learners and require identical action and parameter digests.
 
-- [ ] **Step 4: Add frozen-input byte hashes.**
+- [ ] **Step 4: Add frozen-input hashes.**
 
-Create a constant tuple of required read-only paths including all C3 scientific modules/evidence named in the spec. A helper `frozen_input_hashes(root)` returns sorted `(path, sha256)` rows and rejects symlinks/missing files. Tests mutate a temporary copy and require fail-closed mismatch.
+Hash every C3 frozen source/evidence path listed by the spec. In temporary-copy tests, mutate one byte, delete one file, or replace one file with a symlink and require fail-closed validation.
 
 - [ ] **Step 5: Run GREEN and commit.**
 
@@ -726,76 +643,59 @@ git push origin experiment/phase-c4-delay-marginalized-credit
 
 ---
 
-### Task 7: Build protocol-only C4 orchestration, exact lineage checks, and secondary evaluation manifest
+### Task 7: Build protocol-only C4 orchestration, exact lineages, secondary evaluation manifest, and fixed gate helper
 
 **Files:**
 - Create: `src/neural_state_machine/phase_c4_benchmark.py`
 - Create: `tests/test_phase_c4_benchmark.py`
-- Read-only reuse: `phase3c_schedule.py`, `action_value_benchmark.py`, `reward_learning.py`, `phase3c_diagnostics/evaluation.py` in tests only
+- Read-only reuse: C3 schedule, action-value benchmark, reward-learning helpers
+- Test-only read: `phase3c_diagnostics/evaluation.py`
 
 **Interfaces:**
-
-```python
-@dataclass(frozen=True, slots=True)
-class PhaseC4Config:
-    hidden_size: int = 64
-    recurrent_radius: float = 0.9
-    step_size: float = 0.1
-    training_decisions: int = 2000
-    evaluation_blocks: int = 20
-    checkpoint_interval: int = 100
-    ridge_penalty: float = 1e-6
-
-@dataclass(frozen=True, slots=True)
-class PhaseC4ProtocolResult:
-    seed: int
-    training_fixture_digest: str
-    evaluation_fixture_digest: str
-    action_digest: str
-    latent_reward_digest: str
-    audit: PhaseC4ProtocolAudit
-
-
-def run_phase_c4_protocol_gate(seeds: tuple[int, ...] = (7, 17, 29), config: PhaseC4Config | None = None) -> tuple[PhaseC4ProtocolResult, ...]: ...
-```
+- `PhaseC4Config` defaults: hidden size `64`, radius `0.9`, step `0.1`, decisions `2000`, evaluation blocks `20`, checkpoint `100`, ridge `1e-6`.
+- `PhaseC4ProtocolResult` contains seed, fixture/action/reward digests and `PhaseC4ProtocolAudit` only.
+- `run_phase_c4_protocol_gate(seeds=(7,17,29), config=None) -> tuple[PhaseC4ProtocolResult, ...]`.
+- `registered_c4_gate(normal, per_delay, reset, reset_per_delay, shuffled) -> bool`.
 
 - [ ] **Step 1: Write anti-peeking RED test.**
 
-For a reduced test config, call `run_phase_c4_protocol_gate` and assert the result has no attributes named `post_training`, `state_reset`, `shuffled_control`, `operator_passed`, `behavior_passed`, `secondary_scores`, or `accuracy`.
+For a reduced test config, assert protocol results have no attributes `post_training`, `state_reset`, `shuffled_control`, `operator_passed`, `behavior_passed`, `secondary_scores`, or `accuracy`.
 
 - [ ] **Step 2: Write matched-lineage RED tests.**
 
-Pre-generate expected actions from `[seed,0x33414354]`. Build the hidden delay schedule through the frozen `build_hidden_delay_schedule`. Execute the normal C4-B protocol twice and require identical action/latent reward/delay/due/aggregate-call/parameter digests. Build a C4-A protocol stream from the same decision rows and aggregate scalars without fitting it; require the same action, fixture, schedule, and call digests.
+Pre-generate expected actions from `[seed,0x33414354]`. Build the frozen hidden-delay schedule. Execute C4-B protocol twice and require identical action/reward/delay/due/call/parameter digests. Build C4-A protocol rows/scalars from the same fixed stream without fitting; require matching fixture/action/schedule/call digests.
 
 - [ ] **Step 3: Write exact immediate-continuity integration test.**
 
-Run the full registered fixture lineage with `DelayLaw.immediate()` and compare against `run_action_value_experiment` for each registered seed: action tuple/digest, reward tuple/digest, training/evaluation fixture digests, final parameter bytes/digest. This integration test is stricter than the unit test and must remain behavior-score blind for the delayed C4 path.
+For each registered seed, run full fixture lineage with immediate law and compare against `run_action_value_experiment`: action tuple/digest, reward tuple/digest, training/evaluation fixture digests, final weight bytes and parameter digest. Do not evaluate delayed C4 behavior in this test.
 
 - [ ] **Step 4: Implement Task 12 secondary evaluation bundles independently.**
 
-Production C4 code generates the eight additional sets itself from:
+Production C4 uses:
 
 ```python
 rng = np.random.Generator(
-    np.random.PCG64(np.random.SeedSequence([seed, 0x33434641, 2, evaluation_id]))
+    np.random.PCG64(
+        np.random.SeedSequence([seed, 0x33434641, 2, evaluation_id])
+    )
 )
 ```
 
-using frozen `_build_fixtures(task, rng, evaluation_blocks)` and `_episode_digest`. In tests only, compare the 27 `(seed, evaluation_id, digest)` rows against `phase3c_diagnostics.evaluation.build_evaluation_bundles` to prove exact Task 12 lineage continuity. C4 production must not import the diagnostics package.
+Build fixtures with frozen `_build_fixtures` and digest them with `_episode_digest`. In tests only, compare all 27 `(seed,evaluation_id,digest)` rows with Task 12 `phase3c_diagnostics.evaluation.build_evaluation_bundles`. Production C4 must not import the diagnostics package.
 
-- [ ] **Step 5: Implement fixed behavior-gate helper without running registered behavior.**
+- [ ] **Step 5: Implement fixed gate and boundary tests.**
 
-Expose a pure function `registered_c4_gate(...)` that reuses the exact numeric surface from Phase 3C but is implemented in C4 code to avoid modifying C3. Test threshold boundaries `179/180`, `33/34`, reset `19/20/21`, shuffled `149/150` and exact totals.
+Test overall `179/180`, per-delay `33/34`, reset `19/20/21`, shuffled `149/150`, and exact totals. Do not call the gate during protocol-only execution.
 
 - [ ] **Step 6: Implement protocol-only orchestration.**
 
-Timeline for every real step remains:
+Real-step order is:
 
 ```text
-hidden -> random behavior action -> latent reward -> enqueue -> aggregate feedback_at(t) -> scalar-only C4 call
+hidden -> random behavior action -> latent reward -> enqueue -> feedback_at(t) -> scalar-only C4 call
 ```
 
-C4-A protocol collection records learner-owned decision rows and scalar calls but does **not** call the ridge fitter. C4-B protocol executes the online learner. Drain from `training_decisions` through `max(due_steps)` with no selection. Build the external audit and validate it before returning.
+C4-A protocol collection records rows/scalars but never calls the ridge fitter. C4-B protocol executes online updates. Drain from `training_decisions` through `max(due_steps)` with no action selection. Validate external protocol audit before returning.
 
 - [ ] **Step 7: Run GREEN and commit.**
 
@@ -811,7 +711,7 @@ git push origin experiment/phase-c4-delay-marginalized-credit
 
 ---
 
-### Task 8: Add stage-specific behavior execution, evidence schemas, strict verifier, and locked environment
+### Task 8: Add stage-specific measurement execution, evidence schemas, strict verifier, and locked environment
 
 **Files:**
 - Modify: `src/neural_state_machine/phase_c4_benchmark.py`
@@ -819,73 +719,61 @@ git push origin experiment/phase-c4-delay-marginalized-credit
 - Create: `scripts/benchmark_phase_c4_delay_marginalized_credit.py`
 - Create: `scripts/verify_phase_c4_delay_marginalized_credit.py`
 - Create: `tests/test_phase_c4_evidence.py`
-- Extend: `tests/test_phase_c4_benchmark.py`
+- Modify: `tests/test_phase_c4_benchmark.py`
 - Create: `requirements/phase-c4.in`
 - Create: `requirements/phase-c4-python312.lock`
 
 **Interfaces:**
+- `measure_c4a_from_protocol(protocol, config) -> C4ASeedResult`
+- `measure_c4b_from_protocol(protocol, config) -> C4BSeedResult`
+- `prepare_c4a_manifest(root, output_dir) -> Path`
+- `prepare_c4b_manifest(root, c4a_result_path, output_dir) -> Path`
+- `verify_c4_stage(root, stage, allow_missing_result) -> None`
+
+- [ ] **Step 1: Write C4-A tiny unregistered measurement RED test.**
+
+Require a validated protocol result first. Fit normal and original-block-shuffled scalar streams separately with fixed ridge, install each fitted matrix into a fresh evaluation-only action-value object, and score original plus secondary bundles. The fit API receives no labels/source metadata.
+
+- [ ] **Step 2: Write C4-B tiny unregistered measurement RED test.**
+
+Replay protocol-validated normal and shuffled online runs. Original shuffle uses only:
 
 ```python
-@dataclass(frozen=True, slots=True)
-class EvaluationScore:
-    overall_correct: int
-    overall_total: int
-    per_delay: tuple[tuple[int, int, int], ...]
-
-@dataclass(frozen=True, slots=True)
-class C4ASeedResult:
-    seed: int
-    normal: EvaluationScore
-    reset: EvaluationScore
-    shuffled: EvaluationScore
-    secondary: tuple[dict[str, object], ...]
-
-@dataclass(frozen=True, slots=True)
-class C4BSeedResult:
-    seed: int
-    normal: EvaluationScore
-    reset: EvaluationScore
-    shuffled: EvaluationScore
-    secondary: tuple[dict[str, object], ...]
+shuffle_rng = np.random.default_rng(np.random.SeedSequence([seed, 0x33534846]))
+shuffled_rewards = _permute_reward_blocks(normal_rewards, shuffle_rng, block_size=10)
 ```
 
-- [ ] **Step 1: Write RED tests for C4-A measurement function on a tiny unregistered config.**
+Require unchanged action/schedule lineages.
 
-The function must first receive/validate a `PhaseC4ProtocolResult`, then fit normal and original-block-shuffled streams separately through `fit_anonymous_batch_probe`, install the resulting weights into a fresh evaluation-only action-value object, and score original + secondary bundles. Training labels and evaluation labels never enter the fit function. A deliberately label-leaking adapter in a negative test must be rejected by API/type boundaries.
+- [ ] **Step 3: Write evidence-schema mutation tests.**
 
-- [ ] **Step 2: Write RED tests for C4-B measurement function on a tiny unregistered config.**
+C4-A prospective manifest includes exact scientific implementation reference, formal contract SHA/hash, C3 frozen hashes, config, seeds, lineages, evaluation manifest, environment fields, expected result keys, thresholds, and `stage="c4a"`. No result exists before measurement.
 
-Replay the protocol-validated normal and shuffled online learners, require their normal protocol digest to equal the supplied protocol result, then evaluate. Shuffled rewards are created only with frozen `_permute_reward_blocks(..., SeedSequence([seed,0x33534846]), block_size=10)`; actions and hidden-delay schedule must remain identical.
+C4-B manifest additionally binds frozen C4-A result/provenance hashes and requires verifier-recomputed `operator_passed=true`. Reject extra/missing keys, bool-as-int, count changes, non-finite values, changed thresholds, changed `1e-6`, changed delay law, altered formal SHA, altered lineages, or a result present in no-result mode.
 
-- [ ] **Step 3: Write RED evidence-schema mutation tests.**
+- [ ] **Step 4: Implement canonical JSON and strict verifier.**
 
-Prospective C4-A manifest must include exact scientific implementation reference, formal-contract hash/SHA, C3 frozen input hashes, config, seeds, lineages, evaluation manifest, environment fields, expected record keys, and `stage="c4a"`. Before measurement, `c4a-result.json` must be absent. C4-B manifest additionally binds the frozen C4-A result hash and requires `operator_passed=true`; before C4-B measurement, `c4b-result.json` must be absent.
+Canonical JSON uses UTF-8, sorted keys, compact separators, `allow_nan=False`, one terminal newline. Recompute all hashes from bytes and all gate booleans from raw counts. Reject serialized gate flags that disagree with recomputation.
 
-Mutation tests reject extra/missing keys, wrong booleans, bool-as-int, wrong counts, NaN/Infinity, changed thresholds/lineages, changed `1e-6`, changed delay law, altered formal SHA, or a result file present in no-result mode.
-
-- [ ] **Step 4: Implement canonical JSON and verifier.**
-
-Canonical JSON is UTF-8, sorted keys, compact separators, `allow_nan=False`, exactly one terminal newline. The strict verifier recomputes all hashes from bytes, validates every expected row key, recalculates gate booleans from score counts, and refuses a `behavior_passed/operator_passed` value that disagrees with raw counts.
-
-CLI modes:
+CLI commands are exactly:
 
 ```text
-benchmark_phase_c4_delay_marginalized_credit.py protocol
-benchmark_phase_c4_delay_marginalized_credit.py prepare-c4a --output DIR
-benchmark_phase_c4_delay_marginalized_credit.py measure-c4a --manifest FILE --output DIR
-benchmark_phase_c4_delay_marginalized_credit.py prepare-c4b --c4a-result FILE --output DIR
-benchmark_phase_c4_delay_marginalized_credit.py measure-c4b --manifest FILE --output DIR
-verify_phase_c4_delay_marginalized_credit.py --stage c4a --no-result-ok
-verify_phase_c4_delay_marginalized_credit.py --stage c4a
-verify_phase_c4_delay_marginalized_credit.py --stage c4b --no-result-ok
-verify_phase_c4_delay_marginalized_credit.py --stage c4b
+python scripts/benchmark_phase_c4_delay_marginalized_credit.py protocol
+python scripts/benchmark_phase_c4_delay_marginalized_credit.py prepare-c4a --output DIR
+python scripts/benchmark_phase_c4_delay_marginalized_credit.py measure-c4a --manifest FILE --output DIR
+python scripts/benchmark_phase_c4_delay_marginalized_credit.py prepare-c4b --c4a-result FILE --output DIR
+python scripts/benchmark_phase_c4_delay_marginalized_credit.py measure-c4b --manifest FILE --output DIR
+python scripts/verify_phase_c4_delay_marginalized_credit.py --stage c4a --no-result-ok
+python scripts/verify_phase_c4_delay_marginalized_credit.py --stage c4a
+python scripts/verify_phase_c4_delay_marginalized_credit.py --stage c4b --no-result-ok
+python scripts/verify_phase_c4_delay_marginalized_credit.py --stage c4b
 ```
 
-The measurement commands must fail unless the supplied manifest's scientific implementation, formal contract, input hashes, environment fields, and exact current scientific file hashes match before fitting/evaluation.
+Measurement commands compare manifest scientific SHA/file hashes, formal binding, immutable inputs and environment before fitting/evaluation.
 
 - [ ] **Step 5: Create the exact C4 Python lock.**
 
-`requirements/phase-c4.in` contains direct anchors:
+`requirements/phase-c4.in`:
 
 ```text
 numpy==2.5.3
@@ -893,7 +781,7 @@ pytest==9.1.1
 ruff==0.15.22
 ```
 
-`requirements/phase-c4-python312.lock` is the following exact environment, with a header identifying Python 3.12.14 and the C4 exact-head CI run once generated:
+`requirements/phase-c4-python312.lock`:
 
 ```text
 iniconfig==2.3.0
@@ -908,7 +796,7 @@ setuptools==84.0.0
 wheel==0.48.0
 ```
 
-Do not silently upgrade the lock after any scientific measurement.
+The file header records Python 3.12.14 and the exact C4 CI run once the first exact-head environment recreation passes. Dependency versions are not changed after scientific measurement.
 
 - [ ] **Step 6: Run local tests without registered measurement.**
 
@@ -922,7 +810,7 @@ python scripts/verify_phase_c4_delay_marginalized_credit.py --stage c4a --no-res
 git diff --check
 ```
 
-Do **not** run `measure-c4a` or `measure-c4b` here.
+Do not run either measurement command.
 
 - [ ] **Step 7: Commit Task 8.**
 
@@ -939,21 +827,14 @@ git push origin experiment/phase-c4-delay-marginalized-credit
 
 ---
 
-### Task 9: Make Gate P permanent in CI, seal C4-A prospectively, and STOP before measurement
+### Task 9: Make Gate P permanent, seal C4-A prospectively, and STOP before measurement
 
 **Files:**
 - Modify: `.github/workflows/ci.yml`
-- Tests: all `tests/test_phase_c4_*.py`
-- Prospective artifact only: generated C4-A manifest outside committed result path
 
-**Interfaces:**
-- Produces exact reviewed **scientific implementation reference** `C4_SCIENCE_HEAD`
-- Produces prospective C4-A manifest/hash from that head
-- Does not create a registered result
+**Produces:** reviewed `C4_SCIENCE_HEAD`, exact-head CI evidence, prospective C4-A manifest/hash, no registered fit/score.
 
-- [ ] **Step 1: Add permanent C4 CI after existing C3 gates without weakening/removing them.**
-
-Add steps equivalent to:
+- [ ] **Step 1: Add C4 CI after existing C3 gates without removing or weakening them.**
 
 ```yaml
       - name: Phase C4 tests
@@ -970,11 +851,9 @@ Add steps equivalent to:
         run: python scripts/benchmark_phase_c4_delay_marginalized_credit.py protocol
 ```
 
-Add an exact Python 3.12.14 venv recreation step using `pip==26.2.1` and `requirements/phase-c4-python312.lock`, compare `pip freeze --all` byte-for-line after case-insensitive sorting, install the project `--no-deps --no-build-isolation -e .`, rerun C4 tests/protocol/verifier, then prepare the prospective C4-A manifest without fitting.
+Add Python 3.12.14 venv recreation with `pip==26.2.1`, install `requirements/phase-c4-python312.lock`, compare sorted `pip freeze --all`, install project with `--no-deps --no-build-isolation -e .`, rerun C4 tests/protocol/no-result verifier, prepare C4-A manifest, and upload only `phase-c4a-prospective-${{ github.sha }}`.
 
-Upload only the prospective manifest artifact named `phase-c4a-prospective-${{ github.sha }}`.
-
-- [ ] **Step 2: Run local regression and frozen-file audit.**
+- [ ] **Step 2: Run full local regression and frozen-file audit.**
 
 ```bash
 python -m pytest -q
@@ -985,9 +864,9 @@ python scripts/verify_phase_c4_delay_marginalized_credit.py --stage c4a --no-res
 git diff --check
 ```
 
-Also compare SHA-256 of every frozen C3 path against the Task 6 manifest.
+Compare all frozen C3 SHA-256 values against Task 6.
 
-- [ ] **Step 3: Commit CI only.**
+- [ ] **Step 3: Commit CI and freeze the scientific head.**
 
 ```bash
 git add .github/workflows/ci.yml
@@ -996,21 +875,21 @@ git push origin experiment/phase-c4-delay-marginalized-credit
 git rev-parse HEAD
 ```
 
-Record that exact head as `C4_SCIENCE_HEAD`. C4-A and C4-B scientific code is now frozen for C4 v1.
+Record the literal output as `C4_SCIENCE_HEAD`. From this point C4-A and C4-B scientific files are immutable for C4 v1.
 
-- [ ] **Step 4: Require exact-head CI and inspect evidence.**
+- [ ] **Step 4: Require exact-head CI and inspect prospective evidence.**
 
-The exact `C4_SCIENCE_HEAD` GitHub run must show all repository tests, Ruff, Phase 3C verifier, C4 protocol gate, locked-environment recreation, no-result C4 verifier, and prospective C4-A manifest generation green. Download/read the prospective manifest and confirm it binds the exact head and formal SHA.
+Require repository tests, Ruff, C3 verifier, C4 protocol, exact locked environment, C4 no-result verifier and prospective manifest preparation all green on the exact head. Read the uploaded manifest and confirm exact scientific/formal/environment/input hashes.
 
 - [ ] **Step 5: Mandatory STOP.**
 
-Stop here. Report the exact head, exact CI run/job IDs, formal SHA, prospective C4-A manifest hash, environment hash, and that **no C4-A fit or behavioral score has been produced**. Obtain explicit human approval before Task 10.
+Report exact head, exact CI run/job IDs, formal SHA, prospective C4-A manifest hash and environment hash. State explicitly that no C4-A fit or behavioral score has been produced. Obtain explicit human approval before Task 10.
 
 ---
 
-### Task 10: After explicit approval, run exactly one sealed C4-A registered measurement and freeze its result
+### Task 10: After explicit approval, run one sealed C4-A registered measurement and freeze its result
 
-**Authorization gate:** Do not execute this task without an explicit post-Task-9 approval.
+**Authorization:** execute only after explicit post-Task-9 approval.
 
 **Files:**
 - Create temporarily: `.github/workflows/phase-c4a-measurement-once.yml`
@@ -1019,31 +898,28 @@ Stop here. Report the exact head, exact CI run/job IDs, formal SHA, prospective 
 - Create after valid run: `docs/experiments/phase-c4-delay-marginalized-credit/c4a-report.md`
 - Create after valid run: `docs/experiments/phase-c4-delay-marginalized-credit/c4a-provenance.json`
 
-- [ ] **Step 1: Create a one-shot workflow whose first scientific step is sealed-environment equality.**
+- [ ] **Step 1: Create one-shot workflow with sealed equality before fitting.**
 
-It must checkout the approved execution head, recreate exact Python 3.12.14 lock, compare every environment field/hash in the sealed C4-A manifest, rerun Gate P/no-result verifier, and only then invoke:
+The workflow checks out the approved execution head, recreates exact Python 3.12.14 environment, compares all sealed fields/hashes, reruns Gate P and no-result verifier, then and only then executes:
 
 ```bash
 python scripts/benchmark_phase_c4_delay_marginalized_credit.py \
-  measure-c4a \
-  --manifest /path/to/sealed/c4a-manifest.json \
-  --output /tmp/phase-c4a-result
+  measure-c4a --manifest sealed/c4a-manifest.json --output /tmp/phase-c4a
 python scripts/verify_phase_c4_delay_marginalized_credit.py \
-  --stage c4a \
-  --root /tmp/phase-c4a-result
+  --stage c4a --root /tmp/phase-c4a
 ```
 
-Any preflight mismatch exits before ridge fitting and produces no scientific result.
+Any mismatch exits before fitting and produces no scientific result.
 
-- [ ] **Step 2: Run exactly once for the approved sealed manifest.**
+- [ ] **Step 2: Run the approved sealed attempt.**
 
-If preflight fails, record the attempt as invalid provenance, correct only the environment mismatch through a reviewed manifest/environment procedure, and require a new explicit measurement approval. Do not inspect partial fit/evaluation output.
+A preflight failure is provenance only. Do not inspect partial fit/evaluation data. Any corrected seal requires a reviewed new manifest and new explicit approval.
 
-- [ ] **Step 3: For a valid run, verify complete C4-A evidence.**
+- [ ] **Step 3: Verify complete C4-A evidence.**
 
-Require three registered seeds, normal and original shuffled fits, all primary original-set score fields, all fixed reset/per-delay fields, all eight secondary sets per seed, solver rank/residual diagnostics, exact frozen lineages, and recomputed `operator_passed`.
+Require all three seeds, normal and original shuffled fits, primary original-set score fields, reset/per-delay fields, eight secondary sets per seed, fit rank/residual diagnostics, frozen lineages and verifier-recomputed `operator_passed`.
 
-- [ ] **Step 4: Commit result/provenance without altering scientific code.**
+- [ ] **Step 4: Commit result/provenance only.**
 
 ```bash
 git add docs/experiments/phase-c4-delay-marginalized-credit/c4a-manifest.json \
@@ -1053,7 +929,7 @@ git add docs/experiments/phase-c4-delay-marginalized-credit/c4a-manifest.json \
 git commit -m "docs: freeze Phase C4-A operator result"
 ```
 
-- [ ] **Step 5: Delete the one-shot C4-A workflow in a separate cleanup commit.**
+- [ ] **Step 5: Delete the completed one-shot workflow in a separate cleanup commit.**
 
 ```bash
 git rm .github/workflows/phase-c4a-measurement-once.yml
@@ -1062,35 +938,25 @@ git commit -m "ci: remove completed C4-A measurement workflow"
 
 - [ ] **Step 6: Mandatory interpretation stop.**
 
-If any seed fails the fixed C4-A gate, record `operator_passed=false`, declare C4 v1 stopped before C4-B registered behavior, and do not create a C4-B manifest/workflow. If all seeds pass, proceed only to Task 11 preparation; this does not authorize C4-B measurement.
+If any seed fails, record `operator_passed=false`, stop C4 v1 before C4-B, and do not create C4-B manifest/workflow. If all seeds pass, only Task 11 preparation is authorized next.
 
 ---
 
-### Task 11: If C4-A passes, seal C4-B prospectively against the already frozen C4-B implementation and STOP
+### Task 11: If C4-A passes, seal C4-B against the already frozen implementation and STOP
 
-**Authorization precondition:** Valid C4-A result with verifier-recomputed `operator_passed=true`.
+**Precondition:** valid verified C4-A with `operator_passed=true`.
 
 **Files:**
 - Create: `docs/experiments/phase-c4-delay-marginalized-credit/c4b-manifest.json`
-- Do not create `c4b-result.json` yet.
+- Do not create C4-B result/report/provenance yet.
 
 - [ ] **Step 1: Prove C4-B scientific files are byte-identical to `C4_SCIENCE_HEAD`.**
 
-Hash the C4 delay model, learner, controls, benchmark, formal contract, config constants, verifier, lock, and all frozen C3 inputs. Compare against the Task 9 sealed scientific manifest. Any difference stops C4 v1; do not restage C4-B after seeing C4-A.
+Hash C4 delay model, batch probe, learner, controls, benchmark, evidence code, scripts, formal contract, lock and all frozen C3 inputs. Compare to Task 9 scientific manifest. Any difference terminates C4 v1 rather than restaging C4-B after observing C4-A.
 
 - [ ] **Step 2: Prepare C4-B manifest.**
 
-It binds:
-
-- original `C4_SCIENCE_HEAD` as the scientific implementation reference;
-- current execution head separately;
-- exact formal SHA and formal-contract hash;
-- exact C4-A result/provenance hashes and `operator_passed=true`;
-- registered config/thresholds/lineages;
-- secondary evaluation manifest;
-- exact Python 3.12.14 lock/environment;
-- expected three-seed normal/reset/shuffled/secondary result keys;
-- no `c4b-result.json` present.
+Bind original `C4_SCIENCE_HEAD`, current execution head separately, exact formal SHA/hash, C4-A result/provenance hashes, verifier-recomputed `operator_passed=true`, registered config/thresholds/lineages, secondary evaluation manifest, exact environment, expected result keys, and absence of C4-B result.
 
 - [ ] **Step 3: Run no-result verifier and exact-head CI.**
 
@@ -1099,17 +965,17 @@ python scripts/verify_phase_c4_delay_marginalized_credit.py --stage c4b --no-res
 python scripts/benchmark_phase_c4_delay_marginalized_credit.py protocol
 ```
 
-Require the current GitHub CI to pass while also proving the scientific file hashes still equal `C4_SCIENCE_HEAD`.
+Require current CI green and scientific hashes equal to `C4_SCIENCE_HEAD`.
 
 - [ ] **Step 4: Mandatory STOP.**
 
-Report C4-A result hash, original frozen C4 science head, C4-B manifest hash, current CI run/job IDs, and explicitly state that no C4-B registered behavior has been evaluated. Obtain a second explicit human approval before Task 12.
+Report C4-A result hash, frozen C4 science head, C4-B manifest hash, exact CI run/job IDs, and explicitly state that no C4-B registered behavior has been evaluated. Obtain a second explicit human approval before Task 12.
 
 ---
 
-### Task 12: After second explicit approval, run sealed C4-B measurement, freeze result, and remove one-shot workflow
+### Task 12: After second explicit approval, run sealed C4-B measurement, freeze result, and remove workflow
 
-**Authorization gate:** Do not execute without explicit post-Task-11 C4-B measurement approval.
+**Authorization:** execute only after explicit post-Task-11 approval.
 
 **Files:**
 - Create temporarily: `.github/workflows/phase-c4b-measurement-once.yml`
@@ -1117,23 +983,21 @@ Report C4-A result hash, original frozen C4 science head, C4-B manifest hash, cu
 - Create after valid run: `docs/experiments/phase-c4-delay-marginalized-credit/c4b-report.md`
 - Create after valid run: `docs/experiments/phase-c4-delay-marginalized-credit/c4b-provenance.json`
 
-- [ ] **Step 1: Create one-shot C4-B workflow with sealed preflight before behavior.**
+- [ ] **Step 1: Create one-shot C4-B workflow with sealed preflight.**
 
-The workflow recreates the exact lock, verifies scientific file hashes against `C4_SCIENCE_HEAD`, validates C4-A pass binding and C4-B manifest bytes, reruns Gate P, and only then invokes `measure-c4b`.
+Recreate the exact lock, verify scientific hashes against `C4_SCIENCE_HEAD`, validate C4-A pass binding and C4-B manifest bytes, rerun Gate P, then execute C4-B measurement only after all checks pass.
 
 - [ ] **Step 2: Execute one valid sealed measurement.**
 
-A preflight failure is provenance only and produces no scientific result. A valid run must score all three seeds for normal/reset/original shuffled and the fixed secondary surfaces without parameter/threshold changes.
+A preflight failure is provenance only. A valid run scores all three seeds for normal/reset/original shuffled plus the fixed secondary surfaces without changing any scientific parameter.
 
-- [ ] **Step 3: Verify status from raw counts.**
-
-The strict verifier computes:
+- [ ] **Step 3: Recompute status from raw evidence.**
 
 ```text
-formal_valid = true only from the bound passing formal contract
-protocol_valid = true only from exact Gate P evidence
-operator_passed = true only from frozen verified C4-A result
-behavior_passed = true only if every registered C4-B seed passes the unchanged primary gate
+formal_valid = bound formal contract is valid
+protocol_valid = exact Gate P evidence is valid
+operator_passed = frozen C4-A result passes its fixed gate
+behavior_passed = every registered C4-B seed passes unchanged Gate B
 all_passed = formal_valid && protocol_valid && operator_passed && behavior_passed
 ```
 
@@ -1155,23 +1019,21 @@ git commit -m "ci: remove completed C4-B measurement workflow"
 
 - [ ] **Step 6: Final audit.**
 
-Rerun full CI/verifier, compare every frozen C3 scientific/evidence hash to its original value, compare every C4 scientific file to `C4_SCIENCE_HEAD`, and report the bounded interpretation required by the spec. Do not infer generic identifiability, unknown-delay inference, source reconstruction, convergence, or production readiness.
+Rerun full CI/verifier, prove every frozen C3 path is unchanged and every C4 scientific path still matches `C4_SCIENCE_HEAD`, then write only the bounded interpretation permitted by the spec.
 
 ---
 
-## Plan Self-Review Checklist
+## Plan Self-Review
 
-Before execution approval, review this committed plan against the spec:
-
-1. **Spec coverage:** Tasks 1-2 cover Formal Gate F; Tasks 3-7 cover delay law, batch operator, online learner, current-weight semantics, bounded history, drain, Gate P, and exact Phase 3A continuity; Task 8 covers strict evidence/lock; Task 9 seals before behavior; Tasks 10-12 enforce the two independent measurement checkpoints.
-2. **Anti-tuning:** C4-B implementation is completed and frozen before C4-A measurement; C4-A failure terminates C4 v1; C4-A success cannot modify C4-B scientific bytes.
-3. **Information boundary:** batch and online learner APIs contain no realized source/delay/due/multiplicity/latent reward fields; observer metadata remains outside scalar learner calls.
-4. **Current-weight contract:** both formal and Python paths use `P_t=<W_t,Z_t>` and no prediction trace.
-5. **Immediate continuity:** `{0:1}` has both mathematical reduction and byte-for-byte Python arithmetic continuity.
-6. **Drain:** no synthetic actions and no special trace state; the same marginalized equation is used until support expires.
-7. **Frozen history:** all C3 scientific/evidence files remain read-only and are hashed in Gate P/measurement manifests.
-8. **No placeholders in production:** any explanatory placeholder strings shown in this plan are replaced by exact captured values before a file is staged; production/test files contain no `TODO`, `TBD`, `pass`, `...`, `sorry`, or `admit` in required implementations/proofs.
+- **Spec coverage:** Tasks 1-2 cover Gate F; Tasks 3-7 cover the fixed delay operator, C4-A, C4-B, current-weight semantics, bounded history, drain, Gate P and exact Phase 3A continuity; Task 8 covers evidence and lock; Task 9 seals before behavior; Tasks 10-12 enforce independent C4-A/C4-B measurement checkpoints.
+- **Anti-tuning:** C4-B implementation is complete and frozen before C4-A measurement. A C4-A failure terminates C4 v1. A C4-A success cannot change C4-B scientific bytes.
+- **Information boundary:** batch and online APIs contain no realized source/delay/due/multiplicity/latent-reward fields. Observer metadata remains outside learner calls.
+- **Current-weight contract:** formal and Python paths use `P_t=<W_t,Z_t>` with no prediction trace.
+- **Immediate continuity:** `{0:1}` has both formal reduction and exact Python arithmetic/byte continuity.
+- **Drain:** no synthetic action or special trace state; the same marginalized equation is used until candidate support expires.
+- **Frozen history:** C3 scientific/evidence files remain read-only and are hashed at protocol/measurement gates.
+- **Concrete execution:** runtime-captured identifiers such as the Task 2 Lean head are generated directly from reviewed commands and written literally before staging; no unresolved implementation bodies or proof holes are allowed in committed production/test/formal files.
 
 ## Execution Boundary
 
-This plan commit itself authorizes **no production implementation and no C4 measurement**. After review approval, execution begins with Task 1 and follows the gates serially. Task 9 is the mandatory stop before C4-A measurement; Task 11 is the mandatory stop before C4-B measurement.
+This plan commit authorizes no production implementation and no C4 measurement. After plan review approval, execution begins with Task 1 and follows the gates serially. Task 9 is the mandatory stop before C4-A measurement; Task 11 is the mandatory stop before C4-B measurement.
