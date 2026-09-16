@@ -1,5 +1,5 @@
 # Python 3.12.14 Phase C4 lock.
-# Exact science-head CI run is recorded only after Task 9 environment recreation passes.
+# First exact-head C4 environment recreation passed on GitHub Actions CI #510 (run 35103617925).
 iniconfig==2.3.0
 numpy==2.5.3
 packaging==26.3
