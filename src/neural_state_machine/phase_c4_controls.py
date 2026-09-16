@@ -1,7 +1,8 @@
-"""Fail-closed Phase C4 formal-contract loading and protocol helpers."""
+"""Fail-closed Phase C4 formal-contract loading and protocol controls."""
 
 from __future__ import annotations
 
+import hashlib
 import json
 from dataclasses import dataclass
 from pathlib import Path
@@ -35,11 +36,49 @@ _FORMAL_KEYS = {
     "theorems",
 }
 
+# Frozen Phase 3C scientific sources and evidence inherited by C4.
+FROZEN_C3_INPUT_PATHS = (
+    "src/neural_state_machine/action_value.py",
+    "src/neural_state_machine/phase3c_schedule.py",
+    "src/neural_state_machine/phase3c_learners.py",
+    "src/neural_state_machine/phase3c_controls.py",
+    "src/neural_state_machine/phase3c_benchmark.py",
+    "src/neural_state_machine/reward_learning.py",
+    "src/neural_state_machine/action_value_benchmark.py",
+    "scripts/verify_phase3c_anonymous_credit.py",
+    "docs/experiments/phase-3c-formal-contract.json",
+    "docs/experiments/phase-3c-anonymous-temporal-credit.json",
+    "docs/experiments/phase-3c-anonymous-temporal-credit-report.md",
+    "docs/experiments/phase-3c-failure-attribution-v1/provenance.json",
+    "docs/experiments/phase-3c-failure-attribution-v1/registered-result.md",
+)
+
 
 @dataclass(frozen=True, slots=True)
 class PhaseC4FormalContract:
     commit: str
     theorems: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class PhaseC4ProtocolAudit:
+    decision_count: int
+    latent_reward_count: int
+    delivered_reward_count: int
+    real_feedback_count: int
+    drain_feedback_count: int
+    pending_final: int
+    action_digest: str
+    schedule_digest: str
+    call_digest: str
+    candidate_digest: str
+    parameter_digest: str
+    source_relabel_invariant: bool
+    hidden_multiplicity_invariant: bool
+    current_weight_probe_passed: bool
+    bounded_history_passed: bool
+    immediate_continuity_passed: bool
+    repeatable: bool
 
 
 def _repository_root() -> Path:
@@ -106,3 +145,99 @@ def load_phase_c4_formal_contract(root: Path | None = None) -> PhaseC4FormalCont
     if theorem_tuple != _FORMAL_THEOREMS:
         raise ValueError("formal contract theorem set mismatch")
     return PhaseC4FormalContract(commit=commit, theorems=theorem_tuple)
+
+
+def _is_lower_hex_digest(value: object) -> bool:
+    return (
+        isinstance(value, str)
+        and len(value) == 64
+        and all(character in "0123456789abcdef" for character in value)
+    )
+
+
+def _integer_sequence_digest(values: tuple[int, ...]) -> str:
+    digest = hashlib.sha256()
+    digest.update(len(values).to_bytes(8, "big", signed=False))
+    for value in values:
+        digest.update(value.to_bytes(8, "big", signed=True))
+    return digest.hexdigest()
+
+
+def validate_phase_c4_protocol(
+    audit: PhaseC4ProtocolAudit,
+    expected_actions: tuple[int, ...],
+) -> None:
+    if not isinstance(audit, PhaseC4ProtocolAudit):
+        raise ValueError("audit must be a PhaseC4ProtocolAudit")
+    if not isinstance(expected_actions, tuple) or not expected_actions:
+        raise ValueError("expected_actions must be a non-empty tuple")
+    if any(type(action) is not int or action < 0 for action in expected_actions):
+        raise ValueError("expected_actions must contain non-negative integers")
+
+    expected_count = len(expected_actions)
+    count_fields = (
+        audit.decision_count,
+        audit.latent_reward_count,
+        audit.delivered_reward_count,
+        audit.real_feedback_count,
+    )
+    if any(type(value) is not int or value != expected_count for value in count_fields):
+        raise ValueError("registered real-step counts must match expected actions")
+    if type(audit.drain_feedback_count) is not int or audit.drain_feedback_count != 5:
+        raise ValueError("registered drain feedback count must be five")
+    if type(audit.pending_final) is not int or audit.pending_final != 0:
+        raise ValueError("registered protocol must end with no pending feedback")
+
+    if audit.action_digest != _integer_sequence_digest(expected_actions):
+        raise ValueError("action digest does not match expected actions")
+    for name, value in (
+        ("schedule_digest", audit.schedule_digest),
+        ("call_digest", audit.call_digest),
+        ("candidate_digest", audit.candidate_digest),
+        ("parameter_digest", audit.parameter_digest),
+    ):
+        if not _is_lower_hex_digest(value):
+            raise ValueError(f"{name} must be lowercase 64-hex")
+
+    for name, value in (
+        ("source_relabel_invariant", audit.source_relabel_invariant),
+        ("hidden_multiplicity_invariant", audit.hidden_multiplicity_invariant),
+        ("current_weight_probe_passed", audit.current_weight_probe_passed),
+        ("bounded_history_passed", audit.bounded_history_passed),
+        ("immediate_continuity_passed", audit.immediate_continuity_passed),
+        ("repeatable", audit.repeatable),
+    ):
+        if value is not True:
+            raise ValueError(f"{name} must be true")
+
+
+def _validated_frozen_path(root: Path, relative: str) -> Path:
+    if root.is_symlink():
+        raise ValueError("frozen input root must not be a symlink")
+    resolved_root = root.resolve()
+    path = root / relative
+    current = path
+    while current != root:
+        if current.is_symlink():
+            raise ValueError(f"frozen input path contains symlink: {relative}")
+        current = current.parent
+    if not path.exists() or not path.is_file():
+        raise ValueError(f"frozen input is missing: {relative}")
+    try:
+        path.resolve().relative_to(resolved_root)
+    except ValueError as exc:
+        raise ValueError(f"frozen input escapes repository root: {relative}") from exc
+    return path
+
+
+def frozen_input_hashes(root: Path | None = None) -> tuple[tuple[str, str], ...]:
+    resolved_root = _repository_root() if root is None else Path(root)
+    hashes: list[tuple[str, str]] = []
+    for relative in FROZEN_C3_INPUT_PATHS:
+        path = _validated_frozen_path(resolved_root, relative)
+        try:
+            payload = path.read_bytes()
+        except OSError as exc:
+            raise ValueError(f"failed to read frozen input: {relative}") from exc
+        hashes.append((relative, hashlib.sha256(payload).hexdigest()))
+    return tuple(hashes)
