@@ -5,14 +5,17 @@ import copy
 from scripts.verify_phase3c_anonymous_credit import _portable_projection
 
 
-def _payload(margin_mean: float) -> dict[str, object]:
+def _payload(margin_mean: float, *, margin_p10: float | None = None) -> dict[str, object]:
+    checkpoint = {"margin_mean": margin_mean}
+    if margin_p10 is not None:
+        checkpoint["margin_p10"] = margin_p10
     return {
         "results": [
             {
                 "protocol": {"parameter_digest": "a" * 64},
                 "shuffled_parameter_digest": "b" * 64,
-                "normal_checkpoints": [{"margin_mean": margin_mean}],
-                "shuffled_checkpoints": [{"margin_mean": margin_mean}],
+                "normal_checkpoints": [copy.deepcopy(checkpoint)],
+                "shuffled_checkpoints": [copy.deepcopy(checkpoint)],
                 "post_training": {"correct": 83, "total": 200},
             }
         ]
@@ -22,6 +25,13 @@ def _payload(margin_mean: float) -> dict[str, object]:
 def test_portable_projection_normalizes_cross_version_checkpoint_float_noise() -> None:
     committed = _payload(0.0077623327093496244)
     runtime = _payload(0.0077623327093496)
+
+    assert _portable_projection(committed) == _portable_projection(runtime)
+
+
+def test_portable_projection_normalizes_observed_margin_p10_rounding_noise() -> None:
+    committed = _payload(0.0, margin_p10=-0.18245762602545)
+    runtime = _payload(0.0, margin_p10=-0.18245762602544)
 
     assert _portable_projection(committed) == _portable_projection(runtime)
 
