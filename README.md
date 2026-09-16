@@ -342,3 +342,24 @@ possible temporal visual subsystem, not the controller studied here.
 ## License
 
 Apache-2.0.
+
+## Phase 3C — anonymous temporal credit
+
+Phase 3C removes the Phase 3B FIFO source-order oracle: rewards have hidden delays `(1, 3, 5)`, can arrive out of order and collide, and reach the learner only as aggregate scalar feedback. Gate F binds to Lean `3de297cee2a94a7fc309531334f720f1b34467c9`; Gate P verifies inversions, collisions, exactly-once delivery, conservation, source/multiplicity non-interference, matched arm lineages, repeatability, and exact immediate Phase 3A continuity.
+
+The first registered evidence is [phase-3c-anonymous-temporal-credit.json](docs/experiments/phase-3c-anonymous-temporal-credit.json), SHA-256 `53b52fb6716daaceeb68b4e5c78f33333c0076b0d727462aa7265b0887798263`; the bounded interpretation is in [phase-3c-anonymous-temporal-credit-report.md](docs/experiments/phase-3c-anonymous-temporal-credit-report.md). The result is **formal/protocol valid but behavior failed**.
+
+| Seed | TD(0) post | TD(0) shuffled | Eligibility post | Eligibility shuffled |
+|---:|---:|---:|---:|---:|
+| 7 | 83/200 | 100/200 | 104/200 | 100/200 |
+| 17 | 121/200 | 197/200 | 170/200 | 100/200 |
+| 29 | 100/200 | 100/200 | 100/200 | 100/200 |
+
+Eligibility improves aggregate post-training correct count from `304/600` to `374/600`, but no arm/seed row reaches the fixed Gate B. This is the preregistered **“Arm B improves over Arm A but both fail the fixed quality gate”** outcome: historical credit helps descriptively but is insufficient under this registered mechanism. No parameters or thresholds are tuned after the result.
+
+Reproduce structural gates and verify the frozen artifact with:
+
+```bash
+python scripts/benchmark_phase3c_anonymous_credit.py --require-formal-valid --require-protocol-valid
+python scripts/verify_phase3c_anonymous_credit.py
+```
