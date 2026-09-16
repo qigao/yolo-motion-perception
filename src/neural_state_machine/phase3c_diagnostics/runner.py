@@ -537,6 +537,26 @@ def run_registered_measurement(
         raise
 
 
+def _score_keys_from_row(model: ModelId, row: dict[str, object]) -> tuple[str, ...]:
+    scores = row.get("scores")
+    if not isinstance(scores, list):
+        raise RuntimeError(f"score rows are missing for {model.stable_key()}")
+    evaluation_ids: list[int] = []
+    for score in scores:
+        if not isinstance(score, dict):
+            raise RuntimeError(f"score row must be an object for {model.stable_key()}")
+        evaluation_id = score.get("evaluation_id")
+        if type(evaluation_id) is not int or not -1 <= evaluation_id <= 7:
+            raise RuntimeError(f"score evaluation_id is invalid for {model.stable_key()}")
+        evaluation_ids.append(evaluation_id)
+    if len(evaluation_ids) != 9 or set(evaluation_ids) != set(range(-1, 8)):
+        raise RuntimeError(f"score grid is incomplete, duplicated or unexpected for {model.stable_key()}")
+    return tuple(
+        f"{model.stable_key()}/evaluation={evaluation_id}"
+        for evaluation_id in evaluation_ids
+    )
+
+
 def verify_attempt(manifest_path: Path, attempt_dir: Path) -> dict[str, object]:
     manifest = load_json_object(manifest_path)
     execution = load_json_object(attempt_dir / "execution-manifest.json")
@@ -544,9 +564,56 @@ def verify_attempt(manifest_path: Path, attempt_dir: Path) -> dict[str, object]:
         raise RuntimeError("execution manifest is bound to a different input manifest")
     if execution.get("complete") is not True or execution.get("diagnostic_valid") is not True:
         raise RuntimeError("diagnostic attempt is incomplete or invalid")
-    expected_models = tuple(ModelId.from_dict(item).stable_key() for item in manifest["model_ids"])
+
+    model_payloads = manifest.get("model_ids")
+    expected_score_payload = manifest.get("main_score_keys")
+    if not isinstance(model_payloads, list) or not isinstance(expected_score_payload, list):
+        raise RuntimeError("sealed manifest model/score grids are missing")
+    expected_models = tuple(ModelId.from_dict(item) for item in model_payloads)
+    expected_model_keys = tuple(model.stable_key() for model in expected_models)
+    expected_score_keys = tuple(str(item) for item in expected_score_payload)
+
     model_rows = execution.get("models")
     if not isinstance(model_rows, list):
         raise RuntimeError("execution model rows are missing")
-    validate_complete_keys(expected_models, tuple(str(row["model_key"]) for row in model_rows))
+    if any(not isinstance(row, dict) for row in model_rows):
+        raise RuntimeError("execution model row metadata must be objects")
+    observed_model_keys = tuple(str(row.get("model_key")) for row in model_rows)
+    try:
+        validate_complete_keys(expected_model_keys, observed_model_keys)
+    except ValueError as exc:
+        raise RuntimeError("execution model grid is invalid") from exc
+
+    metadata_by_key = {str(row["model_key"]): row for row in model_rows}
+    rows_dir = attempt_dir / "rows"
+    expected_filenames = {f"{index:04d}.json" for index in range(len(expected_models))}
+    if not rows_dir.is_dir():
+        raise RuntimeError("diagnostic row directory is missing")
+    observed_filenames = {path.name for path in rows_dir.iterdir()}
+    if observed_filenames != expected_filenames:
+        raise RuntimeError("diagnostic row file grid is incomplete or unexpected")
+
+    observed_score_keys: list[str] = []
+    for index, model in enumerate(expected_models):
+        metadata_row = metadata_by_key[model.stable_key()]
+        expected_hash = metadata_row.get("row_sha256")
+        if not isinstance(expected_hash, str) or len(expected_hash) != 64:
+            raise RuntimeError(f"row hash metadata is invalid for {model.stable_key()}")
+        row_path = rows_dir / f"{index:04d}.json"
+        if row_path.is_symlink() or not row_path.is_file():
+            raise RuntimeError(f"row file must be regular for {model.stable_key()}")
+        if sha256_file(row_path) != expected_hash:
+            raise RuntimeError(f"row hash mismatch for {model.stable_key()}")
+        row = load_json_object(row_path)
+        row_model = row.get("model_id")
+        if not isinstance(row_model, dict):
+            raise RuntimeError(f"row model_id is missing for {model.stable_key()}")
+        if ModelId.from_dict(row_model) != model:
+            raise RuntimeError(f"row model identity mismatch for {model.stable_key()}")
+        observed_score_keys.extend(_score_keys_from_row(model, row))
+
+    try:
+        validate_complete_keys(expected_score_keys, tuple(observed_score_keys))
+    except ValueError as exc:
+        raise RuntimeError("main score grid is incomplete, duplicated or unexpected") from exc
     return execution
