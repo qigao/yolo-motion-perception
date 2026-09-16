@@ -1,0 +1,4 @@
+name: phase3c-diagnostics-red-placeholder
+on:
+  workflow_dispatch:
+jobs: {}
