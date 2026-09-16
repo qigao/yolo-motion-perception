@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import contextlib
 import hashlib
+import importlib.metadata as metadata
 import io
 import json
 import os
@@ -21,6 +22,7 @@ FORMAL_COMMIT = "3de297cee2a94a7fc309531334f720f1b34467c9"
 SCIENTIFIC_REFERENCE_SHA = "55a7ba59ac301975f3df996636f9a596e90bc730"
 SPEC_COMMIT = "b510be9969be13b0ccc87b7323ceac9cb663d6e3"
 PLAN_COMMIT = "097afe5ba1df380aef7472ae87d157c219c61f8b"
+DIAGNOSTIC_LOCK = "requirements/phase3c-diagnostics-python312.lock"
 
 IMMUTABLE_INPUT_PATHS = (
     "docs/experiments/phase-2b-failure.json",
@@ -124,6 +126,28 @@ def load_json_object(path: Path) -> dict[str, object]:
     return payload
 
 
+def _resolved_package_versions() -> dict[str, str]:
+    names = (
+        "pip",
+        "setuptools",
+        "wheel",
+        "numpy",
+        "pytest",
+        "ruff",
+        "iniconfig",
+        "packaging",
+        "pluggy",
+        "pygments",
+    )
+    resolved: dict[str, str] = {}
+    for name in names:
+        try:
+            resolved[name] = metadata.version(name)
+        except metadata.PackageNotFoundError as exc:
+            raise RuntimeError(f"required diagnostic package is missing: {name}") from exc
+    return resolved
+
+
 def environment_snapshot() -> dict[str, object]:
     stream = io.StringIO()
     with contextlib.redirect_stdout(stream):
@@ -139,6 +163,7 @@ def environment_snapshot() -> dict[str, object]:
         "python": platform.python_version(),
         "python_implementation": platform.python_implementation(),
         "python_executable": sys.executable,
+        "packages": _resolved_package_versions(),
         "numpy": np.__version__,
         "platform_system": platform.system(),
         "platform_release": platform.release(),
