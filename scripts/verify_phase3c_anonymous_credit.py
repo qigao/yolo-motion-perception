@@ -42,6 +42,16 @@ _EXPECTED_CONFIG = {
 _EXPECTED_ARMS = ("td0", "eligibility")
 _EXPECTED_DELAYS = (1, 3, 5)
 _SEQUENCE_TYPES = (list, tuple)
+_CHECKPOINT_FLOAT_FIELDS = (
+    "margin_mean",
+    "margin_p10",
+    "margin_minimum",
+    "td_error_mean",
+    "td_error_abs_mean",
+    "td_error_p90",
+    "td_error_maximum",
+)
+_PORTABLE_FLOAT_DECIMALS = 14
 
 
 def _repository_root() -> Path:
@@ -121,15 +131,7 @@ def _validate_checkpoint_rows(value: object, key: str) -> None:
         if type(episode) is not int or episode <= 0:
             raise RuntimeError(f"invalid checkpoint episode: {key}")
         _validate_count(row.get("accuracy"), f"{key}.accuracy")
-        for field in (
-            "margin_mean",
-            "margin_p10",
-            "margin_minimum",
-            "td_error_mean",
-            "td_error_abs_mean",
-            "td_error_p90",
-            "td_error_maximum",
-        ):
+        for field in _CHECKPOINT_FLOAT_FIELDS:
             if not _finite_number(row.get(field)):
                 raise RuntimeError(f"invalid checkpoint field: {key}.{field}")
 
@@ -340,8 +342,23 @@ def _validate(payload: dict[str, object]) -> None:
         raise RuntimeError("inconsistent behavior_passed")
 
 
+def _normalize_checkpoint_diagnostics(row: dict[str, object]) -> None:
+    """Canonicalize only non-gating floating checkpoint diagnostics for replay."""
+    for checkpoint_key in ("normal_checkpoints", "shuffled_checkpoints"):
+        checkpoints = row.get(checkpoint_key)
+        if not isinstance(checkpoints, list):
+            continue
+        for checkpoint in checkpoints:
+            if not isinstance(checkpoint, dict):
+                continue
+            for field in _CHECKPOINT_FLOAT_FIELDS:
+                value = checkpoint.get(field)
+                if type(value) is float:
+                    checkpoint[field] = round(value, _PORTABLE_FLOAT_DECIMALS)
+
+
 def _portable_projection(payload: dict[str, object]) -> dict[str, object]:
-    """Remove only environment-local parameter digests from deterministic evidence."""
+    """Project deterministic evidence into a cross-version comparison surface."""
     projection = json.loads(json.dumps(payload, sort_keys=True, allow_nan=False))
     results = projection.get("results")
     if not isinstance(results, list):
@@ -354,6 +371,7 @@ def _portable_projection(payload: dict[str, object]) -> dict[str, object]:
             raise RuntimeError("portable projection requires protocol rows")
         protocol.pop("parameter_digest", None)
         row.pop("shuffled_parameter_digest", None)
+        _normalize_checkpoint_diagnostics(row)
     return projection
 
 
