@@ -152,3 +152,16 @@ jobs:
           path: /tmp/phase-c4a-prospective/
           if-no-files-found: error
           retention-days: 30
+
+      - name: Phase C4-A attribution diagnostic tests
+        run: pytest -q tests/test_phase_c4a_diag_*.py
+
+      - name: Phase C4-A attribution Ruff
+        shell: bash
+        run: |
+          set -euo pipefail
+          ruff check \
+            src/neural_state_machine/phase_c4a_diagnostics \
+            scripts/diagnose_phase_c4a_failure.py \
+            scripts/verify_phase_c4a_failure_diagnostics.py \
+            tests/test_phase_c4a_diag_*.py
