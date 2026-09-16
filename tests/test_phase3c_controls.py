@@ -132,15 +132,38 @@ def test_source_relabeling_cannot_change_learner_call_digest() -> None:
             value=0.0,
             multiplicity=2,
             records=(
-                LatentRewardRecord(0, 1, 1.0, 3, 3),
-                LatentRewardRecord(2, 0, -1.0, 1, 3),
+                LatentRewardRecord(
+                    source_step=0,
+                    source_action=1,
+                    reward=1.0,
+                    delay=3,
+                    due_step=3,
+                    delivery_step=3,
+                ),
+                LatentRewardRecord(
+                    source_step=2,
+                    source_action=0,
+                    reward=-1.0,
+                    delay=1,
+                    due_step=3,
+                    delivery_step=3,
+                ),
             ),
         ),
         AggregateFeedback(
             delivery_step=4,
             value=1.0,
             multiplicity=1,
-            records=(LatentRewardRecord(1, 1, 1.0, 3, 4),),
+            records=(
+                LatentRewardRecord(
+                    source_step=1,
+                    source_action=1,
+                    reward=1.0,
+                    delay=3,
+                    due_step=4,
+                    delivery_step=4,
+                ),
+            ),
         ),
     )
     relabeled = relabel_feedback_sources(original)
