@@ -56,14 +56,14 @@ class DiagnosticConfig:
     permutation_lineage: int = 0x43344144
     modes: tuple[str, ...] = ("block10", "global")
     near_zero_margin: float = 1e-9
-    registered: bool = False
+    is_registered: bool = False
 
     def __post_init__(self) -> None:
         if type(self.permutation_replicates) is not int or self.permutation_replicates <= 0:
             raise ValueError("permutation_replicates must be a positive integer")
-        if self.registered and self.permutation_replicates != 32:
+        if self.is_registered and self.permutation_replicates != 32:
             raise ValueError("registered diagnostics require exactly 32 replicates")
-        if not self.registered and self.permutation_replicates >= 32:
+        if not self.is_registered and self.permutation_replicates >= 32:
             raise ValueError("testing diagnostics must use fewer than 32 replicates")
         if self.permutation_lineage != 0x43344144:
             raise ValueError("permutation_lineage must match the registered diagnostic lineage")
@@ -74,11 +74,11 @@ class DiagnosticConfig:
 
     @classmethod
     def registered(cls) -> "DiagnosticConfig":
-        return cls(permutation_replicates=32, registered=True)
+        return cls(permutation_replicates=32, is_registered=True)
 
     @classmethod
     def testing(cls, replicates: int) -> "DiagnosticConfig":
-        return cls(permutation_replicates=replicates, registered=False)
+        return cls(permutation_replicates=replicates, is_registered=False)
 
 
 def freeze_float64(array: object) -> np.ndarray:
