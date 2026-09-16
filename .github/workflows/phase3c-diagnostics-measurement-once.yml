@@ -61,6 +61,28 @@ jobs:
           diff -u /tmp/phase3c-expected.lock /tmp/phase3c-actual.lock
           /tmp/phase3c-diagnostic-venv/bin/python -m pip install --no-deps --no-build-isolation -e ./runtime
 
+      - name: Compare sealed and current environment fields
+        working-directory: runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          /tmp/phase3c-diagnostic-venv/bin/python - <<'PY'
+          import json
+          from pathlib import Path
+          from neural_state_machine.phase3c_diagnostics.manifest import environment_snapshot
+
+          expected = json.loads(Path('../manifest-source/manifest.json').read_text())['environment']
+          current = environment_snapshot()
+          differences = []
+          for key in sorted(set(expected) | set(current)):
+              if expected.get(key) != current.get(key):
+                  differences.append(key)
+                  print(f'ENV_DIFF {key}')
+                  print('EXPECTED:', json.dumps(expected.get(key), sort_keys=True))
+                  print('CURRENT :', json.dumps(current.get(key), sort_keys=True))
+          print('ENV_DIFF_KEYS:', json.dumps(differences))
+          PY
+
       - name: Execute approved registered measurement
         working-directory: runtime
         shell: bash
@@ -95,7 +117,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: phase3c-diagnostics-task12-20260916-a
+          name: phase3c-diagnostics-task12-20260916-a-env-audit
           path: |
             manifest-source/manifest.json
             manifest-source/manifest.sha256
