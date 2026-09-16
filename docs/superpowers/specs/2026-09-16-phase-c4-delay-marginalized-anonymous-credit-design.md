@@ -125,13 +125,13 @@ h_i       recurrent hidden state at the decision
 phi_i     existing Phase 3A augmented feature [h_i, 1]
 a_i       selected action
 n_i       exactly the existing Phase 3A normalization denominator for phi_i
-W         action-value weight matrix
-q_i       W[a_i] dot phi_i
 ```
+
+At feedback clock `t`, let `W_t` be the current action-value weight matrix **immediately before** processing `F_t`.
 
 C4 does not alter reservoir dynamics, feature construction, legal-action handling, action RNG, tie rules, or the definition of the existing normalized credit denominator.
 
-Define an action-blocked prediction feature `X_i` with the same shape as `W`:
+Define an action-blocked prediction feature `X_i` with the same shape as `W_t`:
 
 ```text
 X_i[a_i] = phi_i
@@ -145,7 +145,9 @@ G_i[a_i] = phi_i / n_i
 G_i[a != a_i] = 0
 ```
 
-Then `q_i = <W, X_i>_F`, where `<.,.>_F` is the Frobenius inner product.
+For any weight matrix `W`, the action value for that historical decision is `<W, X_i>_F`, where `<.,.>_F` is the Frobenius inner product.
+
+The learner does **not** store a prediction trace or freeze `q_i` at decision time for later C4 credit. Historical features are retained; prediction is evaluated against the current pre-update weights at the feedback clock.
 
 ### 4.2 Realized aggregate feedback
 
@@ -165,22 +167,22 @@ For every delivery clock `t`, define valid candidate sources:
 S_t = { t-d | d in {1,3,5}, 0 <= t-d < N }
 ```
 
-Using the fixed public prior `p(d)=1/3`, C4 predicts the anonymous aggregate as:
-
-```text
-P_t = sum_d p(d) * q_(t-d)
-```
-
-for valid candidate sources only.
-
-Equivalently define:
+Define the expected aggregate feature:
 
 ```text
 Z_t = sum_d p(d) * X_(t-d)
-P_t = <W, Z_t>_F
 ```
 
-Under the registered independently generated delay law, `P_t` is the model's conditional expectation of the aggregate scalar when each candidate source reward is represented by its decision-time prediction. It is not a claim that the realized source set equals the three candidates.
+for valid candidate sources only. C4 evaluates the prediction **at feedback time using the current pre-update weights**:
+
+```text
+P_t = <W_t, Z_t>_F
+    = sum_d p(d) * <W_t, X_(t-d)>_F
+```
+
+This current-weight rule is deliberate. It avoids carrying Phase 3C's persistent historical prediction trace into C4 and makes the online model use the same linear observation operator as the C4-A batch fit.
+
+Under the registered independently generated delay law, `P_t` is the model's conditional expectation of the aggregate scalar when each candidate source reward is represented by the current linear readout on that historical feature. It is not a claim that the realized source set equals the three candidates.
 
 ### 4.4 Marginalized normalized credit
 
@@ -189,7 +191,7 @@ Define:
 ```text
 C_t = sum_d p(d) * G_(t-d)
 delta_t = F_t - P_t
-W <- W + alpha * delta_t * C_t
+W_(t+1) = W_t + alpha * delta_t * C_t
 ```
 
 with fixed `alpha=0.1`.
@@ -210,9 +212,10 @@ p(0) = 1
 For that boundary:
 
 ```text
-P_t = q_t
+Z_t = X_t
+P_t = <W_t, X_t>_F
 C_t = G_t
-W <- W + 0.1 * (F_t - q_t) * G_t
+W_(t+1) = W_t + 0.1 * (F_t - P_t) * G_t
 ```
 
 The update must reduce to the frozen Phase 3A normalized action-value update with exact same-environment action, scalar-update, weight-byte, and parameter-digest continuity.
@@ -221,13 +224,14 @@ No tolerance-based substitute is accepted for this same-environment immediate-bo
 
 ### 4.6 Finite candidate-history buffer
 
-The C4 learner may retain only the decision-time quantities necessary to evaluate the public support `{1,3,5}`. A ring buffer of the last five real decisions is sufficient.
+The C4 learner may retain only the decision-time quantities necessary to evaluate the public support `{1,3,5}`. A ring buffer of the last five real decisions is sufficient. Each retained row contains only learner-owned feature/action-derived data needed to reconstruct `X_i` and `G_i`.
 
 This buffer is **not** an unresolved-credit queue:
 
 - entries are inserted on every real decision independently of future feedback;
 - entries are evicted deterministically by age, not when a reward claims them;
 - there is no pending/resolved flag;
+- there is no stored prediction trace or stale decision-time `q_i` used by the update;
 - no realized delay, due step, source identity, multiplicity, latent reward, or queue metadata is stored;
 - one feedback scalar never selects or removes a source entry.
 
@@ -235,13 +239,13 @@ This buffer is **not** an unresolved-credit queue:
 
 Terminal drain uses the same delivery-clock equation as training.
 
-After decision `N-1`, no new decision history is appended. For each remaining delivery clock `t`, compute `P_t` and `C_t` from still-valid candidate source indices in `[0, N-1]`, receive the one anonymous aggregate scalar `F_t`, and apply the same residual update.
+After decision `N-1`, no new decision history is appended. For each remaining delivery clock `t`, compute `Z_t`, `P_t=<W_t,Z_t>_F`, and `C_t` from still-valid candidate source indices in `[0, N-1]`, receive the one anonymous aggregate scalar `F_t`, and apply the same residual update.
 
 Therefore drain:
 
 - does not add a synthetic action;
 - does not decay or extend a global eligibility trace;
-- does not use a special persistent pre-drain trace state;
+- does not use a special persistent pre-drain trace or prediction state;
 - does not reveal which pending source was delivered;
 - naturally reaches `C_t=0` once no valid candidate source remains.
 
@@ -319,14 +323,15 @@ C4-B is fully specified prospectively in this design so C4-A cannot be used to t
 
 The online learner:
 
-1. records the current decision's `X_i`, `G_i`, and decision-time `q_i` in the finite candidate-history buffer;
+1. records the current decision's `X_i` and `G_i` in the finite candidate-history buffer;
 2. receives exactly one aggregate scalar call for the current delivery clock, including `0.0`;
-3. forms `P_t` and `C_t` using fixed prior weights `(1/3,1/3,1/3)` over lags `(1,3,5)`;
-4. applies `W <- W + 0.1 * (F_t-P_t) * C_t`;
-5. evicts history only by deterministic age;
-6. uses the identical equation during terminal drain without adding decisions.
+3. constructs `Z_t` and `C_t` using fixed prior weights `(1/3,1/3,1/3)` over lags `(1,3,5)`;
+4. computes `P_t=<W_t,Z_t>_F` using the current weights immediately before the feedback update, with no stale prediction trace;
+5. applies `W_(t+1) = W_t + 0.1 * (F_t-P_t) * C_t`;
+6. evicts history only by deterministic age;
+7. uses the identical equation during terminal drain without adding decisions.
 
-No adaptive responsibility weights, learned delay model, importance weights, eligibility decay parameter, source-visible fallback, or per-seed branch is permitted.
+No adaptive responsibility weights, learned delay model, importance weights, eligibility decay parameter, prediction trace, source-visible fallback, or per-seed branch is permitted.
 
 ### 7.1 Behavioral gate
 
@@ -378,6 +383,7 @@ The formal gate must cover at least:
 3. **Bounded credit support.** The marginalized credit at `t` depends only on candidate source indices `t-d` for support elements `d`; no other history index contributes.
 4. **Immediate reduction.** Support `{0}` with probability one reduces the marginalized normalized update to the previously bound Phase 3A normalized update equation.
 5. **Boundary truncation.** Invalid negative/pre-start and post-training candidate indices contribute zero; the same finite equation covers terminal drain.
+6. **Current-weight observation consistency.** The prediction equation is `P_t=<W_t,Z_t>` for the pre-update weight state; no historical prediction trace is part of the formal state.
 
 Axiom audit is required. No `sorryAx` or project-defined custom axiom is allowed.
 
@@ -402,7 +408,7 @@ Proposed ownership:
 | `scripts/verify_phase_c4_delay_marginalized_credit.py` | Strict committed evidence verifier. |
 | `tests/test_phase_c4_delay_model.py` | Candidate support, boundary truncation, scalar equations. |
 | `tests/test_phase_c4_batch_probe.py` | Anonymous-only fit, fixed ridge, no-label/no-source guards. |
-| `tests/test_phase_c4_learner.py` | Exact online arithmetic, bounded history, drain, atomic failures. |
+| `tests/test_phase_c4_learner.py` | Exact online arithmetic, bounded history, current-weight prediction, drain, atomic failures. |
 | `tests/test_phase_c4_controls.py` | Fail-closed protocol mutations, immediate continuity, information non-interference. |
 | `tests/test_phase_c4_benchmark.py` | Matched lineages, unchanged gates, no behavior fields in protocol-only mode. |
 | `tests/test_phase_c4_evidence.py` | Schema/writer/verifier mutation tests. |
@@ -438,9 +444,10 @@ Required checks include:
 - exact frozen fixture/action/delay/control lineages;
 - same action and hidden-state streams for paired mechanisms where required;
 - learner-call stream contains only one finite scalar per delivery clock;
-- candidate-history buffer contains no realized source/delay/due/multiplicity metadata;
+- candidate-history buffer contains no realized source/delay/due/multiplicity metadata and no prediction trace;
 - source relabeling and observer-only multiplicity changes cannot alter learner calls or parameters;
-- `Z_t`, `P_t`, and `C_t` reconstructed independently from learner-owned history match the implementation;
+- `Z_t`, current-weight `P_t=<W_t,Z_t>`, and `C_t` reconstructed independently from learner-owned history match the implementation;
+- changing the current weights before a synthetic feedback probe changes `P_t` exactly through `Z_t`, proving that stale decision-time predictions are not used;
 - decision count, latent count, delivered count, and final pending count satisfy the frozen environment contract;
 - terminal drain adds no synthetic decisions and ends after the last possible registered delay;
 - immediate `{0:1}` boundary is exact same-environment Phase 3A continuity;
@@ -500,7 +507,7 @@ If the required C4 mathematical contract cannot be proved as stated, stop before
 
 ### 13.2 Protocol failure
 
-If anonymity, candidate support, lineages, immediate continuity, deterministic replay, or drain accounting fails, record `protocol_valid=false` / `harness invalid` and stop. Do not interpret scores.
+If anonymity, candidate support, lineages, immediate continuity, deterministic replay, current-weight prediction, or drain accounting fails, record `protocol_valid=false` / `harness invalid` and stop. Do not interpret scores.
 
 ### 13.3 C4-A failure
 
@@ -533,6 +540,7 @@ C4 does not:
 - learn a delay distribution;
 - use source-visible supervision;
 - add a Transformer/RNN credit network;
+- maintain an eligibility or prediction trace;
 - retune Phase 3C thresholds;
 - replace or amend the frozen Phase 3C result;
 - treat Task 12's privileged references as production algorithms;
