@@ -1,4 +1,109 @@
-name: phase3c-diagnostics-red-placeholder
+name: phase3c-diagnostics
+
 on:
   workflow_dispatch:
-jobs: {}
+    inputs:
+      implementation_sha:
+        description: Exact reviewed implementation commit
+        required: true
+        type: string
+      manifest_ref:
+        description: Commit containing the reviewed sealed manifest
+        required: true
+        type: string
+      manifest_path:
+        description: Repository-relative sealed manifest path
+        required: true
+        default: docs/experiments/phase-3c-failure-attribution-v1/manifest.json
+        type: string
+      manifest_sha256:
+        description: Approved SHA-256 of the sealed manifest bytes
+        required: true
+        type: string
+      attempt_id:
+        description: Unique diagnostic attempt identifier
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  measurement:
+    if: github.ref == 'refs/heads/experiment/phase3c-anonymous-temporal-credit'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - name: Checkout exact implementation
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.implementation_sha }}
+          path: runtime
+          persist-credentials: false
+
+      - name: Checkout sealed manifest source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.manifest_ref }}
+          path: manifest-source
+          persist-credentials: false
+
+      - name: Verify exact checkout and manifest identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C runtime rev-parse HEAD)" = "${{ inputs.implementation_sha }}"
+          test "$(git -C manifest-source rev-parse HEAD)" = "${{ inputs.manifest_ref }}"
+          test -f "manifest-source/${{ inputs.manifest_path }}"
+          test "$(sha256sum "manifest-source/${{ inputs.manifest_path }}" | awk '{print $1}')" = "${{ inputs.manifest_sha256 }}"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: runtime/requirements/phase3c-diagnostics-python312.lock
+
+      - name: Recreate reviewed Python 3.12 environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/phase3c-diagnostic-venv
+          python -m venv /tmp/phase3c-diagnostic-venv
+          /tmp/phase3c-diagnostic-venv/bin/python -m pip install --upgrade pip==26.2.1
+          /tmp/phase3c-diagnostic-venv/bin/python -m pip install -r runtime/requirements/phase3c-diagnostics-python312.lock
+          grep -v '^#' runtime/requirements/phase3c-diagnostics-python312.lock | sed '/^$/d' | sort -f > /tmp/phase3c-expected.lock
+          /tmp/phase3c-diagnostic-venv/bin/python -m pip freeze --all | sort -f > /tmp/phase3c-actual.lock
+          diff -u /tmp/phase3c-expected.lock /tmp/phase3c-actual.lock
+          /tmp/phase3c-diagnostic-venv/bin/python -m pip install --no-deps --no-build-isolation -e ./runtime
+
+      - name: Execute explicitly approved registered measurement
+        working-directory: runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          /tmp/phase3c-diagnostic-venv/bin/python scripts/diagnose_phase3c_failure.py run \
+            --manifest "../manifest-source/${{ inputs.manifest_path }}" \
+            --expected-manifest-sha256 "${{ inputs.manifest_sha256 }}" \
+            --attempt-id "${{ inputs.attempt_id }}" \
+            --approve-measurement
+
+      - name: Verify completed diagnostic
+        working-directory: runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          /tmp/phase3c-diagnostic-venv/bin/python scripts/diagnose_phase3c_failure.py verify \
+            --manifest "../manifest-source/${{ inputs.manifest_path }}" \
+            --attempt-dir "../manifest-source/docs/experiments/phase-3c-failure-attribution-v1/attempt-${{ inputs.attempt_id }}"
+
+      - name: Upload manifests and partial evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase3c-diagnostics-${{ inputs.attempt_id }}
+          path: |
+            manifest-source/${{ inputs.manifest_path }}
+            manifest-source/docs/experiments/phase-3c-failure-attribution-v1/attempt-${{ inputs.attempt_id }}/
+          if-no-files-found: warn
+          retention-days: 30
