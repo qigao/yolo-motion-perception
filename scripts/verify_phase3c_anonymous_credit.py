@@ -41,6 +41,7 @@ _EXPECTED_CONFIG = {
 }
 _EXPECTED_ARMS = ("td0", "eligibility")
 _EXPECTED_DELAYS = (1, 3, 5)
+_SEQUENCE_TYPES = (list, tuple)
 
 
 def _repository_root() -> Path:
@@ -98,11 +99,11 @@ def _validate_count(value: object, key: str) -> None:
 
 
 def _validate_per_delay(value: object, key: str) -> None:
-    if not isinstance(value, list) or len(value) != 5:
+    if not isinstance(value, _SEQUENCE_TYPES) or len(value) != 5:
         raise RuntimeError(f"invalid per-delay rows: {key}")
     seen: list[int] = []
     for row in value:
-        if not isinstance(row, list) or len(row) != 2 or type(row[0]) is not int:
+        if not isinstance(row, _SEQUENCE_TYPES) or len(row) != 2 or type(row[0]) is not int:
             raise RuntimeError(f"invalid per-delay row: {key}")
         seen.append(row[0])
         _validate_count(row[1], key)
@@ -111,7 +112,7 @@ def _validate_per_delay(value: object, key: str) -> None:
 
 
 def _validate_checkpoint_rows(value: object, key: str) -> None:
-    if not isinstance(value, list):
+    if not isinstance(value, _SEQUENCE_TYPES):
         raise RuntimeError(f"invalid checkpoints: {key}")
     for row in value:
         if not isinstance(row, dict):
@@ -158,12 +159,16 @@ def _validate_audit(value: object) -> None:
         raise RuntimeError("aggregate reward conservation failed")
 
     delay_histogram = value.get("delay_histogram")
-    if not isinstance(delay_histogram, list):
+    if not isinstance(delay_histogram, _SEQUENCE_TYPES):
         raise RuntimeError("invalid delay histogram")
-    if tuple(row[0] for row in delay_histogram if isinstance(row, list) and len(row) == 2) != _EXPECTED_DELAYS:
+    if tuple(
+        row[0]
+        for row in delay_histogram
+        if isinstance(row, _SEQUENCE_TYPES) and len(row) == 2
+    ) != _EXPECTED_DELAYS:
         raise RuntimeError("invalid delay support")
     if any(
-        not isinstance(row, list)
+        not isinstance(row, _SEQUENCE_TYPES)
         or len(row) != 2
         or type(row[0]) is not int
         or type(row[1]) is not int
@@ -173,10 +178,10 @@ def _validate_audit(value: object) -> None:
         raise RuntimeError("invalid delay histogram row")
 
     multiplicity = value.get("multiplicity_histogram")
-    if not isinstance(multiplicity, list) or not multiplicity:
+    if not isinstance(multiplicity, _SEQUENCE_TYPES) or not multiplicity:
         raise RuntimeError("invalid multiplicity histogram")
     if any(
-        not isinstance(row, list)
+        not isinstance(row, _SEQUENCE_TYPES)
         or len(row) != 2
         or type(row[0]) is not int
         or type(row[1]) is not int
@@ -187,13 +192,17 @@ def _validate_audit(value: object) -> None:
         raise RuntimeError("invalid multiplicity histogram row")
 
     coefficients = value.get("trace_coefficients")
-    if not isinstance(coefficients, list) or len(coefficients) != 4:
+    if not isinstance(coefficients, _SEQUENCE_TYPES) or len(coefficients) != 4:
         raise RuntimeError("invalid trace coefficients")
-    ages = tuple(row[0] for row in coefficients if isinstance(row, list) and len(row) == 2)
+    ages = tuple(
+        row[0]
+        for row in coefficients
+        if isinstance(row, _SEQUENCE_TYPES) and len(row) == 2
+    )
     if ages != (0, 1, 3, 5):
         raise RuntimeError("invalid trace coefficient ages")
     if any(
-        not isinstance(row, list)
+        not isinstance(row, _SEQUENCE_TYPES)
         or len(row) != 2
         or type(row[0]) is not int
         or not _finite_number(row[1])
