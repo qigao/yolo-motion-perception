@@ -331,6 +331,78 @@ def _capture_training(
     return protocol, tuple(steps), tuple(drains), aggregator.pending_count
 
 
+def _build_replay_result(
+    untouched_protocol: _ProtocolExecution,
+    steps: tuple[StepCapture, ...],
+    drains: tuple[StepCapture, ...],
+    pending_final: int,
+    *,
+    attempt_id: str,
+) -> ReplayResult:
+    scalar_calls = tuple(step.feedback for step in (*steps, *drains))
+    hidden_bytes = tuple(
+        np.ascontiguousarray(step.hidden, dtype=np.float64).tobytes(order="C")
+        for step in steps
+    )
+    action_values = tuple(tuple(float(value) for value in step.action_values) for step in steps)
+    metadata = tuple(step.metadata for step in (*steps, *drains))
+    for step in steps:
+        assert_array_isolation(
+            step.weights_after,
+            _readonly(step.weights_after),
+            attempt_id=attempt_id,
+        )
+    return ReplayResult(
+        protocol=untouched_protocol,
+        scalar_calls=scalar_calls,
+        action_values=action_values,
+        hidden_bytes=hidden_bytes,
+        final_parameter_digest=untouched_protocol.parameter_digest,
+        queue_pending_final=pending_final,
+        metadata=metadata,
+        steps=steps,
+        drain_steps=drains,
+    )
+
+
+def capture_reward_override_training(
+    seed: int,
+    arm: str,
+    config: AnonymousCreditConfig,
+    *,
+    reward_override: tuple[float, ...],
+    attempt_id: str = "d1",
+) -> ReplayResult:
+    """Capture actual scalar calls for one fixed reward override after endpoint parity."""
+    untouched = _execute_training(
+        seed,
+        arm,
+        config,
+        immediate_control=False,
+        reward_override=reward_override,
+    )
+    captured_protocol, steps, drains, pending_final = _capture_training(
+        seed,
+        arm,
+        config,
+        reward_override=reward_override,
+    )
+    if captured_protocol != untouched.protocol:
+        raise D0Failure(
+            path="protocol",
+            expected=untouched.protocol,
+            observed=captured_protocol,
+            attempt_id=attempt_id,
+        )
+    return _build_replay_result(
+        untouched.protocol,
+        steps,
+        drains,
+        pending_final,
+        attempt_id=attempt_id,
+    )
+
+
 def run_diagnostic_replay(
     seed: int,
     arm: str,
@@ -361,23 +433,10 @@ def run_diagnostic_replay(
             observed=captured_protocol,
             attempt_id=attempt_id,
         )
-    scalar_calls = tuple(step.feedback for step in (*steps, *drains))
-    hidden_bytes = tuple(
-        np.ascontiguousarray(step.hidden, dtype=np.float64).tobytes(order="C")
-        for step in steps
-    )
-    action_values = tuple(tuple(float(value) for value in step.action_values) for step in steps)
-    metadata = tuple(step.metadata for step in (*steps, *drains))
-    for step in steps:
-        assert_array_isolation(step.weights_after, _readonly(step.weights_after), attempt_id=attempt_id)
-    return ReplayResult(
-        protocol=untouched.protocol,
-        scalar_calls=scalar_calls,
-        action_values=action_values,
-        hidden_bytes=hidden_bytes,
-        final_parameter_digest=untouched.protocol.parameter_digest,
-        queue_pending_final=pending_final,
-        metadata=metadata,
-        steps=steps,
-        drain_steps=drains,
+    return _build_replay_result(
+        untouched.protocol,
+        steps,
+        drains,
+        pending_final,
+        attempt_id=attempt_id,
     )
