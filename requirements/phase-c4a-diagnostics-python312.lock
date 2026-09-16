@@ -1,4 +1,4 @@
-# Phase C4-A failure-attribution diagnostics exact Python 3.12.14 environment; provenance is sealed by preflight.
+# Phase C4-A failure-attribution diagnostics exact Python 3.12.14 environment; provenance not yet sealed.
 iniconfig==2.3.0
 numpy==2.5.3
 packaging==26.3
