@@ -18,6 +18,16 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
 
+      - name: Probe Python 3.12 diagnostic build tools
+        run: |
+          python --version
+          python -m pip --version
+          python - <<'PY'
+          import importlib.metadata as metadata
+          import json
+          print(json.dumps({name: metadata.version(name) for name in ("pip", "setuptools", "wheel")}, sort_keys=True))
+          PY
+
       - name: Install project
         run: python -m pip install -e '.[dev]'
 
