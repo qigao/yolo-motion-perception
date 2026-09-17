@@ -30,6 +30,9 @@ jobs:
           ref: research/r1-e1-reservoir-architecture
           fetch-depth: 0
 
+      - name: Install project for evidence verification
+        run: python -m pip install -e .
+
       - name: Download the single registered measurement artifact
         uses: actions/download-artifact@v4
         with:
