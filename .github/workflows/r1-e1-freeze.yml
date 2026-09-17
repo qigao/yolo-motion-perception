@@ -51,102 +51,10 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "${TARGET}"
-          for f in \
-            manifest.json manifest.sha256 \
-            prospective-provenance.json prospective-provenance.sha256 \
-            provenance.json provenance.sha256 \
-            result.json result.sha256 \
-            trace-index.json trace-index.sha256
-          do
+          for f in manifest.json manifest.sha256 prospective-provenance.json prospective-provenance.sha256 provenance.json provenance.sha256 result.json result.sha256 trace-index.json trace-index.sha256; do
             cp "${EVIDENCE_ROOT}/${f}" "${TARGET}/${f}"
           done
-          cat > "${TARGET}/report.md" <<'REPORT'
-# R1 Phase E1 — Registered Measurement Report
-
-> Status: **registered measurement complete; human interpretation approved; no-refit evidence freeze**.
->
-> Scientific head: `5371b80638ff429ad37e73fedb8c9357c34d5f87`
->
-> Prospective preflight run: `35182093605`
->
-> Registered measurement run: `35182685692`
->
-> Manifest SHA-256: `148451614e84ba4da1dbd43e0f3894bd06288a6a12bf309b4dc56872feb2efed`
->
-> Result SHA-256: `b7ff7d8ebff53433fc0611d1d6697a9368e07848c51403fc1273713c98e5e261`
->
-> Environment: Python `3.12.14`, NumPy `2.5.3`
-
-## Validity
-
-The registered verifier accepted the bundle with `registered_arm_count = 50` and `valid = true`. All five Phase 2A compatibility seeds passed (5/5). The measurement reused the sealed prospective manifest, ran on the sealed scientific head, and did not refit or alter the preregistered architecture set, budgets, seeds, thresholds, fixture lineages, or corruption laws.
-
-E1-A and E1-B reset controls remained exact. Reservoir parameter digests were unchanged before/after state collection. The registered result therefore passes the preregistered validity gates and is interpreted as scientific evidence rather than a protocol failure.
-
-## Cross-seed summary
-
-| Budget | Architecture | E1-A memory macro | 85% horizon by seed 7/17/29/43/61 | E1-B history macro | 80% history horizon by seed | E1-C corrupted macro |
-| ---: | --- | ---: | --- | ---: | --- | ---: |
-| 64 | Shallow | 85.14% | 20/20/20/20/20 | 62.25% | 5/5/5/5/5 | 93.36% |
-| 64 | Grouped-2 | 84.64% | 20/10/20/10/20 | 62.78% | 5/5/5/5/5 | 93.38% |
-| 64 | Grouped-4 | 85.71% | 20/20/20/20/20 | 62.65% | 5/5/5/5/5 | 93.12% |
-| 64 | Deep-2 | 83.29% | 10/20/10/20/20 | 61.15% | 5/5/5/5/5 | 91.68% |
-| 64 | Deep-4 | 84.36% | 10/20/20/20/20 | 60.55% | 5/5/5/1/5 | 91.46% |
-| 256 | Shallow | 87.21% | 20/20/20/20/20 | 63.07% | 5/5/5/5/5 | 94.18% |
-| 256 | Grouped-2 | 87.86% | 20/20/20/20/20 | 62.62% | 5/5/5/5/5 | 94.88% |
-| 256 | Grouped-4 | 89.36% | 40/40/20/20/20 | 62.48% | 5/5/5/5/5 | 93.98% |
-| 256 | Deep-2 | 86.71% | 20/20/20/20/20 | 63.18% | 5/5/5/5/5 | 94.42% |
-| 256 | Deep-4 | 88.64% | 20/20/20/40/20 | 62.38% | 5/5/5/5/5 | 94.20% |
-
-## E1-A — Memory capacity
-
-Across all architectures and seeds, raising the neuron budget from 64 to 256 increased mean memory macro accuracy from 84.63% to 87.96%. Delays 1, 2 and 5 remained essentially perfect across arms; the main architecture/budget differences appear at delay 20 and especially delay 40. Delay 80 is at approximately binary chance for every registered topology.
-
-At N=256, Grouped-4 has the highest cross-seed memory macro (89.36%) and the strongest mean delay-40 accuracy (75.50%), but only seeds 7 and 17 attain the preregistered contiguous 85% horizon of 40. Deep-4 attains horizon 40 for seed 43 only. Because this advantage is not stable across all five seeds and does not align with E1-B/E1-C into one common ordering, it is not interpreted as a general architecture winner.
-
-## E1-B — Multi-event history separability
-
-The long-history result is the clearest negative finding. Horizon 1 is effectively perfect and horizon 5 remains high for nearly every arm, but horizon 20 falls to roughly 27–30% accuracy and horizon 40 converges to approximately the four-class chance level of 25%. Increasing the budget from 64 to 256 changes overall E1-B macro accuracy only from 61.88% to 62.74%.
-
-Thus, the registered experiment does not show that a larger reservoir or any tested shallow/grouped/deep topology preserves linearly separable multi-event history beyond the short horizon under the fixed dynamics. This is a representation result only: it does not imply that the underlying nonlinear state contains no information under any possible decoder, and it does not establish semantic attractors.
-
-## E1-C — Synthetic YOLO-like corruption
-
-All clean evaluations are 100% accurate. Jitter is effectively harmless under the registered sigma and most `occlusion4` arms are also unaffected. The meaningful degradation comes from `drop10`, `wrong10` and `mixed` corruption. Increasing the budget from 64 to 256 raises mean macro corrupted accuracy from 92.60% to 94.33%.
-
-Architecture differences are smaller than this budget effect and do not form a stable cross-task ordering. Grouped-2/256 has the highest registered cross-seed corrupted macro (94.88%), but the preregistration explicitly forbids selecting an architecture from one corruption metric alone.
-
-## Interpretation
-
-The approved interpretation is **Outcome D as the primary category, with Outcome E as a secondary category**.
-
-**Outcome D — architecture effect is small relative to seed or budget.** The 64→256 neuron-budget increase produces a consistent improvement in E1-A memory and E1-C corruption robustness, while architecture ordering changes by task and seed.
-
-**Outcome E — mixed or unresolved topology effect.** Local topology effects exist—for example Grouped-4/256 extends delay-40 memory for some seeds—but E1-A, E1-B and E1-C do not agree on a single stable topology ordering. No post-hoc metric weighting is used to manufacture one.
-
-The registered evidence therefore does **not** support a general claim that Shallow, Grouped, or Deep is globally superior under E1. It does support two narrower conclusions:
-
-1. A larger fixed reservoir budget materially extends single-cue fading memory and improves synthetic detector-corruption robustness under the registered dynamics.
-2. The tested architectures all lose long multi-event linear separability by H=20–40, so preserving a single vanished cue is not sufficient evidence of robust long behavior-history representation.
-
-## Scope boundary and next research question
-
-No R2 delayed-credit result is changed by this experiment. E1 contains no reward learning, TD update, eligibility trace, or credit assignment.
-
-A later R1 E2 may study reservoir dynamics—spectral radius, leak, input scaling, or activation—while treating this E1 evidence as frozen. Any E2 design must be prospective and must not reinterpret E1 by refitting these registered results.
-
-## Frozen evidence
-
-The directory contains the exact registered files emitted by the measurement workflow:
-
-- `manifest.json` and `manifest.sha256`
-- `prospective-provenance.json` and `prospective-provenance.sha256`
-- `provenance.json` and `provenance.sha256`
-- `result.json` and `result.sha256`
-- `trace-index.json` and `trace-index.sha256`
-
-`report.md` is a human interpretation of those frozen files. It introduces no new fitting, seeds, thresholds, or measurements.
-REPORT
+          printf '%s' 'IyBSMSBQaGFzZSBFMSDigJQgUmVnaXN0ZXJlZCBNZWFzdXJlbWVudCBSZXBvcnQKCj4gU3RhdHVzOiAqKnJlZ2lzdGVyZWQgbWVhc3VyZW1lbnQgY29tcGxldGU7IGh1bWFuIGludGVycHJldGF0aW9uIGFwcHJvdmVkOyBuby1yZWZpdCBldmlkZW5jZSBmcmVlemUqKi4KPgo+IFNjaWVudGlmaWMgaGVhZDogYDUzNzFiODA2MzhmZjQyOWFkMzdlNzNmZWRiOGM5MzU3YzM0ZDVmODdgCj4KPiBQcm9zcGVjdGl2ZSBwcmVmbGlnaHQgcnVuOiBgMzUxODIwOTM2MDVgCj4KPiBSZWdpc3RlcmVkIG1lYXN1cmVtZW50IHJ1bjogYDM1MTgyNjg1NjkyYAo+Cj4gTWFuaWZlc3QgU0hBLTI1NjogYDE0ODQ1MTYxNGU4NGJhNGRhMWRiZDQzZTBmMzg5NGJkMDYyODhhNmExMmJmMzA5YjRkYzU2ODcyZmViMmVmZWRgCj4KPiBSZXN1bHQgU0hBLTI1NjogYGI3ZmY3ZDhlYmZmNTM0MzNmYzA2MTFkMWQ2Njk3YTkzNjhlMDc4NDhjNTE0MDNmYzEyNzM3MTNjOThlNWUyNjFgCj4KPiBFbnZpcm9ubWVudDogUHl0aG9uIGAzLjEyLjE0YCwgTnVtUHkgYDIuNS4zYAoKIyMgVmFsaWRpdHkKClRoZSByZWdpc3RlcmVkIHZlcmlmaWVyIGFjY2VwdGVkIHRoZSBidW5kbGUgd2l0aCBgcmVnaXN0ZXJlZF9hcm1fY291bnQgPSA1MGAgYW5kIGB2YWxpZCA9IHRydWVgLiBBbGwgZml2ZSBQaGFzZSAyQSBjb21wYXRpYmlsaXR5IHNlZWRzIHBhc3NlZCAoNS81KS4gVGhlIG1lYXN1cmVtZW50IHJldXNlZCB0aGUgc2VhbGVkIHByb3NwZWN0aXZlIG1hbmlmZXN0LCByYW4gb24gdGhlIHNlYWxlZCBzY2llbnRpZmljIGhlYWQsIGFuZCBkaWQgbm90IHJlZml0IG9yIGFsdGVyIHRoZSBwcmVyZWdpc3RlcmVkIGFyY2hpdGVjdHVyZSBzZXQsIGJ1ZGdldHMsIHNlZWRzLCB0aHJlc2hvbGRzLCBmaXh0dXJlIGxpbmVhZ2VzLCBvciBjb3JydXB0aW9uIGxhd3MuCgpFMS1BIGFuZCBFMS1CIHJlc2V0IGNvbnRyb2xzIHJlbWFpbmVkIGV4YWN0LiBSZXNlcnZvaXIgcGFyYW1ldGVyIGRpZ2VzdHMgd2VyZSB1bmNoYW5nZWQgYmVmb3JlL2FmdGVyIHN0YXRlIGNvbGxlY3Rpb24uIFRoZSByZWdpc3RlcmVkIHJlc3VsdCB0aGVyZWZvcmUgcGFzc2VzIHRoZSBwcmVyZWdpc3RlcmVkIHZhbGlkaXR5IGdhdGVzIGFuZCBpcyBpbnRlcnByZXRlZCBhcyBzY2llbnRpZmljIGV2aWRlbmNlIHJhdGhlciB0aGFuIGEgcHJvdG9jb2wgZmFpbHVyZS4KCiMjIENyb3NzLXNlZWQgc3VtbWFyeQoKfCBCdWRnZXQgfCBBcmNoaXRlY3R1cmUgfCBFMS1BIG1lbW9yeSBtYWNybyB8IDg1JSBob3Jpem9uIGJ5IHNlZWQgNy8xNy8yOS80My82MSB8IEUxLUIgaGlzdG9yeSBtYWNybyB8IDgwJSBoaXN0b3J5IGhvcml6b24gYnkgc2VlZCB8IEUxLUMgY29ycnVwdGVkIG1hY3JvIHwKfCAtLS06IHwgLS0tIHwgLS0tOiB8IC0tLSB8IC0tLTogfCAtLS0gfCAtLS06IHwKfCA2NCB8IFNoYWxsb3cgfCA4NS4xNCUgfCAyMC8yMC8yMC8yMC8yMCB8IDYyLjI1JSB8IDUvNS81LzUvNSB8IDkzLjM2JSB8CnwgNjQgfCBHcm91cGVkLTIgfCA4NC42NCUgfCAyMC8xMC8yMC8xMC8yMCB8IDYyLjc4JSB8IDUvNS81LzUvNSB8IDkzLjM4JSB8CnwgNjQgfCBHcm91cGVkLTQgfCA4NS43MSUgfCAyMC8yMC8yMC8yMC8yMCB8IDYyLjY1JSB8IDUvNS81LzUvNSB8IDkzLjEyJSB8CnwgNjQgfCBEZWVwLTIgfCA4My4yOSUgfCAxMC8yMC8xMC8yMC8yMCB8IDYxLjE1JSB8IDUvNS81LzUvNSB8IDkxLjY4JSB8CnwgNjQgfCBEZWVwLTQgfCA4NC4zNiUgfCAxMC8yMC8yMC8yMC8yMCB8IDYwLjU1JSB8IDUvNS81LzEvNSB8IDkxLjQ2JSB8CnwgMjU2IHwgU2hhbGxvdyB8IDg3LjIxJSB8IDIwLzIwLzIwLzIwLzIwIHwgNjMuMDclIHwgNS81LzUvNS81IHwgOTQuMTglIHwKfCAyNTYgfCBHcm91cGVkLTIgfCA4Ny44NiUgfCAyMC8yMC8yMC8yMC8yMCB8IDYyLjYyJSB8IDUvNS81LzUvNSB8IDk0Ljg4JSB8CnwgMjU2IHwgR3JvdXBlZC00IHwgODkuMzYlIHwgNDAvNDAvMjAvMjAvMjAgfCA2Mi40OCUgfCA1LzUvNS81LzUgfCA5My45OCUgfAp8IDI1NiB8IERlZXAtMiB8IDg2LjcxJSB8IDIwLzIwLzIwLzIwLzIwIHwgNjMuMTglIHwgNS81LzUvNS81IHwgOTQuNDIlIHwKfCAyNTYgfCBEZWVwLTQgfCA4OC42NCUgfCAyMC8yMC8yMC80MC8yMCB8IDYyLjM4JSB8IDUvNS81LzUvNSB8IDk0LjIwJSB8CgojIyBFMS1BIOKAlCBNZW1vcnkgY2FwYWNpdHkKCkFjcm9zcyBhbGwgYXJjaGl0ZWN0dXJlcyBhbmQgc2VlZHMsIHJhaXNpbmcgdGhlIG5ldXJvbiBidWRnZXQgZnJvbSA2NCB0byAyNTYgaW5jcmVhc2VkIG1lYW4gbWVtb3J5IG1hY3JvIGFjY3VyYWN5IGZyb20gODQuNjMlIHRvIDg3Ljk2JS4gRGVsYXlzIDEsIDIgYW5kIDUgcmVtYWluZWQgZXNzZW50aWFsbHkgcGVyZmVjdCBhY3Jvc3MgYXJtczsgdGhlIG1haW4gYXJjaGl0ZWN0dXJlL2J1ZGdldCBkaWZmZXJlbmNlcyBhcHBlYXIgYXQgZGVsYXkgMjAgYW5kIGVzcGVjaWFsbHkgZGVsYXkgNDAuIERlbGF5IDgwIGlzIGF0IGFwcHJveGltYXRlbHkgYmluYXJ5IGNoYW5jZSBmb3IgZXZlcnkgcmVnaXN0ZXJlZCB0b3BvbG9neS4KCkF0IE49MjU2LCBHcm91cGVkLTQgaGFzIHRoZSBoaWdoZXN0IGNyb3NzLXNlZWQgbWVtb3J5IG1hY3JvICg4OS4zNiUpIGFuZCB0aGUgc3Ryb25nZXN0IG1lYW4gZGVsYXktNDAgYWNjdXJhY3kgKDc1LjUwJSksIGJ1dCBvbmx5IHNlZWRzIDcgYW5kIDE3IGF0dGFpbiB0aGUgcHJlcmVnaXN0ZXJlZCBjb250aWd1b3VzIDg1JSBob3Jpem9uIG9mIDQwLiBEZWVwLTQgYXR0YWlucyBob3Jpem9uIDQwIGZvciBzZWVkIDQzIG9ubHkuIEJlY2F1c2UgdGhpcyBhZHZhbnRhZ2UgaXMgbm90IHN0YWJsZSBhY3Jvc3MgYWxsIGZpdmUgc2VlZHMgYW5kIGRvZXMgbm90IGFsaWduIHdpdGggRTEtQi9FMS1DIGludG8gb25lIGNvbW1vbiBvcmRlcmluZywgaXQgaXMgbm90IGludGVycHJldGVkIGFzIGEgZ2VuZXJhbCBhcmNoaXRlY3R1cmUgd2lubmVyLgoKIyMgRTEtQiDigJQgTXVsdGktZXZlbnQgaGlzdG9yeSBzZXBhcmFiaWxpdHkKClRoZSBsb25nLWhpc3RvcnkgcmVzdWx0IGlzIHRoZSBjbGVhcmVzdCBuZWdhdGl2ZSBmaW5kaW5nLiBIb3Jpem9uIDEgaXMgZWZmZWN0aXZlbHkgcGVyZmVjdCBhbmQgaG9yaXpvbiA1IHJlbWFpbnMgaGlnaCBmb3IgbmVhcmx5IGV2ZXJ5IGFybSwgYnV0IGhvcml6b24gMjAgZmFsbHMgdG8gcm91Z2hseSAyN+KAkzMwJSBhY2N1cmFjeSBhbmQgaG9yaXpvbiA0MCBjb252ZXJnZXMgdG8gYXBwcm94aW1hdGVseSB0aGUgZm91ci1jbGFzcyBjaGFuY2UgbGV2ZWwgb2YgMjUlLiBJbmNyZWFzaW5nIHRoZSBidWRnZXQgZnJvbSA2NCB0byAyNTYgY2hhbmdlcyBvdmVyYWxsIEUxLUIgbWFjcm8gYWNjdXJhY3kgb25seSBmcm9tIDYxLjg4JSB0byA2Mi43NCUuCgpUaHVzLCB0aGUgcmVnaXN0ZXJlZCBleHBlcmltZW50IGRvZXMgbm90IHNob3cgdGhhdCBhIGxhcmdlciByZXNlcnZvaXIgb3IgYW55IHRlc3RlZCBzaGFsbG93L2dyb3VwZWQvZGVlcCB0b3BvbG9neSBwcmVzZXJ2ZXMgbGluZWFybHkgc2VwYXJhYmxlIG11bHRpLWV2ZW50IGhpc3RvcnkgYmV5b25kIHRoZSBzaG9ydCBob3Jpem9uIHVuZGVyIHRoZSBmaXhlZCBkeW5hbWljcy4gVGhpcyBpcyBhIHJlcHJlc2VudGF0aW9uIHJlc3VsdCBvbmx5OiBpdCBkb2VzIG5vdCBpbXBseSB0aGF0IHRoZSB1bmRlcmx5aW5nIG5vbmxpbmVhciBzdGF0ZSBjb250YWlucyBubyBpbmZvcm1hdGlvbiB1bmRlciBhbnkgcG9zc2libGUgZGVjb2RlciwgYW5kIGl0IGRvZXMgbm90IGVzdGFibGlzaCBzZW1hbnRpYyBhdHRyYWN0b3JzLgoKIyMgRTEtQyDigJQgU3ludGhldGljIFlPTE8tbGlrZSBjb3JydXB0aW9uCgpBbGwgY2xlYW4gZXZhbHVhdGlvbnMgYXJlIDEwMCUgYWNjdXJhdGUuIEppdHRlciBpcyBlZmZlY3RpdmVseSBoYXJtbGVzcyB1bmRlciB0aGUgcmVnaXN0ZXJlZCBzaWdtYSBhbmQgbW9zdCBgb2NjbHVzaW9uNGAgYXJtcyBhcmUgYWxzbyB1bmFmZmVjdGVkLiBUaGUgbWVhbmluZ2Z1bCBkZWdyYWRhdGlvbiBjb21lcyBmcm9tIGBkcm9wMTBgLCBgd3JvbmcxMGAgYW5kIGBtaXhlZGAgY29ycnVwdGlvbi4gSW5jcmVhc2luZyB0aGUgYnVkZ2V0IGZyb20gNjQgdG8gMjU2IHJhaXNlcyBtZWFuIG1hY3JvIGNvcnJ1cHRlZCBhY2N1cmFjeSBmcm9tIDkyLjYwJSB0byA5NC4zMyUuCgpBcmNoaXRlY3R1cmUgZGlmZmVyZW5jZXMgYXJlIHNtYWxsZXIgdGhhbiB0aGlzIGJ1ZGdldCBlZmZlY3QgYW5kIGRvIG5vdCBmb3JtIGEgc3RhYmxlIGNyb3NzLXRhc2sgb3JkZXJpbmcuIEdyb3VwZWQtMi8yNTYgaGFzIHRoZSBoaWdoZXN0IHJlZ2lzdGVyZWQgY3Jvc3Mtc2VlZCBjb3JydXB0ZWQgbWFjcm8gKDk0Ljg4JSksIGJ1dCB0aGUgcHJlcmVnaXN0cmF0aW9uIGV4cGxpY2l0bHkgZm9yYmlkcyBzZWxlY3RpbmcgYW4gYXJjaGl0ZWN0dXJlIGZyb20gb25lIGNvcnJ1cHRpb24gbWV0cmljIGFsb25lLgoKIyMgSW50ZXJwcmV0YXRpb24KClRoZSBhcHByb3ZlZCBpbnRlcnByZXRhdGlvbiBpcyAqKk91dGNvbWUgRCBhcyB0aGUgcHJpbWFyeSBjYXRlZ29yeSwgd2l0aCBPdXRjb21lIEUgYXMgYSBzZWNvbmRhcnkgY2F0ZWdvcnkqKi4KCioqT3V0Y29tZSBEIOKAlCBhcmNoaXRlY3R1cmUgZWZmZWN0IGlzIHNtYWxsIHJlbGF0aXZlIHRvIHNlZWQgb3IgYnVkZ2V0LioqIFRoZSA2NOKGkjI1NiBuZXVyb24tYnVkZ2V0IGluY3JlYXNlIHByb2R1Y2VzIGEgY29uc2lzdGVudCBpbXByb3ZlbWVudCBpbiBFMS1BIG1lbW9yeSBhbmQgRTEtQyBjb3JydXB0aW9uIHJvYnVzdG5lc3MsIHdoaWxlIGFyY2hpdGVjdHVyZSBvcmRlcmluZyBjaGFuZ2VzIGJ5IHRhc2sgYW5kIHNlZWQuCgoqKk91dGNvbWUgRSDigJQgbWl4ZWQgb3IgdW5yZXNvbHZlZCB0b3BvbG9neSBlZmZlY3QuKiogTG9jYWwgdG9wb2xvZ3kgZWZmZWN0cyBleGlzdOKAlGZvciBleGFtcGxlIEdyb3VwZWQtNC8yNTYgZXh0ZW5kcyBkZWxheS00MCBtZW1vcnkgZm9yIHNvbWUgc2VlZHPigJRidXQgRTEtQSwgRTEtQiBhbmQgRTEtQyBkbyBub3QgYWdyZWUgb24gYSBzaW5nbGUgc3RhYmxlIHRvcG9sb2d5IG9yZGVyaW5nLiBObyBwb3N0LWhvYyBtZXRyaWMgd2VpZ2h0aW5nIGlzIHVzZWQgdG8gbWFudWZhY3R1cmUgb25lLgoKVGhlIHJlZ2lzdGVyZWQgZXZpZGVuY2UgdGhlcmVmb3JlIGRvZXMgKipub3QqKiBzdXBwb3J0IGEgZ2VuZXJhbCBjbGFpbSB0aGF0IFNoYWxsb3csIEdyb3VwZWQsIG9yIERlZXAgaXMgZ2xvYmFsbHkgc3VwZXJpb3IgdW5kZXIgRTEuIEl0IGRvZXMgc3VwcG9ydCB0d28gbmFycm93ZXIgY29uY2x1c2lvbnM6CgoxLiBBIGxhcmdlciBmaXhlZCByZXNlcnZvaXIgYnVkZ2V0IG1hdGVyaWFsbHkgZXh0ZW5kcyBzaW5nbGUtY3VlIGZhZGluZyBtZW1vcnkgYW5kIGltcHJvdmVzIHN5bnRoZXRpYyBkZXRlY3Rvci1jb3JydXB0aW9uIHJvYnVzdG5lc3MgdW5kZXIgdGhlIHJlZ2lzdGVyZWQgZHluYW1pY3MuCjIuIFRoZSB0ZXN0ZWQgYXJjaGl0ZWN0dXJlcyBhbGwgbG9zZSBsb25nIG11bHRpLWV2ZW50IGxpbmVhciBzZXBhcmFiaWxpdHkgYnkgSD0yMOKAkzQwLCBzbyBwcmVzZXJ2aW5nIGEgc2luZ2xlIHZhbmlzaGVkIGN1ZSBpcyBub3Qgc3VmZmljaWVudCBldmlkZW5jZSBvZiByb2J1c3QgbG9uZyBiZWhhdmlvci1oaXN0b3J5IHJlcHJlc2VudGF0aW9uLgoKIyMgU2NvcGUgYm91bmRhcnkgYW5kIG5leHQgcmVzZWFyY2ggcXVlc3Rpb24KCk5vIFIyIGRlbGF5ZWQtY3JlZGl0IHJlc3VsdCBpcyBjaGFuZ2VkIGJ5IHRoaXMgZXhwZXJpbWVudC4gRTEgY29udGFpbnMgbm8gcmV3YXJkIGxlYXJuaW5nLCBURCB1cGRhdGUsIGVsaWdpYmlsaXR5IHRyYWNlLCBvciBjcmVkaXQgYXNzaWdubWVudC4KCkEgbGF0ZXIgUjEgRTIgbWF5IHN0dWR5IHJlc2Vydm9pciBkeW5hbWljc+KAlHNwZWN0cmFsIHJhZGl1cywgbGVhaywgaW5wdXQgc2NhbGluZywgb3IgYWN0aXZhdGlvbuKAlHdoaWxlIHRyZWF0aW5nIHRoaXMgRTEgZXZpZGVuY2UgYXMgZnJvemVuLiBBbnkgRTIgZGVzaWduIG11c3QgYmUgcHJvc3BlY3RpdmUgYW5kIG11c3Qgbm90IHJlaW50ZXJwcmV0IEUxIGJ5IHJlZml0dGluZyB0aGVzZSByZWdpc3RlcmVkIHJlc3VsdHMuCgojIyBGcm96ZW4gZXZpZGVuY2UKClRoZSBkaXJlY3RvcnkgY29udGFpbnMgdGhlIGV4YWN0IHJlZ2lzdGVyZWQgZmlsZXMgZW1pdHRlZCBieSB0aGUgbWVhc3VyZW1lbnQgd29ya2Zsb3c6CgotIGBtYW5pZmVzdC5qc29uYCBhbmQgYG1hbmlmZXN0LnNoYTI1NmAKLSBgcHJvc3BlY3RpdmUtcHJvdmVuYW5jZS5qc29uYCBhbmQgYHByb3NwZWN0aXZlLXByb3ZlbmFuY2Uuc2hhMjU2YAotIGBwcm92ZW5hbmNlLmpzb25gIGFuZCBgcHJvdmVuYW5jZS5zaGEyNTZgCi0gYHJlc3VsdC5qc29uYCBhbmQgYHJlc3VsdC5zaGEyNTZgCi0gYHRyYWNlLWluZGV4Lmpzb25gIGFuZCBgdHJhY2UtaW5kZXguc2hhMjU2YAoKYHJlcG9ydC5tZGAgaXMgYSBodW1hbiBpbnRlcnByZXRhdGlvbiBvZiB0aG9zZSBmcm96ZW4gZmlsZXMuIEl0IGludHJvZHVjZXMgbm8gbmV3IGZpdHRpbmcsIHNlZWRzLCB0aHJlc2hvbGRzLCBvciBtZWFzdXJlbWVudHMuCg==' | base64 -d > "${TARGET}/report.md"
           git rm .github/workflows/r1-e1-registered-measurement.yml
           git rm .github/workflows/r1-e1-freeze.yml
 
@@ -156,21 +64,20 @@ REPORT
           set -euo pipefail
           git add "${TARGET}"
           git diff --cached --name-only | sort > /tmp/actual.txt
-          cat > /tmp/expected.txt <<'EOF'
-.github/workflows/r1-e1-freeze.yml
-.github/workflows/r1-e1-registered-measurement.yml
-docs/experiments/r1-e1-reservoir-architecture/manifest.json
-docs/experiments/r1-e1-reservoir-architecture/manifest.sha256
-docs/experiments/r1-e1-reservoir-architecture/prospective-provenance.json
-docs/experiments/r1-e1-reservoir-architecture/prospective-provenance.sha256
-docs/experiments/r1-e1-reservoir-architecture/provenance.json
-docs/experiments/r1-e1-reservoir-architecture/provenance.sha256
-docs/experiments/r1-e1-reservoir-architecture/report.md
-docs/experiments/r1-e1-reservoir-architecture/result.json
-docs/experiments/r1-e1-reservoir-architecture/result.sha256
-docs/experiments/r1-e1-reservoir-architecture/trace-index.json
-docs/experiments/r1-e1-reservoir-architecture/trace-index.sha256
-EOF
+          printf '%s\n' \
+            '.github/workflows/r1-e1-freeze.yml' \
+            '.github/workflows/r1-e1-registered-measurement.yml' \
+            'docs/experiments/r1-e1-reservoir-architecture/manifest.json' \
+            'docs/experiments/r1-e1-reservoir-architecture/manifest.sha256' \
+            'docs/experiments/r1-e1-reservoir-architecture/prospective-provenance.json' \
+            'docs/experiments/r1-e1-reservoir-architecture/prospective-provenance.sha256' \
+            'docs/experiments/r1-e1-reservoir-architecture/provenance.json' \
+            'docs/experiments/r1-e1-reservoir-architecture/provenance.sha256' \
+            'docs/experiments/r1-e1-reservoir-architecture/report.md' \
+            'docs/experiments/r1-e1-reservoir-architecture/result.json' \
+            'docs/experiments/r1-e1-reservoir-architecture/result.sha256' \
+            'docs/experiments/r1-e1-reservoir-architecture/trace-index.json' \
+            'docs/experiments/r1-e1-reservoir-architecture/trace-index.sha256' > /tmp/expected.txt
           sort -o /tmp/expected.txt /tmp/expected.txt
           diff -u /tmp/expected.txt /tmp/actual.txt
           test "$(sha256sum "${TARGET}/manifest.json" | awk '{print $1}')" = "${MANIFEST_SHA256}"
