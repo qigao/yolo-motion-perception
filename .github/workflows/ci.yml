@@ -33,6 +33,33 @@ jobs:
       - name: Ruff
         run: ruff check .
 
+      - name: R1 E1 reservoir protocol tests
+        run: >-
+          pytest -q
+          tests/test_r1_e1_reservoir.py
+          tests/test_r1_e1_probe.py
+          tests/test_r1_e1_memory.py
+          tests/test_r1_e1_history.py
+          tests/test_r1_e1_yolo_like.py
+          tests/test_r1_e1_protocol.py
+          tests/test_r1_e1_evidence.py
+          tests/test_r1_e1_cli.py
+
+      - name: R1 E1 protocol smoke
+        run: python scripts/benchmark_r1_e1_reservoir.py protocol
+
+      - name: Prepare prospective R1 E1 manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/r1-e1-prospective
+          python scripts/benchmark_r1_e1_reservoir.py prepare \
+            --output /tmp/r1-e1-prospective \
+            --scientific-head "${GITHUB_SHA}"
+          python scripts/benchmark_r1_e1_reservoir.py verify \
+            --root /tmp/r1-e1-prospective \
+            --no-result-ok
+
       - name: Deterministic benchmark
         run: python scripts/benchmark.py
 
