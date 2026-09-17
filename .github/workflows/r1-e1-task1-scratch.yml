@@ -1,4 +1,4 @@
-name: R1 E1 Task1 Scratch
+name: R1 E1 Scratch
 
 on:
   push:
@@ -16,7 +16,7 @@ jobs:
           cache: pip
       - name: Install project
         run: python -m pip install -e '.[dev]'
-      - name: Reservoir focused tests
-        run: pytest -q tests/test_r1_e1_reservoir.py
-      - name: Reservoir Ruff
-        run: ruff check src/neural_state_machine/r1_e1_reservoir.py tests/test_r1_e1_reservoir.py
+      - name: R1 E1 focused tests
+        run: pytest -q tests/test_r1_e1_*.py
+      - name: R1 E1 Ruff
+        run: ruff check src/neural_state_machine/r1_e1_*.py tests/test_r1_e1_*.py
