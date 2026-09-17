@@ -60,6 +60,14 @@ jobs:
             --root /tmp/r1-e1-prospective \
             --no-result-ok
 
+      - name: Upload prospective R1 E1 manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: r1-e1-prospective-manifest-${{ github.sha }}
+          path: /tmp/r1-e1-prospective/
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Deterministic benchmark
         run: python scripts/benchmark.py
 
