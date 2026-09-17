@@ -48,25 +48,10 @@ jobs:
       - name: R1 E1 protocol smoke
         run: python scripts/benchmark_r1_e1_reservoir.py protocol
 
-      - name: Prepare prospective R1 E1 manifest
-        shell: bash
-        run: |
-          set -euo pipefail
-          rm -rf /tmp/r1-e1-prospective
-          python scripts/benchmark_r1_e1_reservoir.py prepare \
-            --output /tmp/r1-e1-prospective \
-            --scientific-head "${GITHUB_SHA}"
-          python scripts/benchmark_r1_e1_reservoir.py verify \
-            --root /tmp/r1-e1-prospective \
-            --no-result-ok
-
-      - name: Upload prospective R1 E1 manifest
-        uses: actions/upload-artifact@v4
-        with:
-          name: r1-e1-prospective-manifest-${{ github.sha }}
-          path: /tmp/r1-e1-prospective/
-          if-no-files-found: error
-          retention-days: 30
+      - name: Verify frozen R1 E1 registered evidence
+        run: >-
+          python scripts/benchmark_r1_e1_reservoir.py verify
+          --root docs/experiments/r1-e1-reservoir-architecture
 
       - name: Deterministic benchmark
         run: python scripts/benchmark.py
