@@ -86,6 +86,19 @@ def _validate_head(value: str) -> str:
     return value
 
 
+def _require_runtime_match(
+    manifest: Mapping[str, object],
+    *,
+    python_version: object,
+    numpy_version: object,
+) -> None:
+    if (
+        manifest.get("python") != python_version
+        or manifest.get("numpy") != numpy_version
+    ):
+        raise EvidenceInvalid("measurement runtime does not match sealed manifest")
+
+
 def prepare_prospective(root: Path | str, *, scientific_head: str) -> dict[str, object]:
     root_path = Path(root)
     _validate_head(scientific_head)
@@ -130,6 +143,13 @@ def write_measurement(
     if scientific_head != manifest.get("scientific_head"):
         raise EvidenceInvalid("scientific head does not match sealed manifest")
     _validate_head(scientific_head)
+    runtime_python = platform.python_version()
+    runtime_numpy = np.__version__
+    _require_runtime_match(
+        manifest,
+        python_version=runtime_python,
+        numpy_version=runtime_numpy,
+    )
 
     measurement_paths = (
         "result.json",
@@ -153,8 +173,8 @@ def write_measurement(
         "scientific_head": scientific_head,
         "manifest_sha256": manifest_sha256,
         "result_sha256": result_sha,
-        "python": platform.python_version(),
-        "numpy": np.__version__,
+        "python": runtime_python,
+        "numpy": runtime_numpy,
     }
     _write_pair(root_path, "provenance.json", provenance)
     _write_pair(root_path, "trace-index.json", {"schema": "r1-e1-trace-index-v1", "artifacts": []})
@@ -188,6 +208,11 @@ def verify_evidence(root: Path | str, *, no_result_ok: bool = False) -> dict[str
         raise EvidenceInvalid("measurement manifest linkage mismatch")
     if provenance.get("scientific_head") != manifest.get("scientific_head"):
         raise EvidenceInvalid("measurement scientific head mismatch")
+    _require_runtime_match(
+        manifest,
+        python_version=provenance.get("python"),
+        numpy_version=provenance.get("numpy"),
+    )
     if provenance.get("result_sha256") != _sha256(result_path.read_bytes()):
         raise EvidenceInvalid("provenance result sha256 mismatch")
 
