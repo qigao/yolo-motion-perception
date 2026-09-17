@@ -1,0 +1,22 @@
+name: R1 E1 Task1 Scratch
+
+on:
+  push:
+    branches:
+      - research/r1-e1-task1-red-test
+
+jobs:
+  focused:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install project
+        run: python -m pip install -e '.[dev]'
+      - name: Reservoir focused tests
+        run: pytest -q tests/test_r1_e1_reservoir.py
+      - name: Reservoir Ruff
+        run: ruff check src/neural_state_machine/r1_e1_reservoir.py tests/test_r1_e1_reservoir.py
