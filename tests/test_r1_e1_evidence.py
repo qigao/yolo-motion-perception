@@ -155,6 +155,24 @@ def test_measurement_bundle_requires_exact_manifest_hash_and_head(tmp_path: Path
     assert not (root / "result.json").exists()
 
 
+def test_measurement_bundle_rejects_runtime_mismatch(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root, prepared = _prospective_root(tmp_path)
+    monkeypatch.setattr(evidence.platform, "python_version", lambda: "0.0.0")
+
+    with pytest.raises(evidence.EvidenceInvalid, match="runtime"):
+        evidence.write_measurement(
+            root,
+            manifest_sha256=prepared["manifest_sha256"],
+            scientific_head=_HEAD,
+            raw_result=_complete_fake_result(),
+        )
+
+    assert not (root / "result.json").exists()
+
+
 def test_measurement_bundle_is_write_once_and_links_manifest(tmp_path: Path) -> None:
     root, prepared = _prospective_root(tmp_path)
     fake = _complete_fake_result()
@@ -205,6 +223,28 @@ def test_full_verifier_accepts_complete_registered_bundle(tmp_path: Path) -> Non
 
     assert verified["valid"] is True
     assert verified["registered_arm_count"] == 50
+
+
+def test_full_verifier_rejects_provenance_runtime_mismatch(tmp_path: Path) -> None:
+    root, prepared = _prospective_root(tmp_path)
+    evidence.write_measurement(
+        root,
+        manifest_sha256=prepared["manifest_sha256"],
+        scientific_head=_HEAD,
+        raw_result=_complete_fake_result(),
+    )
+    provenance_path = root / "provenance.json"
+    provenance = json.loads(provenance_path.read_text())
+    provenance["python"] = "0.0.0"
+    provenance_bytes = evidence.canonical_json_bytes(provenance)
+    provenance_path.write_bytes(provenance_bytes)
+    (root / "provenance.sha256").write_text(
+        hashlib.sha256(provenance_bytes).hexdigest() + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(evidence.EvidenceInvalid, match="runtime"):
+        evidence.verify_evidence(root)
 
 
 def test_full_verifier_rejects_unregistered_corruption_name(tmp_path: Path) -> None:
