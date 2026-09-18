@@ -220,10 +220,8 @@ def evaluate_composition_history(
         raise ValueError("training and evaluation must be CompositionFixtureSet")
     if training.history != evaluation.history:
         raise ValueError("training and evaluation history must match")
-    if training.seed is not None and training.seed != spec.seed:
-        raise ValueError("training fixture seed must match reservoir seed")
-    if evaluation.seed is not None and evaluation.seed != spec.seed:
-        raise ValueError("evaluation fixture seed must match reservoir seed")
+    _validate_fixture_seed_lineage(spec, training, training=True)
+    _validate_fixture_seed_lineage(spec, evaluation, training=False)
 
     reservoir = build_e2_reservoir(spec)
     parameter_digest = reservoir.parameter_digest()
@@ -382,8 +380,15 @@ def _validate_registered_fixture_sets(
     )
     expected_count = expected_groups * len(COMPOSITION_CLASSES)
     kind = "training" if training else "evaluation"
-    for expected_history, fixture_set in zip(
-        COMPOSITION_HISTORIES, fixture_sets, strict=True
+    expected_fixture_sets = build_composition_fixture_sets(
+        spec.seed,
+        training=training,
+    )
+    for expected_history, fixture_set, expected_fixture_set in zip(
+        COMPOSITION_HISTORIES,
+        fixture_sets,
+        expected_fixture_sets,
+        strict=True,
     ):
         if not isinstance(fixture_set, CompositionFixtureSet):
             raise ValueError(f"{kind} fixtures must be CompositionFixtureSet")
@@ -391,8 +396,26 @@ def _validate_registered_fixture_sets(
             raise ValueError(f"{kind} fixtures must use registered histories")
         if len(fixture_set.sequences) != expected_count:
             raise ValueError(f"registered {kind} count mismatch")
-        if fixture_set.seed != spec.seed:
-            raise ValueError(f"{kind} fixture seed must match reservoir seed")
+        if fixture_set.fixture_digest != expected_fixture_set.fixture_digest:
+            raise ValueError(f"{kind} fixture seed lineage must match reservoir seed")
+
+
+def _validate_fixture_seed_lineage(
+    spec: E2ReservoirSpec,
+    fixture_set: CompositionFixtureSet,
+    *,
+    training: bool,
+) -> None:
+    expected_fixture_sets = build_composition_fixture_sets(
+        spec.seed,
+        training=training,
+    )
+    expected = next(
+        item for item in expected_fixture_sets if item.history == fixture_set.history
+    )
+    kind = "training" if training else "evaluation"
+    if fixture_set.fixture_digest != expected.fixture_digest:
+        raise ValueError(f"{kind} fixture seed lineage must match reservoir seed")
 
 
 def _collect_trajectories(
