@@ -137,6 +137,7 @@ def test_composition_fixture_builder_rejects_unregistered_seed(seed: object) -> 
 def test_composition_history_runner_uses_exact_same_trajectories_for_both_readouts() -> None:
     from neural_state_machine.r1_e2_composition import (
         CompositionFixtureSet,
+        build_composition_fixture_sets,
         evaluate_composition_history,
     )
     from neural_state_machine.r1_e2_reservoir import E2Architecture, E2ReservoirSpec
@@ -219,6 +220,7 @@ def test_composition_history_runner_reset_control_is_exact_chance_for_paired_gro
 def test_registered_composition_runner_rejects_nonregistered_fixture_counts() -> None:
     from neural_state_machine.r1_e2_composition import (
         CompositionFixtureSet,
+        build_composition_fixture_sets,
         run_composition_arm,
     )
     from neural_state_machine.r1_e2_reservoir import E2Architecture, E2ReservoirSpec
@@ -248,7 +250,10 @@ def test_registered_composition_runner_rejects_nonregistered_fixture_counts() ->
 
 
 def test_composition_runner_rejects_wrong_input_width_and_seed_mismatch() -> None:
-    from neural_state_machine.r1_e2_composition import run_composition_arm
+    from neural_state_machine.r1_e2_composition import (
+        build_composition_fixture_sets,
+        run_composition_arm,
+    )
     from neural_state_machine.r1_e2_reservoir import E2Architecture, E2ReservoirSpec
 
     training = build_composition_fixture_sets(7, training=True)
