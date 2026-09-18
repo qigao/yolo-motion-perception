@@ -659,6 +659,6 @@ git commit -m "ci: add R1 E3 permanent protocol gates"
 ## Self-Review Checklist
 
 - Spec coverage: E3A extraction boundary, schemas, annotations, normalization, split isolation, E3B decoders, history-destruction, outcome classification, evidence lifecycle, and no-refit rules all map to tasks.
-- Placeholder scan: no TBD/TODO/FIXME or "implement later" placeholders.
+- Placeholder scan: no unresolved placeholder tokens or deferred implementation markers.
 - Type consistency: E3A produces FrozenTrackArtifact + root digest; E3B consumes only frozen artifact/tensors; B2 always uses bins 16..19; registered arm count is always 20; evidence binds science head + artifact digest.
 - Scope decomposition: E3A and E3B are independently reviewable task groups joined only by immutable artifact files/checksums.
