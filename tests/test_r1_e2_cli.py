@@ -72,13 +72,16 @@ def test_e2_measure_rejects_head_mismatch_before_measurement(
         )
 
 
-def test_permanent_ci_runs_e2_preflight_but_never_measure() -> None:
+def test_permanent_ci_verifies_frozen_e2_evidence_and_never_measures() -> None:
     workflow = Path(".github/workflows/ci.yml").read_text(encoding="utf-8")
 
     assert "R1 E2 focused tests" in workflow
     assert "R1 E2 protocol smoke" in workflow
-    assert "Prepare prospective R1 E2 manifest without measurement" in workflow
-    assert "Verify prospective R1 E2 manifest" in workflow
+    assert "Verify frozen R1 E2 registered evidence" in workflow
+    assert "--root docs/experiments/r1-e2-reservoir-representation" in workflow
+    assert "Prepare prospective R1 E2 manifest without measurement" not in workflow
+    assert "Verify prospective R1 E2 manifest" not in workflow
+    assert "r1-e2-prospective-" not in workflow
     assert "benchmark_r1_e2_reservoir.py measure" not in workflow
 
 
