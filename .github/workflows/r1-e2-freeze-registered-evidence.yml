@@ -139,12 +139,13 @@ jobs:
           text = path.read_text(encoding="utf-8")
           start = text.index("      - name: Prepare prospective R1 E2 manifest without measurement")
           end = text.index("      - name: Deterministic benchmark", start)
-          replacement = """      - name: Verify frozen R1 E2 registered evidence
-        run: >-
-          python scripts/benchmark_r1_e2_reservoir.py verify
-          --root docs/experiments/r1-e2-reservoir-representation
-
-"""
+          replacement = (
+              "      - name: Verify frozen R1 E2 registered evidence\n"
+              "        run: >-\n"
+              "          python scripts/benchmark_r1_e2_reservoir.py verify\n"
+              "          --root docs/experiments/r1-e2-reservoir-representation\n"
+              "\n"
+          )
           path.write_text(text[:start] + replacement + text[end:], encoding="utf-8")
           PY
 
