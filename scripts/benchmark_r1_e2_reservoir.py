@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import platform
 import subprocess
 from pathlib import Path
 from typing import Sequence
+
+import numpy as np
 
 from neural_state_machine.r1_e2_evidence import (
     EvidenceInvalid,
@@ -92,12 +95,40 @@ def main(argv: Sequence[str] | None = None) -> int:
         except (OSError, json.JSONDecodeError) as exc:
             raise SystemExit(f"cannot read sealed manifest: {exc}") from exc
 
+        try:
+            sealed_manifest_sha = (args.root / "manifest.sha256").read_text(
+                encoding="utf-8"
+            ).strip()
+        except OSError as exc:
+            raise SystemExit(f"cannot read sealed manifest sha256: {exc}") from exc
+        if args.manifest_sha256 != sealed_manifest_sha:
+            raise SystemExit(
+                "manifest sha256 mismatch: "
+                f"sealed={sealed_manifest_sha!r} supplied={args.manifest_sha256!r}"
+            )
+
         sealed_head = manifest.get("scientific_head")
         current_head = _current_head()
         if current_head != sealed_head:
             raise SystemExit(
                 f"scientific head mismatch: sealed={sealed_head!r} current={current_head!r}"
             )
+
+        try:
+            preflight = verify_evidence(args.root, no_result_ok=True)
+        except EvidenceInvalid as exc:
+            raise SystemExit(str(exc)) from exc
+        if preflight.get("prospective_only") is not True:
+            raise SystemExit("registered measurement result already exists")
+        if preflight.get("manifest_sha256") != sealed_manifest_sha:
+            raise SystemExit("prospective verifier manifest sha256 mismatch")
+        if preflight.get("scientific_head") != current_head:
+            raise SystemExit("prospective verifier scientific head mismatch")
+        if (
+            manifest.get("python") != platform.python_version()
+            or manifest.get("numpy") != np.__version__
+        ):
+            raise SystemExit("measurement runtime does not match sealed manifest")
 
         measurement = run_registered_measurement()
         try:
