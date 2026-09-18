@@ -80,7 +80,16 @@ def test_e2c_corruption_adapter_is_exactly_frozen_e1c_plan() -> None:
 
     assert e2.digest == reference.digest
     assert len(e2.entries) == len(reference.entries) == 200
-    assert e2.entries[:4] == reference.entries[:4]
+    for left, right in zip(e2.entries[:4], reference.entries[:4], strict=True):
+        assert left.fixture_index == right.fixture_index
+        assert left.label == right.label
+        assert left.drop_indices == right.drop_indices
+        assert left.wrong_indices == right.wrong_indices
+        assert left.occlusion_indices == right.occlusion_indices
+        assert left.mixed_drop_indices == right.mixed_drop_indices
+        assert left.mixed_wrong_index == right.mixed_wrong_index
+        np.testing.assert_array_equal(left.jitter_noise, right.jitter_noise)
+        np.testing.assert_array_equal(left.mixed_jitter_noise, right.mixed_jitter_noise)
 
 
 def test_e2c_small_paired_group_exercises_all_three_baselines_without_full_measurement() -> None:
