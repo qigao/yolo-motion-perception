@@ -69,6 +69,37 @@ class RepresentationGeometry:
     separation_ratio: float
 
 
+@dataclass(frozen=True)
+class CompositionReadoutResult:
+    metrics: ClassificationMetrics
+    geometry: RepresentationGeometry
+    reset_correct: int
+    reset_total: int
+    coefficient_digest: str
+    prediction_digest: str
+    reset_prediction_digest: str
+
+
+@dataclass(frozen=True)
+class CompositionHistoryResult:
+    history: int
+    instantaneous: CompositionReadoutResult
+    temporal_mean: CompositionReadoutResult
+    reset_groups_equal: bool
+    train_fixture_digest: str
+    evaluation_fixture_digest: str
+    reservoir_parameter_digest: str
+
+
+@dataclass(frozen=True)
+class CompositionArmResult:
+    seed: int
+    architecture: int
+    histories: tuple[CompositionHistoryResult, ...]
+    instantaneous_macro_accuracy: float
+    temporal_mean_macro_accuracy: float
+
+
 def build_composition_fixture_sets(
     seed: int,
     *,
@@ -166,6 +197,254 @@ def representation_geometry(
         within_class_dispersion=tuple(dispersions),
         separation_ratio=ratio,
     )
+
+
+
+def evaluate_composition_history(
+    spec: E2ReservoirSpec,
+    training: CompositionFixtureSet,
+    evaluation: CompositionFixtureSet,
+) -> CompositionHistoryResult:
+    _validated_composition_spec(spec)
+    if not isinstance(training, CompositionFixtureSet) or not isinstance(
+        evaluation, CompositionFixtureSet
+    ):
+        raise ValueError("training and evaluation must be CompositionFixtureSet")
+    if training.history != evaluation.history:
+        raise ValueError("training and evaluation history must match")
+    if training.seed is not None and training.seed != spec.seed:
+        raise ValueError("training fixture seed must match reservoir seed")
+    if evaluation.seed is not None and evaluation.seed != spec.seed:
+        raise ValueError("evaluation fixture seed must match reservoir seed")
+
+    reservoir = build_e2_reservoir(spec)
+    parameter_digest = reservoir.parameter_digest()
+
+    train_trajectories, train_labels = _collect_trajectories(
+        reservoir, training.sequences
+    )
+    evaluation_trajectories, evaluation_labels = _collect_trajectories(
+        reservoir, evaluation.sequences
+    )
+    reset_trajectories, reset_labels = _collect_reset_tail_trajectories(
+        reservoir, evaluation.sequences
+    )
+    if reservoir.parameter_digest() != parameter_digest:
+        raise RuntimeError("R1-E2 composition reservoir parameters changed")
+
+    history = training.history
+    train_final = train_trajectories[:, -1, :]
+    evaluation_final = evaluation_trajectories[:, -1, :]
+    reset_final = reset_trajectories[:, -1, :]
+
+    train_temporal = causal_mean_pool_batch(train_trajectories, window=history)
+    evaluation_temporal = causal_mean_pool_batch(
+        evaluation_trajectories, window=history
+    )
+    reset_temporal = causal_mean_pool_batch(reset_trajectories, window=history)
+
+    instant_probe = fit_instant_multiclass(
+        train_final,
+        train_labels,
+        class_count=len(COMPOSITION_CLASSES),
+    )
+    temporal_probe = fit_temporal_mean_multiclass(
+        train_trajectories,
+        train_labels,
+        class_count=len(COMPOSITION_CLASSES),
+        window=history,
+    )
+
+    instant_predictions = instant_probe.predict(evaluation_final)
+    temporal_predictions = temporal_probe.predict(evaluation_temporal)
+    instant_reset_predictions = instant_probe.predict(reset_final)
+    temporal_reset_predictions = temporal_probe.predict(reset_temporal)
+
+    reset_groups_equal = _reset_groups_equal(
+        reset_trajectories, evaluation.sequences
+    )
+    if not reset_groups_equal:
+        raise RuntimeError(
+            "R1-E2 composition reset trajectories differ within a nuisance group"
+        )
+
+    instant_reset_correct = int(
+        np.count_nonzero(instant_reset_predictions == reset_labels)
+    )
+    temporal_reset_correct = int(
+        np.count_nonzero(temporal_reset_predictions == reset_labels)
+    )
+    reset_total = int(reset_labels.size)
+    if (
+        instant_reset_correct * len(COMPOSITION_CLASSES) != reset_total
+        or temporal_reset_correct * len(COMPOSITION_CLASSES) != reset_total
+    ):
+        raise RuntimeError("R1-E2 composition reset control is not exact chance")
+
+    return CompositionHistoryResult(
+        history=history,
+        instantaneous=CompositionReadoutResult(
+            metrics=classification_metrics(evaluation_labels, instant_predictions),
+            geometry=representation_geometry(evaluation_final, evaluation_labels),
+            reset_correct=instant_reset_correct,
+            reset_total=reset_total,
+            coefficient_digest=instant_probe.coefficient_digest(),
+            prediction_digest=prediction_digest(instant_predictions),
+            reset_prediction_digest=prediction_digest(instant_reset_predictions),
+        ),
+        temporal_mean=CompositionReadoutResult(
+            metrics=classification_metrics(evaluation_labels, temporal_predictions),
+            geometry=representation_geometry(evaluation_temporal, evaluation_labels),
+            reset_correct=temporal_reset_correct,
+            reset_total=reset_total,
+            coefficient_digest=temporal_probe.coefficient_digest(),
+            prediction_digest=prediction_digest(temporal_predictions),
+            reset_prediction_digest=prediction_digest(temporal_reset_predictions),
+        ),
+        reset_groups_equal=True,
+        train_fixture_digest=training.fixture_digest,
+        evaluation_fixture_digest=evaluation.fixture_digest,
+        reservoir_parameter_digest=parameter_digest,
+    )
+
+
+def run_composition_arm(
+    spec: E2ReservoirSpec,
+    training_sets: tuple[CompositionFixtureSet, ...],
+    evaluation_sets: tuple[CompositionFixtureSet, ...],
+) -> CompositionArmResult:
+    _validated_composition_spec(spec)
+    _validate_registered_fixture_sets(
+        spec,
+        training_sets,
+        training=True,
+    )
+    _validate_registered_fixture_sets(
+        spec,
+        evaluation_sets,
+        training=False,
+    )
+
+    results = tuple(
+        evaluate_composition_history(spec, training, evaluation)
+        for training, evaluation in zip(
+            training_sets, evaluation_sets, strict=True
+        )
+    )
+    return CompositionArmResult(
+        seed=spec.seed,
+        architecture=int(spec.architecture),
+        histories=results,
+        instantaneous_macro_accuracy=float(
+            np.mean(
+                [result.instantaneous.metrics.accuracy for result in results],
+                dtype=np.float64,
+            )
+        ),
+        temporal_mean_macro_accuracy=float(
+            np.mean(
+                [result.temporal_mean.metrics.accuracy for result in results],
+                dtype=np.float64,
+            )
+        ),
+    )
+
+
+def _validated_composition_spec(spec: object) -> E2ReservoirSpec:
+    if not isinstance(spec, E2ReservoirSpec):
+        raise ValueError("spec must be E2ReservoirSpec")
+    if spec.input_size != 7:
+        raise ValueError("R1-E2 composition input_size must be seven")
+    _validated_registered_seed(spec.seed)
+    return spec
+
+
+def _validate_registered_fixture_sets(
+    spec: E2ReservoirSpec,
+    fixture_sets: object,
+    *,
+    training: bool,
+) -> None:
+    if type(fixture_sets) is not tuple or len(fixture_sets) != len(
+        COMPOSITION_HISTORIES
+    ):
+        raise ValueError("fixture sets must cover all registered histories")
+    expected_groups = (
+        TRAIN_GROUPS_PER_HISTORY if training else EVAL_GROUPS_PER_HISTORY
+    )
+    expected_count = expected_groups * len(COMPOSITION_CLASSES)
+    kind = "training" if training else "evaluation"
+    for expected_history, fixture_set in zip(
+        COMPOSITION_HISTORIES, fixture_sets, strict=True
+    ):
+        if not isinstance(fixture_set, CompositionFixtureSet):
+            raise ValueError(f"{kind} fixtures must be CompositionFixtureSet")
+        if fixture_set.history != expected_history:
+            raise ValueError(f"{kind} fixtures must use registered histories")
+        if len(fixture_set.sequences) != expected_count:
+            raise ValueError(f"registered {kind} count mismatch")
+        if fixture_set.seed != spec.seed:
+            raise ValueError(f"{kind} fixture seed must match reservoir seed")
+
+
+def _collect_trajectories(
+    reservoir: object,
+    sequences: tuple[CompositionSequence, ...],
+) -> tuple[np.ndarray, np.ndarray]:
+    trajectories = []
+    labels = []
+    for sequence in sequences:
+        reservoir.reset()
+        states = [reservoir.advance(frame) for frame in sequence.frames]
+        trajectories.append(np.stack(states, axis=0))
+        labels.append(sequence.label)
+    return (
+        np.stack(trajectories, axis=0),
+        np.asarray(labels, dtype=np.int64),
+    )
+
+
+def _collect_reset_tail_trajectories(
+    reservoir: object,
+    sequences: tuple[CompositionSequence, ...],
+) -> tuple[np.ndarray, np.ndarray]:
+    trajectories = []
+    labels = []
+    for sequence in sequences:
+        reservoir.reset()
+        for frame in sequence.frames[:5]:
+            reservoir.advance(frame)
+        reservoir.reset()
+        states = [reservoir.advance(frame) for frame in sequence.frames[5:]]
+        if len(states) != sequence.history:
+            raise RuntimeError("reset tail length does not match registered history")
+        trajectories.append(np.stack(states, axis=0))
+        labels.append(sequence.label)
+    return (
+        np.stack(trajectories, axis=0),
+        np.asarray(labels, dtype=np.int64),
+    )
+
+
+def _reset_groups_equal(
+    trajectories: np.ndarray,
+    sequences: tuple[CompositionSequence, ...],
+) -> bool:
+    if trajectories.shape[0] != len(sequences):
+        return False
+    grouped: dict[int, list[int]] = {}
+    for index, sequence in enumerate(sequences):
+        grouped.setdefault(sequence.group_index, []).append(index)
+    for indices in grouped.values():
+        if len(indices) != len(COMPOSITION_CLASSES):
+            return False
+        group = trajectories[np.asarray(indices, dtype=np.int64)]
+        if not np.array_equal(
+            group,
+            np.repeat(group[:1], len(COMPOSITION_CLASSES), axis=0),
+        ):
+            return False
+    return True
 
 
 def _build_history_fixture(
