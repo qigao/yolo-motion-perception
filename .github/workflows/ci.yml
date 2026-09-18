@@ -53,6 +53,26 @@ jobs:
           python scripts/benchmark_r1_e1_reservoir.py verify
           --root docs/experiments/r1-e1-reservoir-architecture
 
+      - name: R1 E2 focused tests
+        run: >-
+          pytest -q
+          tests/test_r1_e2_reservoir.py
+          tests/test_r1_e2_readout.py
+          tests/test_r1_e2_memory.py
+          tests/test_r1_e2_composition.py
+          tests/test_r1_e2_yolo_episode.py
+          tests/test_r1_e2_protocol.py
+          tests/test_r1_e2_evidence.py
+          tests/test_r1_e2_cli.py
+
+      - name: R1 E2 protocol smoke
+        run: python scripts/benchmark_r1_e2_reservoir.py protocol
+
+      - name: Verify frozen R1 E2 registered evidence
+        run: >-
+          python scripts/benchmark_r1_e2_reservoir.py verify
+          --root docs/experiments/r1-e2-reservoir-representation
+
       - name: Deterministic benchmark
         run: python scripts/benchmark.py
 
