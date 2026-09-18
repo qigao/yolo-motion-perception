@@ -130,3 +130,37 @@ def test_e2_measure_preflights_prospective_evidence_before_measurement(
                 manifest_sha,
             ]
         )
+
+
+def test_e2_measure_rejects_existing_result_before_measurement(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cli = _cli()
+    root = tmp_path / "prospective"
+    assert cli.main(["prepare", "--output", str(root), "--scientific-head", _HEAD]) == 0
+    manifest_sha = (root / "manifest.sha256").read_text().strip()
+    monkeypatch.setattr(cli, "run_registered_measurement", _forbidden_measurement)
+    monkeypatch.setattr(cli, "_current_head", lambda: _HEAD)
+    monkeypatch.setattr(
+        cli,
+        "verify_evidence",
+        lambda *args, **kwargs: {
+            "valid": True,
+            "prospective_only": False,
+            "scientific_head": _HEAD,
+            "manifest_sha256": manifest_sha,
+            "registered_arm_count": 20,
+        },
+    )
+
+    with pytest.raises(SystemExit, match="already exists"):
+        cli.main(
+            [
+                "measure",
+                "--root",
+                str(root),
+                "--manifest-sha256",
+                manifest_sha,
+            ]
+        )
