@@ -1,0 +1,60 @@
+name: R1 E2 Registered Measurement Approved
+
+on:
+  push:
+    branches:
+      - ops/r1-e2-measurement-6b72cb64
+
+permissions:
+  contents: read
+
+jobs:
+  measure:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 6b72cb6442e724c8d888aa934169a13e84168b21
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12.14"
+          cache: pip
+
+      - name: Install approved science head
+        run: python -m pip install -e '.[dev]'
+
+      - name: Assert exact approved science head
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "6b72cb6442e724c8d888aa934169a13e84168b21"
+
+      - name: Recreate and verify approved prospective manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/r1-e2-registered
+          python scripts/benchmark_r1_e2_reservoir.py prepare             --output /tmp/r1-e2-registered             --scientific-head 6b72cb6442e724c8d888aa934169a13e84168b21
+          test "$(cat /tmp/r1-e2-registered/manifest.sha256)" =             "0b50234fbb826c1bda43c4cf63b51a13265ebc0aa2111a8eafed525842473110"
+          python scripts/benchmark_r1_e2_reservoir.py verify             --root /tmp/r1-e2-registered             --no-result-ok
+
+      - name: Execute single approved registered measurement
+        run: >-
+          python scripts/benchmark_r1_e2_reservoir.py measure
+          --root /tmp/r1-e2-registered
+          --manifest-sha256 0b50234fbb826c1bda43c4cf63b51a13265ebc0aa2111a8eafed525842473110
+
+      - name: Verify complete registered evidence
+        run: >-
+          python scripts/benchmark_r1_e2_reservoir.py verify
+          --root /tmp/r1-e2-registered
+
+      - name: Upload registered evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: r1-e2-registered-evidence-6b72cb6442e724c8d888aa934169a13e84168b21
+          path: /tmp/r1-e2-registered/
+          if-no-files-found: error
+          retention-days: 90
