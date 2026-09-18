@@ -105,13 +105,63 @@ Geometry is computed on the exact representation consumed by the readout: final 
 
 ## E2-C: synthetic YOLO-like episodes
 
-Extend the frozen E1-C observation semantics into complete episodes for `approach`, `touch`, `pick_up`, and `pass_by`. Compare:
+E2-C reuses the frozen E1-C episode generator and corruption implementation exactly; it does not introduce a second YOLO-like data model.
 
-- B0 frame-only baseline;
-- B1 reservoir + instantaneous Ridge;
-- B2 reservoir + causal temporal-mean readout.
+### Frozen episode contract
 
-Corruption families inherit R1/E1: `clean`, `drop10`, `wrong10`, `occlusion4`, `jitter`, `mixed`. The exact episode templates, counts, corruption lineage, clipping rules, and window sizes must be frozen in the prospective manifest before measurement.
+Registered behavior labels remain, in order, `approach`, `touch`, `pick_up`, `pass_by` as class indices `0..3`.
+
+Every clean episode is exactly the E1-C `20 x 9` float64 sequence:
+
+- frames `0..15`: the frozen E1-C active behavior template;
+- frames `16..19`: the frozen four-frame neutral suffix;
+- the nine channel meanings, nuisance values, template formulas, clipping rules, and paired-nuisance construction are inherited byte-for-byte from E1-C.
+
+Registered counts are inherited exactly:
+
+- training: 200 paired nuisance groups = 800 clean episodes = 200 samples per class;
+- evaluation: 50 paired nuisance groups = 200 clean episodes = 50 samples per class.
+
+All four labels inside a paired group share the same nuisance trajectory. E2-C uses the same registered R1-E2 seed set `[7, 17, 29, 43, 61]`.
+
+### Frozen corruption contract
+
+Evaluation corruption reuses the E1-C `CorruptionPlan` and `corrupt_sequence` implementation exactly. Registered arms remain:
+
+`clean`, `drop10`, `wrong10`, `occlusion4`, `jitter`, `mixed`.
+
+Training remains clean only. Corruption lineage is generated from the registered seed and frozen evaluation fixture exactly as in E1-C. The terminal neutral suffix `16..19` is never modified by any corruption arm.
+
+### Readout arms
+
+All fitted arms use the frozen multiclass Ridge law with regularization `1e-6`. No result-selected windowing is permitted.
+
+- **B0 frame-only:** raw observation at frame index `19` -> Ridge.
+- **B1 reservoir instantaneous:** reservoir state after frame index `19` -> Ridge.
+- **B2 reservoir temporal mean:** arithmetic mean of exactly the four reservoir states produced by frames `16..19` -> the same Ridge law.
+
+B1 and B2 must consume the same reservoir trajectory for a given episode. B2's window is fixed at four and is causal. It contains only the neutral suffix states; no active-frame state and no future state is included.
+
+Because the semantic suffix is identical across labels and nuisance is shared within each paired group, B0 is a registered negative control: its predictions must be group-constant and its accuracy must be exactly `50/200 = 1/4` on every corruption arm.
+
+### Reset control
+
+For the reservoir reset control, process active frames `0..15`, reset immediately before frame `16`, then process only neutral suffix frames `16..19`.
+
+Within each paired nuisance group the reset suffix trajectory must be identical for all four labels. Therefore both B1 and B2 reset predictions must score exactly `50/200 = 1/4`. Any violation invalidates the arm.
+
+### Metrics
+
+For each baseline and corruption arm report:
+
+- accuracy;
+- macro-F1 over four classes;
+- full `4 x 4` confusion-count matrix;
+- prediction digest.
+
+Also report each fitted baseline's coefficient digest, B1/B2 reservoir parameter digest, train/evaluation fixture digests, corruption-plan digest, and for the five non-clean corruption arms macro corrupted accuracy and worst corrupted accuracy.
+
+E2-C compares representations only. It does not select an architecture, tune a temporal window, alter corruption severity, or refit from registered results.
 
 ## Evidence lifecycle
 
