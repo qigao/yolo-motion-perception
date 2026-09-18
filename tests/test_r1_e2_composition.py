@@ -183,6 +183,7 @@ def test_composition_history_runner_uses_exact_same_trajectories_for_both_readou
 def test_composition_history_runner_reset_control_is_exact_chance_for_paired_group() -> None:
     from neural_state_machine.r1_e2_composition import (
         CompositionFixtureSet,
+        build_composition_fixture_sets,
         evaluate_composition_history,
     )
     from neural_state_machine.r1_e2_reservoir import E2Architecture, E2ReservoirSpec
