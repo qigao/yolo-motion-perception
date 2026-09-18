@@ -46,7 +46,12 @@ The R1-E2 frozen evidence remains unchanged.
 
 ## Two-stage architecture
 
-R1-E3 has two deliberately separated stages.
+R1-E3 is an umbrella experiment with two independently reviewable subprojects separated by an immutable artifact boundary.
+
+- **R1-E3A — Artifact Freeze:** real-video extraction, tracking, annotation, normalization, split validation, and content-addressed artifact freeze.
+- **R1-E3B — Registered Transfer Validation:** NumPy-only reservoir/readout comparison over the frozen E3A artifact.
+
+E3A and E3B must never share mutable runtime state. E3B may depend only on frozen E3A files plus their checksums/provenance. A failure or redesign in E3A requires a new artifact revision before E3B registration; E3B must never trigger a new detector/tracker run.
 
 ### Stage A — real-video extraction and annotation
 
@@ -330,6 +335,37 @@ Registered measurement fails closed if any of the following occurs:
 - exact runtime/head/provenance checks fail.
 
 Invalid arms are never replaced with zero scores.
+
+## Implementation decomposition
+
+Implementation planning must preserve the artifact boundary.
+
+### E3A deliverable
+
+E3A is complete only when one accepted real-track artifact revision passes:
+
+- source-video manifest validation;
+- deterministic extraction replay at the artifact boundary;
+- annotation schema/reviewer validation;
+- 20-bin normalization validation;
+- whole-video split isolation;
+- dataset-size gate;
+- complete content-addressed checksums/provenance.
+
+E3A completion does not run any registered reservoir decoder comparison.
+
+### E3B deliverable
+
+E3B is complete only when the frozen E3A artifact can be consumed by a NumPy-only registered protocol that:
+
+- creates exactly 20 architecture/seed arms;
+- derives B1/B2 from the exact same reservoir trajectory;
+- fixes B2 to bins 16..19;
+- runs history-destruction and B0 controls without changing training data;
+- prepares/verifies prospective evidence without measurement;
+- requires explicit human approval before the one registered measurement.
+
+The implementation plan may use separate task groups for E3A and E3B, but both remain governed by this single R1-E3 scientific registration.
 
 ## Evidence lifecycle
 
