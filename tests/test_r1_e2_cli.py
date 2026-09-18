@@ -80,3 +80,53 @@ def test_permanent_ci_runs_e2_preflight_but_never_measure() -> None:
     assert "Prepare prospective R1 E2 manifest without measurement" in workflow
     assert "Verify prospective R1 E2 manifest" in workflow
     assert "benchmark_r1_e2_reservoir.py measure" not in workflow
+
+
+def test_e2_measure_rejects_manifest_hash_before_measurement(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cli = _cli()
+    root = tmp_path / "prospective"
+    assert cli.main(["prepare", "--output", str(root), "--scientific-head", _HEAD]) == 0
+    monkeypatch.setattr(cli, "run_registered_measurement", _forbidden_measurement)
+    monkeypatch.setattr(cli, "_current_head", lambda: _HEAD)
+
+    with pytest.raises(SystemExit, match="manifest sha256"):
+        cli.main(
+            [
+                "measure",
+                "--root",
+                str(root),
+                "--manifest-sha256",
+                "0" * 64,
+            ]
+        )
+
+
+def test_e2_measure_preflights_prospective_evidence_before_measurement(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cli = _cli()
+    root = tmp_path / "prospective"
+    assert cli.main(["prepare", "--output", str(root), "--scientific-head", _HEAD]) == 0
+    manifest_sha = (root / "manifest.sha256").read_text().strip()
+    monkeypatch.setattr(cli, "run_registered_measurement", _forbidden_measurement)
+    monkeypatch.setattr(cli, "_current_head", lambda: _HEAD)
+
+    def invalid_preflight(*args, **kwargs):
+        raise cli.EvidenceInvalid("measurement runtime does not match sealed manifest")
+
+    monkeypatch.setattr(cli, "verify_evidence", invalid_preflight)
+
+    with pytest.raises(SystemExit, match="runtime"):
+        cli.main(
+            [
+                "measure",
+                "--root",
+                str(root),
+                "--manifest-sha256",
+                manifest_sha,
+            ]
+        )
