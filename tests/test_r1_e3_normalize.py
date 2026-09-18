@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+from dataclasses import replace
 
 import numpy as np
 import pytest
@@ -175,13 +176,21 @@ def test_pair_features_match_registered_distance_and_iou_formulas() -> None:
 def test_normalized_episode_digest_is_repeatable_and_tensor_sensitive() -> None:
     normalize_episode, _ = _api()
     artifact, episode = _artifact()
-    changed_artifact, changed_episode = _artifact(
-        target_times=(0.0, 0.20, 0.40, 0.60, 0.80, 1.0)
+    changed_tracks = tuple(
+        replace(row, confidence=0.77) if row.track_id == 20 else row
+        for row in artifact.tracks
+    )
+    changed_artifact = FrozenTrackArtifact(
+        videos=artifact.videos,
+        episodes=artifact.episodes,
+        tracks=changed_tracks,
+        provenance=artifact.provenance,
+        manifest=artifact.manifest,
     )
 
     left = normalize_episode(artifact, episode)
     same = normalize_episode(artifact, episode)
-    changed = normalize_episode(changed_artifact, changed_episode)
+    changed = normalize_episode(changed_artifact, episode)
 
     assert left.tensor_digest == same.tensor_digest
     assert len(left.tensor_digest) == 64
