@@ -6,6 +6,14 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from .r1_e1_probe import prediction_digest
+from .r1_e2_readout import (
+    causal_mean_pool_batch,
+    fit_instant_multiclass,
+    fit_temporal_mean_multiclass,
+)
+from .r1_e2_reservoir import E2ReservoirSpec, build_e2_reservoir
+
 
 COMPOSITION_CLASSES = ("ABC", "ACB", "BAC", "BCA", "CAB", "CBA")
 COMPOSITION_HISTORIES = (5, 10, 20, 40)
