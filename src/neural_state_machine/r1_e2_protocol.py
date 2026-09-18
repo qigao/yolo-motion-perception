@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-import numpy as np
-
 from .r1_e2_composition import (
     COMPOSITION_CLASSES,
     COMPOSITION_HISTORIES,
