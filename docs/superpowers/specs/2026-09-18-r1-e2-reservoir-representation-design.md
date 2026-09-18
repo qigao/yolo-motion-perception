@@ -52,25 +52,56 @@ Use the R1/E1 delayed-cue task at delays `1/2/5/10/20/40/80` as a compatibility 
 
 ## E2-B: temporal composition
 
-Primitive events are `A`, `B`, and `C`. Registered order classes are `ABC`, `ACB`, `BAC`, `BCA`, `CAB`, `CBA`. Evaluate history spans `5/10/20/40` with class-balanced frozen fixtures.
+Primitive events are `A`, `B`, and `C`. Registered order classes are `ABC`, `ACB`, `BAC`, `BCA`, `CAB`, `CBA`. Class labels are fixed in that order as `0..5`.
 
-Readout arms:
+### Frozen fixture contract
 
-- instantaneous: final reservoir state -> frozen Ridge;
-- temporal mean: causal state window ending at the decision frame -> deterministic mean pooling -> the same Ridge law.
+Each frame has seven float64 channels:
 
-Temporal pooling is causal only. Future states are forbidden. Learned attention, RNN/GRU/LSTM, transformer, learned pooling, or result-selected windowing are out of scope.
+- channels `0..2`: one-hot `A/B/C` event channels;
+- channels `3..6`: four nuisance channels, each taking only `-0.25` or `+0.25`.
 
-Metrics:
+For every sequence the three event frames occur at absolute indices `0`, `2`, and `4`; frames `1` and `3` have neutral event channels. After the third event, the sequence contains exactly `H` neutral-event tail frames, where registered history span `H` is one of `5/10/20/40`. Therefore sequence length is exactly `5 + H`, and the decision state is the state after the final tail frame.
+
+For each history span and nuisance group, all six order classes reuse the **same complete nuisance trajectory**. Only event ordering differs. This paired design prevents nuisance realization from acting as a class cue.
+
+Registered counts are fixed prospectively:
+
+- training: 100 nuisance groups per history span, giving 600 sequences per span and exactly 100 samples per class;
+- evaluation: 25 nuisance groups per history span, giving 150 sequences per span and exactly 25 samples per class.
+
+Training and evaluation RNG lineages are independent and must use distinct E2-B lineage tags together with the registered seed. Fixture arrays are immutable and each fixture set carries a deterministic digest.
+
+### Readout arms
+
+Both arms use the same reservoir trajectories and the frozen R1/E1 multiclass Ridge law with regularization `1e-6`.
+
+- instantaneous: final reservoir state -> Ridge;
+- temporal mean: mean of exactly the final `H` **post-event tail states** -> Ridge.
+
+The temporal window therefore ends at the decision frame and excludes the reservoir state immediately after the third event. No future state is available. Learned attention, RNN/GRU/LSTM, transformer, learned pooling, or result-selected windowing are out of scope.
+
+### Reset control
+
+For the reset control, process frames `0..4`, reset the reservoir immediately after the third event, then process only the `H` tail frames. Within each nuisance group the resulting reset trajectory must be identical for all six class labels.
+
+Because evaluation is class-balanced with six labels per nuisance group, both instantaneous and temporal-mean reset predictions must score **exactly 25/150 = 1/6** regardless of which label the readout chooses for a group. Any violation invalidates the arm.
+
+### Metrics
+
+For each history span and readout arm report:
 
 - accuracy;
-- macro-F1;
-- confusion counts;
-- inter-class centroid distance;
-- within-class dispersion;
-- between/within separation ratio.
+- macro-F1 over the six classes;
+- the full `6 x 6` confusion-count matrix;
+- all 15 pairwise Euclidean distances between class centroids;
+- six within-class dispersions, each defined as the mean Euclidean distance from samples to that class centroid;
+- separation ratio = mean pairwise centroid distance / max(mean within-class dispersion, float64 epsilon);
+- prediction and coefficient digests;
+- train/evaluation fixture digests;
+- reset prediction digest and exact reset-control counts.
 
-Geometry metrics describe representation; they are not replacement acceptance thresholds.
+Geometry is computed on the exact representation consumed by the readout: final states for the instantaneous arm and pooled tail states for the temporal-mean arm. Geometry metrics describe representation; they are not replacement acceptance thresholds.
 
 ## E2-C: synthetic YOLO-like episodes
 
