@@ -77,3 +77,7 @@ After all implementation/tests and exact-head CI are green:
 ## Commit discipline
 
 Use small TDD commits with explicit RED then GREEN evidence where practical. Never report completion from a prior head; every completion claim requires fresh verification of the current exact head.
+
+## Task 7 permanent CI checkpoint
+
+Permanent CI now requires the R1-E2 focused test set, protocol smoke, prospective manifest preparation, prospective verification with `--no-result-ok`, and artifact retention. Ordinary CI is forbidden from invoking the `measure` command. The registered measurement remains behind the separate explicit-human-approval gate in Task 8.
