@@ -132,3 +132,146 @@ def test_composition_fixture_builder_rejects_unregistered_seed(seed: object) -> 
 
     with pytest.raises(ValueError, match="registered"):
         build(seed, training=True)
+
+
+def test_composition_history_runner_uses_exact_same_trajectories_for_both_readouts() -> None:
+    from neural_state_machine.r1_e2_composition import (
+        CompositionFixtureSet,
+        evaluate_composition_history,
+    )
+    from neural_state_machine.r1_e2_reservoir import E2Architecture, E2ReservoirSpec
+
+    training = build_composition_fixture_sets(7, training=True)[0]
+    evaluation = build_composition_fixture_sets(7, training=False)[0]
+    # Keep one nuisance group per class for a fast structural smoke; the registered
+    # top-level runner is responsible for enforcing the full 100/25 group counts.
+    training_small = CompositionFixtureSet(
+        history=training.history,
+        sequences=training.sequences[:6],
+        fixture_digest=training.fixture_digest,
+    )
+    evaluation_small = CompositionFixtureSet(
+        history=evaluation.history,
+        sequences=evaluation.sequences[:6],
+        fixture_digest=evaluation.fixture_digest,
+    )
+
+    result = evaluate_composition_history(
+        E2ReservoirSpec(
+            architecture=E2Architecture.FLAT,
+            input_size=7,
+            seed=7,
+        ),
+        training_small,
+        evaluation_small,
+    )
+
+    assert result.history == 5
+    assert result.instantaneous.metrics.total == 6
+    assert result.temporal_mean.metrics.total == 6
+    assert result.instantaneous.geometry is not None
+    assert result.temporal_mean.geometry is not None
+    assert result.instantaneous.coefficient_digest
+    assert result.temporal_mean.coefficient_digest
+    assert result.instantaneous.prediction_digest
+    assert result.temporal_mean.prediction_digest
+    assert result.instantaneous.reset_prediction_digest
+    assert result.temporal_mean.reset_prediction_digest
+
+
+def test_composition_history_runner_reset_control_is_exact_chance_for_paired_group() -> None:
+    from neural_state_machine.r1_e2_composition import (
+        CompositionFixtureSet,
+        evaluate_composition_history,
+    )
+    from neural_state_machine.r1_e2_reservoir import E2Architecture, E2ReservoirSpec
+
+    training = build_composition_fixture_sets(17, training=True)[0]
+    evaluation = build_composition_fixture_sets(17, training=False)[0]
+    training_small = CompositionFixtureSet(
+        history=training.history,
+        sequences=training.sequences[:6],
+        fixture_digest=training.fixture_digest,
+    )
+    evaluation_small = CompositionFixtureSet(
+        history=evaluation.history,
+        sequences=evaluation.sequences[:6],
+        fixture_digest=evaluation.fixture_digest,
+    )
+
+    result = evaluate_composition_history(
+        E2ReservoirSpec(
+            architecture=E2Architecture.GROUPED4,
+            input_size=7,
+            seed=17,
+        ),
+        training_small,
+        evaluation_small,
+    )
+
+    assert result.reset_groups_equal is True
+    assert result.instantaneous.reset_correct == 1
+    assert result.instantaneous.reset_total == 6
+    assert result.temporal_mean.reset_correct == 1
+    assert result.temporal_mean.reset_total == 6
+
+
+def test_registered_composition_runner_rejects_nonregistered_fixture_counts() -> None:
+    from neural_state_machine.r1_e2_composition import (
+        CompositionFixtureSet,
+        run_composition_arm,
+    )
+    from neural_state_machine.r1_e2_reservoir import E2Architecture, E2ReservoirSpec
+
+    training = build_composition_fixture_sets(7, training=True)
+    evaluation = build_composition_fixture_sets(7, training=False)
+    first = training[0]
+    bad_training = (
+        CompositionFixtureSet(
+            history=first.history,
+            sequences=first.sequences[:6],
+            fixture_digest=first.fixture_digest,
+        ),
+        *training[1:],
+    )
+
+    with pytest.raises(ValueError, match="registered training count"):
+        run_composition_arm(
+            E2ReservoirSpec(
+                architecture=E2Architecture.FLAT,
+                input_size=7,
+                seed=7,
+            ),
+            bad_training,
+            evaluation,
+        )
+
+
+def test_composition_runner_rejects_wrong_input_width_and_seed_mismatch() -> None:
+    from neural_state_machine.r1_e2_composition import run_composition_arm
+    from neural_state_machine.r1_e2_reservoir import E2Architecture, E2ReservoirSpec
+
+    training = build_composition_fixture_sets(7, training=True)
+    evaluation = build_composition_fixture_sets(7, training=False)
+
+    with pytest.raises(ValueError, match="input_size"):
+        run_composition_arm(
+            E2ReservoirSpec(
+                architecture=E2Architecture.FLAT,
+                input_size=6,
+                seed=7,
+            ),
+            training,
+            evaluation,
+        )
+
+    with pytest.raises(ValueError, match="seed"):
+        run_composition_arm(
+            E2ReservoirSpec(
+                architecture=E2Architecture.FLAT,
+                input_size=7,
+                seed=17,
+            ),
+            training,
+            evaluation,
+        )
