@@ -243,7 +243,6 @@ def evaluate_composition_history(
     evaluation_final = evaluation_trajectories[:, -1, :]
     reset_final = reset_trajectories[:, -1, :]
 
-    train_temporal = causal_mean_pool_batch(train_trajectories, window=history)
     evaluation_temporal = causal_mean_pool_batch(
         evaluation_trajectories, window=history
     )
