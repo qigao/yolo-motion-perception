@@ -94,7 +94,7 @@ def _source_videos(source_manifest: dict[str, Any]) -> dict[str, dict[str, Any]]
     videos: dict[str, dict[str, Any]] = {}
     for record in source_manifest["videos"]:
         if not isinstance(record, dict):
-            raise ValueError("source manifest video row must be an object")
+            raise TypeError("source manifest video row must be an object")
         video_id = str(record.get("source_video_id", "")).strip()
         if not video_id:
             raise ValueError("source manifest video id must be non-empty")
@@ -303,7 +303,7 @@ def validate_review_completion(
     videos = _source_videos(source_manifest)
     expected_counts = annotation_summary.get("reviewed_candidate_counts_by_video")
     if not isinstance(expected_counts, dict):
-        raise ValueError("annotation summary lacks reviewed candidate counts")
+        raise TypeError("annotation summary lacks reviewed candidate counts")
 
     seen: set[str] = set()
     observed_counts: dict[str, int] = {}
