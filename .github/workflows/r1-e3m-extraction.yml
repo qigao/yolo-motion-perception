@@ -1,0 +1,274 @@
+name: R1-E3M sealed real-track extraction
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/r1-e3m-real-track-memory
+    paths:
+      - .github/r1-e3m-extraction-trigger
+
+env:
+  R1_E3M_EXACT_HEAD: ${{ github.sha }}
+
+permissions:
+  contents: read
+  actions: read
+  issues: write
+
+concurrency:
+  group: r1-e3m-sealed-extraction
+  cancel-in-progress: true
+
+jobs:
+  preflight:
+    name: Validate sealed extraction tooling
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.R1_E3M_EXACT_HEAD }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install focused tooling dependencies
+        run: python -m pip install --disable-pip-version-check -e ".[dev]"
+
+      - name: Focused extraction/tooling tests
+        run: >-
+          pytest -q
+          tests/test_r1_e3m_artifact.py
+          tests/test_r1_e3m_window.py
+          tests/test_r1_e3m_artifact_evidence.py
+          tests/test_r1_e3m_artifact_cli.py
+          tests/test_r1_e3m_extraction.py
+
+      - name: Extraction tooling Ruff
+        run: >-
+          ruff check
+          src/neural_state_machine/r1_e3m_artifact.py
+          src/neural_state_machine/r1_e3m_window.py
+          src/neural_state_machine/r1_e3m_artifact_evidence.py
+          src/neural_state_machine/r1_e3m_extraction.py
+          scripts/prepare_r1_e3m_artifact.py
+          scripts/extract_r1_e3m_tracks.py
+          tests/test_r1_e3m_extraction.py
+
+      - name: Assert extraction tooling is semantic-label free
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -R -n -E             'batch1-semantic-review|semantic-review|approach|touch|pick_up|pass_by'             src/neural_state_machine/r1_e3m_extraction.py             scripts/extract_r1_e3m_tracks.py; then
+            echo "Sealed E3M extraction must not read semantic labels"
+            exit 1
+          fi
+
+  extract:
+    name: Extract and replay frozen Batch-1 tracks
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.R1_E3M_EXACT_HEAD }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install sealed extraction runtime
+        run: |
+          python -m pip install --disable-pip-version-check -e .
+          python -m pip install --disable-pip-version-check             "ultralytics==8.4.155"             "lap==0.5.13"             "opencv-python==5.0.0.93"
+
+      - name: Print frozen runtime versions
+        run: |
+          python - <<'PY'
+          import cv2
+          import numpy
+          import torch
+          import ultralytics
+
+          print("ultralytics", ultralytics.__version__)
+          print("torch", torch.__version__)
+          print("opencv", cv2.__version__)
+          print("numpy", numpy.__version__)
+          PY
+
+      - name: Download exact frozen Batch-1 source videos
+        uses: actions/download-artifact@v4
+        with:
+          name: r1-e3a-meva-source-batch1-videos
+          path: _r1-e3m-source
+          github-token: ${{ github.token }}
+          repository: qigao/yolo-motion-perception
+          run-id: 35434084445
+
+      - name: Verify frozen source input
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="1db8cc200ba9eaab2c14ed260b06ed582ed75d54f57c3036e1312cd2f184f4cf"
+          manifest="_r1-e3m-source/r1_e3a_source_video_manifest.json"
+          actual="$(sha256sum "$manifest" | awk '{print $1}')"
+          test "$actual" = "$expected"
+          test "$(find _r1-e3m-source/videos -maxdepth 1 -type f -name '*.avi' | wc -l)" -eq 11
+
+      - name: Sealed extraction pass 1
+        run: |
+          python scripts/extract_r1_e3m_tracks.py             --video-root _r1-e3m-source/videos             --source-manifest _r1-e3m-source/r1_e3a_source_video_manifest.json             --output-dir _r1-e3m-pass1
+
+      - name: Freeze and verify pass 1
+        run: |
+          python scripts/prepare_r1_e3m_artifact.py freeze             --candidate _r1-e3m-pass1/candidate             --output _r1-e3m-pass1/frozen
+          python scripts/prepare_r1_e3m_artifact.py verify             --root _r1-e3m-pass1/frozen
+          python scripts/prepare_r1_e3m_artifact.py verify             --root _r1-e3m-pass1/frozen
+
+      - name: Deterministic replay pass 2
+        run: |
+          python scripts/extract_r1_e3m_tracks.py             --video-root _r1-e3m-source/videos             --source-manifest _r1-e3m-source/r1_e3a_source_video_manifest.json             --weights-source _r1-e3m-pass1/models/yolo11n.pt             --output-dir _r1-e3m-pass2
+
+      - name: Freeze and verify replay pass
+        run: |
+          python scripts/prepare_r1_e3m_artifact.py freeze             --candidate _r1-e3m-pass2/candidate             --output _r1-e3m-pass2/frozen
+          python scripts/prepare_r1_e3m_artifact.py verify             --root _r1-e3m-pass2/frozen
+
+      - name: Require byte-identical extraction replay
+        shell: bash
+        run: |
+          set -euo pipefail
+          cmp _r1-e3m-pass1/raw/tracks.jsonl               _r1-e3m-pass2/raw/tracks.jsonl
+          cmp _r1-e3m-pass1/raw/extraction-provenance.json               _r1-e3m-pass2/raw/extraction-provenance.json
+          cmp _r1-e3m-pass1/candidate/candidate.json               _r1-e3m-pass2/candidate/candidate.json
+          cmp _r1-e3m-pass1/candidate/window-tensors.npy               _r1-e3m-pass2/candidate/window-tensors.npy
+          cmp _r1-e3m-pass1/frozen/artifact-manifest.json               _r1-e3m-pass2/frozen/artifact-manifest.json
+          cmp _r1-e3m-pass1/frozen/artifact-manifest.sha256               _r1-e3m-pass2/frozen/artifact-manifest.sha256
+
+      - name: Assemble accepted extraction evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p _r1-e3m-accepted
+          cp -a _r1-e3m-pass1/raw _r1-e3m-accepted/raw
+          cp -a _r1-e3m-pass1/frozen _r1-e3m-accepted/frozen
+          cp _r1-e3m-pass1/extraction-summary.json              _r1-e3m-accepted/extraction-summary.json
+          cp _r1-e3m-source/r1_e3a_source_video_manifest.json              _r1-e3m-accepted/source-video-manifest.json
+          cp configs/r1_e3m_botsort.yaml              _r1-e3m-accepted/r1_e3m_botsort.yaml
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path("_r1-e3m-accepted")
+          summary = json.loads(
+              (root / "extraction-summary.json").read_text(encoding="utf-8")
+          )
+          manifest = json.loads(
+              (root / "frozen/artifact-manifest.json").read_text(encoding="utf-8")
+          )
+
+          def sha(path: Path) -> str:
+              digest = hashlib.sha256()
+              with path.open("rb") as handle:
+                  for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                      digest.update(chunk)
+              return digest.hexdigest()
+
+          evidence = {
+              "schema": "r1-e3m-accepted-extraction-v1",
+              "workflow_run": os.environ["GITHUB_RUN_ID"],
+              "exact_head": os.environ["R1_E3M_EXACT_HEAD"],
+              "source_manifest_sha256": summary["source_manifest_sha256"],
+              "raw_tracks_sha256": summary["raw_tracks_sha256"],
+              "extraction_provenance_sha256":
+                  summary["extraction_provenance_sha256"],
+              "weights_sha256": summary["weights_sha256"],
+              "tracker_config_sha256": summary["tracker_config_sha256"],
+              "package_lock_sha256": summary["package_lock_sha256"],
+              "artifact_root_digest": manifest["root_digest"],
+              "source_video_count": summary["source_video_count"],
+              "track_row_count": summary["track_row_count"],
+              "eligible_window_count": summary["eligible_window_count"],
+              "train_window_count": summary["train_window_count"],
+              "eval_window_count": summary["eval_window_count"],
+              "eligible_windows_by_video":
+                  summary["eligible_windows_by_video"],
+              "deterministic_replay_byte_identical": True,
+              "semantic_labels_read": False,
+              "mechanism_score_computed": False,
+              "prospective_seal_created": False,
+              "registered_measurement_run": False,
+          }
+          path = root / "accepted-evidence.json"
+          path.write_text(
+              json.dumps(evidence, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          (root / "accepted-evidence.sha256").write_text(
+              sha(path) + "\n",
+              encoding="utf-8",
+          )
+          print(json.dumps(evidence, indent=2, sort_keys=True))
+          PY
+
+      - name: Upload accepted raw-track/window artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: r1-e3m-accepted-real-track-window-artifact
+          path: _r1-e3m-accepted/
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 6
+
+      - name: Report accepted extraction to issue 15
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY' > /tmp/issue15-success.md
+          import json
+          from pathlib import Path
+
+          evidence = json.loads(
+              Path("_r1-e3m-accepted/accepted-evidence.json")
+              .read_text(encoding="utf-8")
+          )
+          print("R1-E3M Task 11 raw-track/window artifact gate passed.")
+          print()
+          print(f"- workflow run: {evidence['workflow_run']}")
+          print(f"- exact head: {evidence['exact_head']}")
+          print(f"- source videos: {evidence['source_video_count']}")
+          print(f"- raw track rows: {evidence['track_row_count']}")
+          print(f"- eligible windows: {evidence['eligible_window_count']}")
+          print(f"- train windows: {evidence['train_window_count']}")
+          print(f"- eval windows: {evidence['eval_window_count']}")
+          print(f"- raw tracks SHA-256: {evidence['raw_tracks_sha256']}")
+          print(
+              "- extraction provenance SHA-256: "
+              f"{evidence['extraction_provenance_sha256']}"
+          )
+          print(f"- artifact root digest: {evidence['artifact_root_digest']}")
+          print("- deterministic replay: byte-identical")
+          print("- frozen source-video coverage: 11/11")
+          print()
+          print(
+              "No human semantic labels were read. No ESN mechanism score, "
+              "prospective seal, or registered measurement was produced."
+          )
+          PY
+          gh issue comment 15 --repo qigao/yolo-motion-perception             --body-file /tmp/issue15-success.md
+
+      - name: Report extraction failure to issue 15
+        if: ${{ failure() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue comment 15 --repo qigao/yolo-motion-perception             --body "R1-E3M Task 11 sealed extraction failed at head $R1_E3M_EXACT_HEAD in workflow run $GITHUB_RUN_ID. No accepted real-track/window artifact, prospective seal, or registered mechanism measurement is authorized from this run."
