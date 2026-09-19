@@ -115,3 +115,62 @@ def test_state_scoring_cannot_change_frozen_pair_selection() -> None:
     assert len(diagnostics) == 1
     assert diagnostics[0].normal_state_distance > 0.0
     assert diagnostics[0].reset_state_distance == 0.0
+
+
+def test_prefix_threshold_uses_all_unordered_training_pairs() -> None:
+    build, _ = _api()
+    training = (
+        _sample("u0", "train", 1, 0.0, 0.0),
+        _sample("u1", "train", 2, 0.2, 0.0),
+        _sample("u2", "train", 3, 1.0, 0.0),
+        _sample("u3", "train", 4, 1.4, 0.0),
+    )
+    evaluation = (
+        _sample("v0", "eval", 10, 0.0, 0.0),
+        _sample("v1", "eval", 11, 2.0, 0.001),
+    )
+
+    result = build(training, evaluation)
+
+    prefix_vectors = [sample.tensor[:16].reshape(-1) for sample in training]
+    distances = []
+    for left_index in range(len(training)):
+        for right_index in range(left_index + 1, len(training)):
+            left = prefix_vectors[left_index]
+            right = prefix_vectors[right_index]
+            distances.append(
+                float(np.sqrt(np.mean(np.square(left - right), dtype=np.float64)))
+            )
+    expected = float(np.median(np.asarray(distances, dtype=np.float64)))
+
+    assert np.isclose(result.prefix_threshold, expected)
+
+
+def test_eval_filters_by_prefix_before_selecting_suffix_nearest_neighbor() -> None:
+    build, _ = _api()
+    training = (
+        _sample("w0", "train", 1, 0.0, 0.0),
+        _sample("w1", "train", 2, 0.1, 0.0),
+        _sample("w2", "train", 3, 1.0, 0.0),
+    )
+    anchor = _sample("x0", "eval", 10, 0.0, 0.000)
+    too_similar_history = _sample("x1", "eval", 11, 0.01, 0.001)
+    valid_history = _sample("x2", "eval", 12, 2.0, 0.010)
+
+    result = build(
+        training,
+        (anchor, too_similar_history, valid_history),
+    )
+    pair_ids = {
+        (pair.left_window_id, pair.right_window_id)
+        for pair in result.pairs
+    }
+
+    anchor_valid = tuple(
+        sorted((anchor.window_id, valid_history.window_id))
+    )
+    anchor_too_similar = tuple(
+        sorted((anchor.window_id, too_similar_history.window_id))
+    )
+    assert anchor_valid in pair_ids
+    assert anchor_too_similar not in pair_ids
