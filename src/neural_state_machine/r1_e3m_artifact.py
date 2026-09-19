@@ -71,6 +71,25 @@ class TrackWindow:
             raise MechanismArtifactInvalid(
                 "window source bounds must be non-negative and increasing"
             )
+        if not math.isclose(
+            end - start,
+            WINDOW_DURATION_SECONDS,
+            rel_tol=0.0,
+            abs_tol=1e-12,
+        ):
+            raise MechanismArtifactInvalid(
+                "window duration must be exactly 2.0 seconds"
+            )
+        window_index = start / WINDOW_DURATION_SECONDS
+        if not math.isclose(
+            window_index,
+            round(window_index),
+            rel_tol=0.0,
+            abs_tol=1e-12,
+        ):
+            raise MechanismArtifactInvalid(
+                "window start must be anchored to 2.0-second source time"
+            )
 
         tensor = self.tensor
         if not isinstance(tensor, np.ndarray):
@@ -81,6 +100,31 @@ class TrackWindow:
             raise MechanismArtifactInvalid("window tensor must use float64")
         if not np.isfinite(tensor).all():
             raise MechanismArtifactInvalid("window tensor must be finite")
+        if np.any(tensor < 0.0) or np.any(tensor > 1.0):
+            raise MechanismArtifactInvalid(
+                "window input channels must be in [0, 1]"
+            )
+        presence = tensor[:, 5]
+        if not np.all((presence == 0.0) | (presence == 1.0)):
+            raise MechanismArtifactInvalid(
+                "window presence channel must be binary"
+            )
+        missing = presence == 0.0
+        if np.any(tensor[missing, :5] != 0.0):
+            raise MechanismArtifactInvalid(
+                "window missing bins must have zero payload channels"
+            )
+        if int(np.count_nonzero(presence)) < 16:
+            raise MechanismArtifactInvalid(
+                "window must contain at least 16 present bins"
+            )
+        present = presence == 1.0
+        if np.any(tensor[present, 2] <= 0.0) or np.any(
+            tensor[present, 3] <= 0.0
+        ):
+            raise MechanismArtifactInvalid(
+                "present window bins must have positive box size"
+            )
 
         frozen = np.array(tensor, dtype=np.float64, copy=True, order="C")
         frozen.setflags(write=False)
