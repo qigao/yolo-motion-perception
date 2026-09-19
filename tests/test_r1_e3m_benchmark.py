@@ -10,6 +10,7 @@ from neural_state_machine.r1_e3m_dataset import (
     MechanismDataset,
     MechanismSample,
 )
+from neural_state_machine.r1_e3m_pairs import build_history_pairs
 
 
 def _api():
@@ -88,13 +89,19 @@ def test_registered_specs_are_exact_20_in_frozen_order() -> None:
 def test_single_arm_reports_all_delays_and_long_delay_summary() -> None:
     _, _, _, evaluate_arm, _ = _api()
 
+    dataset = _dataset()
+    pair_set = build_history_pairs(
+        dataset.training,
+        dataset.evaluation,
+    )
     result = evaluate_arm(
         E2ReservoirSpec(
             E2Architecture.FLAT,
             input_size=6,
             seed=7,
         ),
-        _dataset(),
+        dataset,
+        pair_set,
     )
 
     assert tuple(item.delay for item in result.delays) == (1, 2, 5, 10, 15)
@@ -102,6 +109,8 @@ def test_single_arm_reports_all_delays_and_long_delay_summary() -> None:
     assert np.isfinite(result.h1_long_delay_drop)
     assert result.artifact_root_digest == "a" * 64
     assert len(result.reservoir_parameter_digest) == 64
+    assert result.pair_set_digest == pair_set.pair_digest
+    assert len(result.pair_diagnostics) == len(pair_set.pairs)
     for item in result.delays:
         assert (
             item.reset_control.coefficient_digest
@@ -155,3 +164,39 @@ def test_outcome_c_when_median_delta_not_positive() -> None:
     )
 
     assert outcome == "M-C"
+
+
+def test_registered_benchmark_rejects_pair_set_from_other_inputs() -> None:
+    import pytest
+
+    from neural_state_machine.r1_e3m_benchmark import (
+        run_registered_memory_benchmark,
+    )
+
+    dataset = _dataset()
+    correct = build_history_pairs(
+        dataset.training,
+        dataset.evaluation,
+    )
+
+    changed_first = dataset.evaluation[0]
+    changed_tensor = changed_first.tensor.copy()
+    changed_tensor.setflags(write=True)
+    changed_tensor[:16, 0] += 0.4
+    changed = MechanismSample(
+        window_id=changed_first.window_id,
+        video_id=changed_first.video_id,
+        split=changed_first.split,
+        track_id=changed_first.track_id,
+        source_start_seconds=changed_first.source_start_seconds,
+        source_end_seconds=changed_first.source_end_seconds,
+        tensor=changed_tensor,
+    )
+    wrong = build_history_pairs(
+        dataset.training,
+        (changed, *dataset.evaluation[1:]),
+    )
+    assert wrong != correct
+
+    with pytest.raises(ValueError, match="history pair set"):
+        run_registered_memory_benchmark(dataset, wrong)
