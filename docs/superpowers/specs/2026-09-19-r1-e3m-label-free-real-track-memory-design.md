@@ -116,14 +116,16 @@ For every track in every frozen video:
    exact source-time interval;
 4. resample that track onto exactly 20 equally spaced bin centers inside the
    2.0-second interval;
-5. interpolate normalized geometry/confidence only when the nearest bracketing
-   observations for that track are separated by at most `0.5` seconds;
-6. bins without valid interpolation use zero geometry/confidence and
+5. for each bin center, use only the latest observation from the same track at
+   or before that bin center;
+6. accept that observation only when its age is at most `0.5` seconds;
+7. never interpolate from a future detector/tracker observation;
+8. bins without a valid causal observation use zero geometry/confidence and
    `presence=0`;
-7. require at least 16 of 20 bins with `presence=1`;
-8. reject windows with non-finite values;
-9. never bridge a track-ID change;
-10. never cross a source-video boundary.
+9. require at least 16 of 20 bins with `presence=1`;
+10. reject windows with non-finite values;
+11. never bridge a track-ID change;
+12. never cross a source-video boundary.
 
 This yields one immutable `20 x 6` float64 tensor per eligible window:
 
