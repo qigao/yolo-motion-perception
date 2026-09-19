@@ -71,43 +71,79 @@ def build_history_pairs(
     _validate_samples(training, "train")
     _validate_samples(evaluation, "eval")
 
+    ordered_training = tuple(
+        sorted(training, key=lambda sample: sample.window_id)
+    )
     training_prefix_distances: list[float] = []
-    for sample in training:
-        neighbor = _nearest_suffix_neighbor(sample, training)
-        training_prefix_distances.append(
-            _input_distance(
-                sample.tensor[:16],
-                neighbor.tensor[:16],
+    for left_index, left in enumerate(ordered_training):
+        for right in ordered_training[left_index + 1 :]:
+            if (left.video_id, left.track_id) == (
+                right.video_id,
+                right.track_id,
+            ):
+                continue
+            training_prefix_distances.append(
+                _input_distance(
+                    left.tensor[:16],
+                    right.tensor[:16],
+                )
             )
+    if not training_prefix_distances:
+        raise ValueError(
+            "history-pair threshold requires different training track identities"
         )
     threshold = float(median(training_prefix_distances))
 
     pair_map: dict[tuple[str, str], HistoryPair] = {}
-    for sample in evaluation:
-        neighbor = _nearest_suffix_neighbor(sample, evaluation)
-        prefix_distance = _input_distance(
-            sample.tensor[:16],
-            neighbor.tensor[:16],
-        )
-        if prefix_distance <= threshold:
+    ordered_evaluation = tuple(
+        sorted(evaluation, key=lambda sample: sample.window_id)
+    )
+    for sample in ordered_evaluation:
+        candidates: list[tuple[float, str, MechanismSample, float]] = []
+        for candidate in ordered_evaluation:
+            if candidate.window_id == sample.window_id:
+                continue
+            if (candidate.video_id, candidate.track_id) == (
+                sample.video_id,
+                sample.track_id,
+            ):
+                continue
+            prefix_distance = _input_distance(
+                sample.tensor[:16],
+                candidate.tensor[:16],
+            )
+            if prefix_distance < threshold:
+                continue
+            suffix_distance = _input_distance(
+                sample.tensor[16:20],
+                candidate.tensor[16:20],
+            )
+            candidates.append(
+                (
+                    suffix_distance,
+                    candidate.window_id,
+                    candidate,
+                    prefix_distance,
+                )
+            )
+        if not candidates:
             continue
+
+        (
+            suffix_distance,
+            _candidate_id,
+            neighbor,
+            prefix_distance,
+        ) = min(candidates, key=lambda item: (item[0], item[1]))
         left_id, right_id = sorted(
             (sample.window_id, neighbor.window_id)
         )
-        left = sample if sample.window_id == left_id else neighbor
-        right = neighbor if neighbor.window_id == right_id else sample
         key = (left_id, right_id)
         pair_map[key] = HistoryPair(
             left_window_id=left_id,
             right_window_id=right_id,
-            suffix_distance=_input_distance(
-                left.tensor[16:20],
-                right.tensor[16:20],
-            ),
-            prefix_distance=_input_distance(
-                left.tensor[:16],
-                right.tensor[:16],
-            ),
+            suffix_distance=suffix_distance,
+            prefix_distance=prefix_distance,
         )
 
     pairs = tuple(pair_map[key] for key in sorted(pair_map))
