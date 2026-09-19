@@ -6,6 +6,7 @@ import json
 import os
 import shutil
 import urllib.request
+import zipfile
 from collections import Counter, defaultdict
 from dataclasses import asdict
 from importlib import metadata
@@ -118,6 +119,27 @@ def _download(url: str, destination: Path) -> None:
         destination.write_bytes(response.read())
     if destination.stat().st_size == 0:
         raise RuntimeError(f"downloaded empty file from {url}")
+
+
+def _extract_rtmw_onnx(archive_path: Path, destination_dir: Path) -> Path:
+    destination_dir.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(archive_path) as archive:
+        members = sorted(
+            name
+            for name in archive.namelist()
+            if name.lower().endswith(".onnx")
+        )
+        if len(members) != 1:
+            raise RuntimeError(
+                f"expected exactly one ONNX model in {archive_path}, got {members}"
+            )
+        member = members[0]
+        output_path = destination_dir / Path(member).name
+        with archive.open(member) as source, output_path.open("wb") as target:
+            shutil.copyfileobj(source, target)
+    if not output_path.is_file() or output_path.stat().st_size <= 0:
+        raise RuntimeError(f"extracted empty RTMW ONNX model: {output_path}")
+    return output_path
 
 
 def _load_gait_config(path: Path) -> GaitConfig:
@@ -405,8 +427,12 @@ def main() -> int:
 
     rtmw_archive_path = models_dir / Path(RTMW_MODEL).name
     _download(RTMW_MODEL, rtmw_archive_path)
+    rtmw_onnx_path = _extract_rtmw_onnx(
+        rtmw_archive_path,
+        models_dir / "rtmw",
+    )
     pose_model = RTMPose(
-        onnx_model=str(rtmw_archive_path),
+        onnx_model=str(rtmw_onnx_path),
         model_input_size=(192, 256),
         backend="onnxruntime",
         device="cpu",
@@ -429,6 +455,7 @@ def main() -> int:
             "runtime": "rtmlib RTMPose / ONNX Runtime CPU",
             "archive_url": RTMW_MODEL,
             "archive": _file_identity(rtmw_archive_path),
+            "onnx_model": _file_identity(rtmw_onnx_path),
             "model_input_size": [192, 256],
             "backend": "onnxruntime",
             "device": "cpu",
