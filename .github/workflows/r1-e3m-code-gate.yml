@@ -63,7 +63,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if grep -RniE 'semantic-review|semantic_annotation|batch1-semantic-review|review_status' \
+          if grep -RniE 'docs/r1-e3/reviews|batch1-semantic-review|r1_e3a_(annotation|review)' \
               src/neural_state_machine/r1_e3m_*.py; then
             echo "R1-E3M mechanism modules must not consume semantic review artifacts."
             exit 1
