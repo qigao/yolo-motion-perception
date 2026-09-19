@@ -10,6 +10,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
   issues: write
 
 concurrency:
@@ -31,39 +32,26 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install acquisition-only dependencies
-        run: python -m pip install --disable-pip-version-check boto3 pyyaml
+      - name: Download exact frozen candidate inventory
+        uses: actions/download-artifact@v4
+        with:
+          name: r1-e3a-meva-candidate-inventory
+          path: _r1-e3a-source-freeze
+          github-token: ${{ github.token }}
+          repository: qigao/yolo-motion-perception
+          run-id: 35424430459
 
-      - name: Fetch public MEVA activity annotations
-        timeout-minutes: 10
-        shell: bash
-        run: |
-          set -euo pipefail
-          archive="$RUNNER_TEMP/meva-annotations.tar.gz"
-          unpack="$RUNNER_TEMP/meva-annotations"
-          archive_url='https://gitlab.kitware.com/api/v4/projects/meva%2Fmeva-data-repo/repository/archive.tar.gz?path=annotation%2FDIVA-phase-2%2FMEVA&include_lfs_blobs=false'
-
-          mkdir -p "$unpack"
-          curl --fail --location --retry 3 --retry-delay 2 --retry-all-errors             "$archive_url" --output "$archive"
-          tar -xzf "$archive" -C "$unpack"
-
-          kpf_root="$(find "$unpack" -type d -path '*/annotation/DIVA-phase-2/MEVA' -print -quit)"
-          test -n "$kpf_root"
-          test -d "$kpf_root"
-          printf 'MEVA_KPF_ROOT=%s\n' "$kpf_root" >> "$GITHUB_ENV"
-
-      - name: Recreate candidate inventory and guarded source-pool plan
+      - name: Verify frozen inventory and derive guarded source-pool plan
         shell: bash
         run: |
           set -euo pipefail
           root="$GITHUB_WORKSPACE/_r1-e3a-source-freeze"
-          mkdir -p "$root"
-
-          python tools/r1_e3a_meva_inventory.py             --kpf-root "$MEVA_KPF_ROOT"             --out-dir "$root"
-
           inventory="$root/meva_candidate_inventory.json"
-          inventory_sha="$(sha256sum "$inventory" | awk '{print $1}')"
-          python tools/r1_e3a_source_pool.py             --inventory "$inventory"             --output "$root/r1_e3a_source_pool_plan.json"             --inventory-sha256 "$inventory_sha"             --inventory-workflow-run "$GITHUB_RUN_ID"
+          expected_inventory_sha="b30b848cc8f5f701b15a691f85117d18cfa003f63131899577714f7ba22562df"
+          actual_inventory_sha="$(sha256sum "$inventory" | awk '{print $1}')"
+          test "$actual_inventory_sha" = "$expected_inventory_sha"
+
+          python tools/r1_e3a_source_pool.py             --inventory "$inventory"             --output "$root/r1_e3a_source_pool_plan.json"             --inventory-sha256 "$expected_inventory_sha"             --inventory-workflow-run 35424430459
 
       - name: Install ffprobe
         run: |
