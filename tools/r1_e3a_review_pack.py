@@ -191,6 +191,7 @@ def render_overview(sources: list[Path], output: Path) -> None:
 def render_pack(
     video_root: Path,
     manifest_path: Path,
+    handbook_path: Path,
     sampling_protocol_path: Path,
     out_dir: Path,
 ) -> dict[str, Any]:
@@ -268,6 +269,13 @@ def render_pack(
     write_readme(out_dir, index)
     write_annotation_template(out_dir)
     write_review_completion_template(out_dir, manifest)
+    write_annotation_review_template(
+        out_dir,
+        manifest,
+        manifest_path,
+        handbook_path,
+        sampling_protocol_path,
+    )
 
     digest_lines = []
     for path in sorted(p for p in out_dir.rglob("*") if p.is_file()):
@@ -278,6 +286,45 @@ def render_pack(
         "\n".join(digest_lines) + "\n", encoding="utf-8"
     )
     return index
+
+
+
+def write_annotation_review_template(
+    out_dir: Path,
+    manifest: dict[str, Any],
+    manifest_path: Path,
+    handbook_path: Path,
+    sampling_protocol_path: Path,
+) -> None:
+    videos = sorted(
+        manifest["videos"],
+        key=lambda record: (
+            0 if str(record["split"]) == "train" else 1,
+            str(record["source_video_id"]),
+        ),
+    )
+    template = {
+        "schema": "r1-e3a-semantic-annotation-review-v1",
+        "status": "draft_full_video_review_pending",
+        "science_head_sha": manifest["science_head_sha"],
+        "source_manifest_sha256": sha256_file(manifest_path),
+        "handbook_sha256": sha256_file(handbook_path),
+        "sampling_protocol_sha256": sha256_file(sampling_protocol_path),
+        "video_reviews": [
+            {
+                "video_id": record["source_video_id"],
+                "full_range_reviewed": False,
+                "candidate_count": 0,
+                "reviewer": "UNASSIGNED",
+            }
+            for record in videos
+        ],
+        "records": [],
+    }
+    (out_dir / "annotation-review-template.json").write_text(
+        json.dumps(template, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
 
 
 def write_annotation_template(out_dir: Path) -> None:
@@ -398,12 +445,14 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--video-root", type=Path, required=True)
     parser.add_argument("--manifest", type=Path, required=True)
+    parser.add_argument("--handbook", type=Path, required=True)
     parser.add_argument("--sampling-protocol", type=Path, required=True)
     parser.add_argument("--out-dir", type=Path, required=True)
     args = parser.parse_args()
     index = render_pack(
         args.video_root,
         args.manifest,
+        args.handbook,
         args.sampling_protocol,
         args.out_dir,
     )
