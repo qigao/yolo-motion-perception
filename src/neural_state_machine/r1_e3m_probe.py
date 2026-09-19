@@ -92,6 +92,23 @@ class MultiTargetRidgeProbe:
         return digest.hexdigest()
 
 
+
+def delay_valid_mask(
+    tensors: np.ndarray,
+    delay: int,
+) -> np.ndarray:
+    values = _window_tensor_batch(tensors)
+    _registered_delay(delay)
+    target_bin = 19 - delay
+    mask = np.asarray(
+        values[:, target_bin, 5] == 1.0,
+        dtype=np.bool_,
+    )
+    frozen = np.array(mask, dtype=np.bool_, copy=True)
+    frozen.setflags(write=False)
+    return frozen
+
+
 def delayed_geometry_targets(
     tensors: np.ndarray,
     delay: int,
@@ -108,8 +125,16 @@ def fit_instantaneous_delay_probe(
     delay: int,
 ) -> MultiTargetRidgeProbe:
     values = _window_tensor_batch(tensors)
-    targets = delayed_geometry_targets(values, delay)
-    return _fit_multi_target_ridge(values[:, 19, :], targets)
+    mask = delay_valid_mask(values, delay)
+    if not np.any(mask):
+        raise ValueError(
+            "no training windows have an observed delayed target"
+        )
+    targets = delayed_geometry_targets(values[mask], delay)
+    return _fit_multi_target_ridge(
+        values[mask, 19, :],
+        targets,
+    )
 
 
 def fit_reservoir_delay_probe(
@@ -123,8 +148,16 @@ def fit_reservoir_delay_probe(
         raise ValueError(
             "final_states and tensors must have the same sample count"
         )
-    targets = delayed_geometry_targets(values, delay)
-    return _fit_multi_target_ridge(states, targets)
+    mask = delay_valid_mask(values, delay)
+    if not np.any(mask):
+        raise ValueError(
+            "no training windows have an observed delayed target"
+        )
+    targets = delayed_geometry_targets(values[mask], delay)
+    return _fit_multi_target_ridge(
+        states[mask],
+        targets,
+    )
 
 
 def evaluate_regression(
