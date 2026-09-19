@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
+import shutil
 import urllib.request
 from collections import Counter, defaultdict
 from dataclasses import asdict
@@ -12,6 +14,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 import yaml
+import ultralytics
 from rtmlib import RTMPose
 from ultralytics import YOLO
 
@@ -65,6 +68,45 @@ class RtmLibCropInferencer:
             "keypoint_scores": np.asarray(scores[0], dtype=float).reshape(-1).tolist(),
         }
         yield {"predictions": [[sample]]}
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _file_identity(path: Path) -> dict[str, object]:
+    if not path.is_file() or path.stat().st_size <= 0:
+        raise ValueError(f"identity file is missing or empty: {path}")
+    return {
+        "path": str(path),
+        "byte_size": path.stat().st_size,
+        "sha256": _sha256_file(path),
+    }
+
+
+def _resolve_yolo_weights(model_name: str) -> Path:
+    model = YOLO(model_name)
+    candidates = [
+        Path(model_name),
+        Path(str(getattr(model, "ckpt_path", ""))),
+        Path(str(getattr(model.model, "pt_path", ""))),
+    ]
+    for candidate in candidates:
+        if str(candidate) and candidate.is_file():
+            return candidate.resolve()
+    raise RuntimeError(f"cannot resolve downloaded YOLO weights for {model_name}")
+
+
+def _resolve_botsort_config() -> Path:
+    package_root = Path(ultralytics.__file__).resolve().parent
+    path = package_root / "cfg" / "trackers" / "botsort.yaml"
+    if not path.is_file():
+        raise RuntimeError(f"cannot resolve Ultralytics BoT-SORT config: {path}")
+    return path
 
 
 def _download(url: str, destination: Path) -> None:
@@ -142,10 +184,12 @@ def _run_scenario(
     expected: str,
     rtmw_adapter: RtmwPoseAdapter,
     gait_config: GaitConfig,
+    detector_model_path: Path,
+    tracker_config_path: Path,
     output_dir: Path,
     stride: int,
 ) -> dict[str, object]:
-    yolo = YOLO("yolo11n.pt")
+    yolo = YOLO(str(detector_model_path))
     flow_backend = OpenCvFarnebackBackend(backward_check=False)
     camera_config = CameraMotionConfig(mode="fixed")
     articulated_config = ArticulatedFlowConfig()
@@ -192,7 +236,7 @@ def _run_scenario(
                 tracked = yolo.track(
                     frame,
                     persist=True,
-                    tracker="botsort.yaml",
+                    tracker=str(tracker_config_path),
                     classes=[0],
                     conf=0.10,
                     imgsz=640,
@@ -346,9 +390,23 @@ def main() -> int:
     videos_dir = output_dir / "videos"
     videos_dir.mkdir(parents=True, exist_ok=True)
 
-    gait_config = _load_gait_config(root / "configs/gait.yaml")
+    gait_config_path = root / "configs/gait.yaml"
+    gait_config = _load_gait_config(gait_config_path)
+
+    models_dir = output_dir / "models"
+    models_dir.mkdir(parents=True, exist_ok=True)
+
+    resolved_yolo_weights = _resolve_yolo_weights("yolo11n.pt")
+    detector_model_path = models_dir / "yolo11n.pt"
+    if resolved_yolo_weights != detector_model_path.resolve():
+        shutil.copy2(resolved_yolo_weights, detector_model_path)
+
+    tracker_config_path = _resolve_botsort_config()
+
+    rtmw_archive_path = models_dir / Path(RTMW_MODEL).name
+    _download(RTMW_MODEL, rtmw_archive_path)
     pose_model = RTMPose(
-        onnx_model=RTMW_MODEL,
+        onnx_model=str(rtmw_archive_path),
         model_input_size=(192, 256),
         backend="onnxruntime",
         device="cpu",
@@ -357,13 +415,28 @@ def main() -> int:
 
     provenance = {
         "git_sha": os.environ.get("GITHUB_SHA"),
-        "tracker": "Ultralytics YOLO11n + BoT-SORT",
-        "detector_model": "yolo11n.pt",
-        "rtmw_runtime": "rtmlib RTMPose / ONNX Runtime CPU",
-        "rtmw_model": RTMW_MODEL,
+        "validation_script": _file_identity(Path(__file__).resolve()),
+        "detector": {
+            "implementation": "Ultralytics YOLO11n",
+            "model_name": "yolo11n.pt",
+            "weights": _file_identity(detector_model_path),
+        },
+        "tracker": {
+            "implementation": "Ultralytics BoT-SORT",
+            "config": _file_identity(tracker_config_path),
+        },
+        "rtmw": {
+            "runtime": "rtmlib RTMPose / ONNX Runtime CPU",
+            "archive_url": RTMW_MODEL,
+            "archive": _file_identity(rtmw_archive_path),
+            "model_input_size": [192, 256],
+            "backend": "onnxruntime",
+            "device": "cpu",
+        },
         "flow_backend": "opencv-farneback forward",
         "camera_mode": "fixed",
         "gait_config": asdict(gait_config),
+        "gait_config_file": _file_identity(gait_config_path),
         "articulated_config": asdict(ArticulatedFlowConfig()),
         "pose_region_config": asdict(PoseRegionConfig()),
         "processing_resolution": [640, 480],
@@ -371,6 +444,7 @@ def main() -> int:
         "dataset": "KTH human actions sample sequences",
         "dataset_home": KTH_BASE,
         "dataset_note": "KTH page states public availability for non-commercial use",
+        "source_videos": {},
         "versions": {
             "ultralytics": metadata.version("ultralytics"),
             "rtmlib": metadata.version("rtmlib"),
@@ -378,7 +452,8 @@ def main() -> int:
             "opencv-python": metadata.version("opencv-python"),
         },
     }
-    (output_dir / "provenance.json").write_text(
+    provenance_path = output_dir / "provenance.json"
+    provenance_path.write_text(
         json.dumps(provenance, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
@@ -388,7 +463,16 @@ def main() -> int:
     for name, scenario in SCENARIOS.items():
         filename = str(scenario["filename"])
         video_path = videos_dir / filename
-        _download(f"{KTH_BASE}/{filename}", video_path)
+        source_url = f"{KTH_BASE}/{filename}"
+        _download(source_url, video_path)
+        provenance["source_videos"][name] = {
+            "url": source_url,
+            **_file_identity(video_path),
+        }
+        provenance_path.write_text(
+            json.dumps(provenance, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
         result = _run_scenario(
             name=name,
             video_path=video_path,
@@ -396,6 +480,8 @@ def main() -> int:
             expected=str(scenario["expected"]),
             rtmw_adapter=rtmw_adapter,
             gait_config=gait_config,
+            detector_model_path=detector_model_path,
+            tracker_config_path=tracker_config_path,
             output_dir=output_dir,
             stride=args.stride,
         )
