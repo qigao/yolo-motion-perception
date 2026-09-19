@@ -11,6 +11,7 @@ from neural_state_machine.r1_e3m_dataset import (
     MechanismSample,
 )
 from neural_state_machine.r1_e3m_pairs import build_history_pairs
+from neural_state_machine.r1_e3m_registration import build_delay_registration
 
 
 def _api():
@@ -102,6 +103,7 @@ def test_single_arm_reports_all_delays_and_long_delay_summary() -> None:
         ),
         dataset,
         pair_set,
+        build_delay_registration(dataset),
     )
 
     assert tuple(item.delay for item in result.delays) == (1, 2, 5, 10, 15)
@@ -110,6 +112,10 @@ def test_single_arm_reports_all_delays_and_long_delay_summary() -> None:
     assert result.artifact_root_digest == "a" * 64
     assert len(result.reservoir_parameter_digest) == 64
     assert result.pair_set_digest == pair_set.pair_digest
+    assert (
+        result.delay_registration_digest
+        == build_delay_registration(dataset).digest
+    )
     assert len(result.pair_diagnostics) == len(pair_set.pairs)
     for item in result.delays:
         assert (
@@ -199,7 +205,11 @@ def test_registered_benchmark_rejects_pair_set_from_other_inputs() -> None:
     assert wrong != correct
 
     with pytest.raises(ValueError, match="history pair set"):
-        run_registered_memory_benchmark(dataset, wrong)
+        run_registered_memory_benchmark(
+            dataset,
+            wrong,
+            build_delay_registration(dataset),
+        )
 
 
 def test_all_delay_arms_share_same_target_presence_mask() -> None:
@@ -238,11 +248,39 @@ def test_all_delay_arms_share_same_target_presence_mask() -> None:
         ),
         dataset,
         pair_set,
+        build_delay_registration(dataset),
     )
     delay10 = next(item for item in result.delays if item.delay == 10)
 
     expected = len(dataset.evaluation) - 1
+    assert delay10.training_sample_count == len(dataset.training)
+    assert delay10.evaluation_sample_count == expected
     assert delay10.instantaneous.metrics.sample_count == expected
     assert delay10.reservoir.metrics.sample_count == expected
     assert delay10.reset_control.metrics.sample_count == expected
     assert delay10.permuted_control.metrics.sample_count == expected
+
+
+def test_registered_runner_enforces_delay_registration_size_gate() -> None:
+    import pytest
+
+    from neural_state_machine.r1_e3m_benchmark import (
+        run_registered_memory_benchmark,
+    )
+    from neural_state_machine.r1_e3m_registration import (
+        DelayRegistrationInvalid,
+    )
+
+    dataset = _dataset()
+    pair_set = build_history_pairs(
+        dataset.training,
+        dataset.evaluation,
+    )
+    registration = build_delay_registration(dataset)
+
+    with pytest.raises(DelayRegistrationInvalid, match="training windows"):
+        run_registered_memory_benchmark(
+            dataset,
+            pair_set,
+            registration,
+        )
