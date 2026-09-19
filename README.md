@@ -1,35 +1,45 @@
 # yolo-motion-perception
 
-A **pure-Python** research baseline for estimating object motion and approach/recede state from YOLO multi-object tracks.
+A **pure-Python** research baseline for track-centric image-motion perception from YOLO multi-object tracks.
 
-The project deliberately separates **object perception** from **temporal motion semantics**:
+The repository now contains two orthogonal temporal estimators:
 
 ```text
 RGB video
    ↓
 YOLO11 + BoT-SORT
    ↓
-TrackObservation
-   ↓
-per-track history
-   ↓
-center velocity + log-area expansion
-   ↓
-stationary / moving + stable / approaching / receding
+TrackObservation ───────────────→ V1 MotionPipeline
+   │                              center velocity + log-area expansion
+   │                              ↓
+   │                              stationary/moving + stable/approaching/receding
+   │
+   └→ optional RTMW 133-point pose
+        + optical flow
+        + camera compensation
+        + torso-motion subtraction
+        ↓
+      articulated leg residuals
+        ↓
+      V2 OpticalGaitPipeline
+        ↓
+      unknown / standing / walking / running
 ```
 
-There is **no ROS2 dependency or integration**. The V1 baseline assumes a fixed camera and does not claim metric depth from bbox scale.
+There is **no ROS2 dependency or integration**. Neither bbox scale nor optical/image motion is metric depth, physical velocity, or 3D motion.
 
 ## Why this structure?
 
-YOLO tells us *what* was detected and BoT-SORT gives a persistent track ID. Motion state is a temporal property, so it is estimated from a window of repository-owned observations rather than from a single frame or Ultralytics internals.
+YOLO tells us *what* was detected and BoT-SORT supplies the tracker ID used by both temporal paths. Motion and gait are properties of a sequence, so they are estimated from bounded histories rather than from a single frame or from Ultralytics internals.
 
-For each track, V1 fits linear trends to:
+V1 fits linear trends to:
 
 - normalized bbox center `x(t)` and `y(t)`,
 - `log(width(t) * height(t))`.
 
 The log-area slope is used as **approach/recede evidence**. A sustained positive slope supports `approaching`; a sustained negative slope supports `receding`. Trend consistency and fit quality reduce sensitivity to one-frame bbox spikes.
+
+V2 is deliberately independent from those labels. It uses full-body pose geometry and compensated optical flow to remove camera/whole-person translation before estimating scale-normalized left/right leg articulation. A person may therefore be, for example, `walking + stationary`, `walking + approaching`, or `walking + receding`.
 
 ## Scope
 
@@ -45,16 +55,33 @@ The log-area slope is used as **approach/recede evidence**. A sustained positive
 - deterministic synthetic benchmark
 - optional video/webcam CLI
 
-### Not in V1
+### V2 optical gait implemented here
+
+- immutable COCO-WholeBody-133 pose observations
+- deterministic torso/thigh/calf/foot regions
+- optional OpenCV dense optical-flow backend
+- fixed-camera or affine camera-motion compensation
+- explicit rejection of invalid affine compensation
+- torso translation subtraction
+- person-height scale normalization
+- pose/flow agreement quality
+- bilateral temporal gait evidence
+- independent per-track gait histories
+- fail-closed `unknown | standing | walking | running` classification
+- optional lazy MMPose RTMW adapter
+- deterministic gait benchmark covering rigid motion, approach/recede orthogonality, size gating, and camera compensation
+
+### Explicit non-goals
 
 - metric monocular depth
-- 3D coordinates
-- camera ego-motion
-- TTC/CPA
+- physical 3D coordinates or velocity
+- persistent identity after tracker-ID expiry
+- general action recognition
+- TTC/CPA in the current implementation
 - robot control/path planning
 - ROS2 or robotics middleware
 
-Depth/TTC can be added later as independent evidence without changing the core temporal estimator.
+Image-plane displacement, optical flow, and bbox expansion are evidence in image coordinates only. They must not be reported as metric distance, depth, or physical speed without a separate calibrated 3D estimator.
 
 ## Install
 
@@ -64,27 +91,81 @@ Core development install:
 python -m pip install -e '.[dev]'
 ```
 
+OpenCV optical-flow/camera-compensation runtime:
+
+```bash
+python -m pip install -e '.[dev,optical]'
+```
+
 Video runtime with Ultralytics/OpenCV:
 
 ```bash
 python -m pip install -e '.[vision,dev]'
 ```
 
-Model weights are not downloaded by tests or CI.
+Optional RTMW/MMPose runtime:
 
-## Run the deterministic benchmark
+```bash
+python -m pip install -e '.[rtmw]'
+```
+
+Install both optical flow and RTMW when using the complete V2 runtime path:
+
+```bash
+python -m pip install -e '.[optical,rtmw]'
+```
+
+MMPose is imported lazily by `load_mmpose_rtmw()`. Importing the core package or `yolo_motion.rtmw_adapter` does not require MMPose. Model weights are not downloaded by tests or CI.
+
+## Deterministic benchmarks
+
+Run the original V1 motion benchmark:
 
 ```bash
 python scripts/benchmark_synthetic.py
 ```
 
-Expected scenario classes include:
+Expected V1 scenario classes include:
 
 - stationary → `stationary / stable`
 - lateral crossing → `moving / stable`
 - monotonic bbox expansion → `stationary / approaching`
 - monotonic bbox shrink → `stationary / receding`
 - one-frame bbox scale spike → `stationary / stable`
+
+Run the V2 optical-gait benchmark:
+
+```bash
+python scripts/benchmark_gait_synthetic.py
+```
+
+It emits JSON and fails non-zero if the expected contract is violated. Repository-owned deterministic scenarios include:
+
+- `standing`
+- `walking_in_place`
+- `walking_transverse`
+- `walking_approaching`
+- `walking_receding`
+- `running`
+- `rigid_translation_control`
+- `too_small_unknown`
+- `camera_translation_compensated`
+
+Approaching/receding labels in this benchmark come from the unchanged V1 `MotionPipeline`; gait classification does not infer radial motion from scale heuristics. The camera-translation case executes the compensation path rather than treating raw camera flow as gait.
+
+## V2 `unknown` semantics
+
+`LocomotionState.UNKNOWN` is a deliberate fail-closed result, not a miscellaneous class. It is used when the gait path lacks sufficient evidence, including insufficient history/quality, insufficient bilateral leg support, or upstream pose/flow support that cannot satisfy the configured gates.
+
+A low-energy but otherwise well-supported bilateral sequence may classify as `standing`. Missing/poor evidence must not be promoted to walking or running.
+
+The research defaults live in `configs/gait.yaml`; they are configuration values, not safety thresholds.
+
+## Optional RTMW adapter
+
+`RtmwPoseAdapter` consumes an already-tracked person crop. It does not create a second person detector. `load_mmpose_rtmw()` constructs `MMPoseInferencer` lazily with caller-supplied RTMW config/weights and `det_model="whole_image"`, then converts the 133 crop-relative keypoints immediately back to normalized full-frame coordinates tied to the original tracker ID.
+
+No result or low-quality pose returns `None`. A malformed non-133-point result is rejected rather than silently mapped to another pose layout.
 
 ## Capture the first fixed-camera benchmark clips
 
@@ -116,7 +197,7 @@ python scripts/capture_scenario.py \
 
 Video files remain ignored by git. Keep the sidecar metadata when comparing capture conditions across scenes. Follow `benchmarks/PROTOCOL.md` before recording.
 
-## Run on a video or camera
+## Run V1 on a video or camera
 
 ```bash
 python -m yolo_motion.cli \
@@ -143,7 +224,7 @@ python -m yolo_motion.cli \
 
 The CLI uses `persist=True` only for consecutive frames from the same stream and converts Ultralytics results immediately into local data types.
 
-## Evaluate a real-video run
+## Evaluate a real-video V1 run
 
 V1 evaluation is intentionally tied to a specific tracker run: first generate JSONL, then annotate the resulting `track_id` over labeled time intervals. This avoids adding a second object-matching algorithm to the benchmark.
 
@@ -174,7 +255,7 @@ python scripts/evaluate_jsonl.py \
 
 The report contains per-dimension sample count, accuracy, confusion counts, and first-correct latency for each labeled interval. Predictions outside labeled intervals are ignored.
 
-## Run a real-video benchmark suite
+## Run the real-video V1 benchmark suite
 
 `benchmarks/suite.yaml` defines eight fixed-camera V1 scenario slots. They are disabled by default so the repository does not pretend to ship video data. Put your clips under `benchmarks/videos/`, add matching interval labels under `benchmarks/annotations/`, and set `enabled: true` for the scenarios you want to measure.
 
@@ -221,7 +302,7 @@ The preflight exits with code `2` when no scenarios are enabled or when any enab
 
 ## Configuration
 
-`configs/baseline.yaml`:
+V1 `configs/baseline.yaml`:
 
 ```yaml
 history_seconds: 1.0
@@ -233,9 +314,11 @@ min_radial_confidence: 0.60
 min_trend_consistency: 0.75
 ```
 
-These values are **research defaults**, not safety thresholds.
+V2 gait parameters are in `configs/gait.yaml` and include history length, minimum history/quality/support, standing energy, periodicity/correlation, and cadence bounds.
 
-## Core API
+All values are **research defaults**, not safety thresholds.
+
+## Core V1 API
 
 ```python
 from yolo_motion.motion import MotionConfig
@@ -262,25 +345,67 @@ if result is not None:
     print(result.evidence.expansion_rate)
 ```
 
-## Tests
+## V2 gait API
 
-```bash
-PYTHONPATH=src pytest -q
-ruff check .
+The V2 temporal classifier consumes `ArticulatedFlowEvidence`, which is produced only after pose geometry, camera compensation, and torso subtraction have been applied:
+
+```python
+from yolo_motion.gait import GaitConfig
+from yolo_motion.gait_pipeline import OpticalGaitPipeline
+
+pipeline = OpticalGaitPipeline(GaitConfig())
+result = pipeline.update(articulated_flow_observation)
+
+if result is not None:
+    print(result.state)
+    print(result.evidence.cadence_hz, result.evidence.quality)
 ```
 
-The core test suite uses only deterministic synthetic tracks. It does not require a GPU, YOLO weights, camera, or network access.
+The V1 and V2 pipelines intentionally keep separate histories and may be run side by side using the same tracker ID.
+
+## Tests and CI
+
+```bash
+python -m pip install -e '.[dev,optical]'
+pytest -q
+ruff check .
+python scripts/benchmark_synthetic.py
+python scripts/benchmark_gait_synthetic.py
+```
+
+CI runs the Python 3.10/3.11/3.12 matrix with `.[dev,optical]`, the full pytest suite, Ruff, the V1 synthetic benchmark, and the V2 gait benchmark. It does **not** install MMPose/RTMW or download model weights.
+
+The deterministic test suite does not require a GPU, camera, or network access.
+
+## Real-video V2 acceptance gate
+
+Synthetic/code completion is not sufficient to claim real-video gait validation. Before the V2 PR is ready to merge, record at least one real-video locomotion run on the exact branch head containing `standing`, `walking`, and `running` or `jogging`.
+
+The evidence must retain `unknown` predictions and record at least:
+
+- tracker model,
+- RTMW config and weights identity,
+- flow backend,
+- camera mode,
+- gait config,
+- labeled `track_id` time intervals.
+
+Until that evidence exists, the V2 PR remains Draft.
 
 ## Research roadmap
 
-**V2 — depth evidence:** compare bbox-only radial estimates against monocular depth change and fuse confidence; add `TTC_bbox` and `TTC_depth` as explicitly different estimators.
+**Next — real-video V2 validation:** measure standing/walking/running behavior under tracker continuity, pose occlusion, subject scale, and camera-motion conditions without tuning away `unknown` cases.
 
-**V3 — relative motion:** accept externally supplied ego-motion as numeric Python input, estimate object-relative motion, TTC, and closest-point-of-approach. This remains a library concern, not a robotics-middleware integration.
+**Future — depth evidence:** compare bbox-only radial estimates against an explicitly separate monocular-depth estimator; do not relabel image expansion as metric depth.
+
+**Future — relative motion:** accept externally supplied ego-motion as numeric Python input before estimating any TTC/CPA-like quantities. This remains a library concern, not robotics middleware.
 
 ## Design documents
 
 - `docs/superpowers/specs/2026-09-14-yolo-motion-perception-design.md`
 - `docs/superpowers/plans/2026-09-14-v1-motion-baseline.md`
+- `docs/superpowers/specs/2026-09-15-rtmw-optical-gait-v2-design.md`
+- `docs/superpowers/plans/2026-09-15-rtmw-optical-gait-v2.md`
 
 ## License
 

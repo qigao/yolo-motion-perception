@@ -1,0 +1,128 @@
+name: real-video-gait
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/rtmw-optical-gait-v2
+    paths:
+      - .github/workflows/real-video-gait.yml
+      - scripts/validate_real_video_gait.py
+      - src/yolo_motion/articulated_flow.py
+      - src/yolo_motion/camera_motion.py
+      - src/yolo_motion/flow_backend.py
+      - src/yolo_motion/gait.py
+      - src/yolo_motion/gait_pipeline.py
+      - src/yolo_motion/gait_state.py
+      - src/yolo_motion/pose_regions.py
+      - src/yolo_motion/rtmw_adapter.py
+      - configs/gait.yaml
+      - pyproject.toml
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  real-video-gait:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+
+      - name: Install real-video runtime
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -e '.[vision,optical]'
+          python -m pip install 'lap>=0.5.12' rtmlib
+
+      - name: Run KTH RTMW gait acceptance
+        run: |
+          python scripts/validate_real_video_gait.py \
+            --output-dir runs/real-video-gait \
+            --stride 1
+
+      - name: Upload real-video evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: real-video-gait-${{ github.sha }}
+          path: runs/real-video-gait
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Report real-video acceptance success to issue 1
+        if: ${{ success() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY' > runs/real-video-gait/issue1-status.md
+          import json
+          import os
+          from pathlib import Path
+
+          report = json.loads(
+              Path("runs/real-video-gait/report.json").read_text(encoding="utf-8")
+          )
+          print("V2 real-video RTMW acceptance run passed.")
+          print()
+          print(f"- workflow run: {os.environ['GITHUB_RUN_ID']}")
+          print(f"- exact head: {os.environ['GITHUB_SHA']}")
+          print(f"- overall passed: {report['passed']}")
+          for name in ("standing", "walking", "jogging"):
+              scenario = report["scenarios"][name]
+              print(
+                  f"- {name}: expected={scenario['expected']} "
+                  f"dominant={scenario['dominant_known']} "
+                  f"known_fraction={scenario['expected_known_fraction']} "
+                  f"unknown={scenario['unknown_prediction_count']} "
+                  f"predictions={scenario['prediction_count']} "
+                  f"passed={scenario['passed']}"
+              )
+          print()
+          print(
+              "Evidence artifact: real-video-gait-" + os.environ["GITHUB_SHA"]
+          )
+          PY
+          gh issue comment 1 --repo qigao/yolo-motion-perception \
+            --body-file runs/real-video-gait/issue1-status.md
+
+      - name: Report real-video acceptance failure to issue 1
+        if: ${{ failure() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "V2 real-video RTMW acceptance run failed."
+            echo
+            echo "- workflow run: $GITHUB_RUN_ID"
+            echo "- exact head: $GITHUB_SHA"
+            if [ -f runs/real-video-gait/report.json ]; then
+              python - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(
+              Path("runs/real-video-gait/report.json").read_text(encoding="utf-8")
+          )
+          for failure in report.get("failures", []):
+              print(f"- failure: {failure}")
+          PY
+            else
+              echo "- report.json was not produced; failure occurred before final report."
+            fi
+            echo
+            echo "No merge/readiness claim is authorized from this run."
+          } > /tmp/issue1-failure.md
+          gh issue comment 1 --repo qigao/yolo-motion-perception \
+            --body-file /tmp/issue1-failure.md
