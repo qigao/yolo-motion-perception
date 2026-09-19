@@ -196,6 +196,10 @@ def test_protocol_command_does_not_measure(
     assert output["artifact_root_digest"] == _ARTIFACT_DIGEST
     assert output["arm_count"] == 20
     assert output["delays"] == [1, 2, 5, 10, 15]
+    assert (
+        output["delay_registration_digest"]
+        == _delay_registration().digest
+    )
 
 
 def test_prepare_and_verify_no_result_do_not_measure(
@@ -383,12 +387,13 @@ def test_measure_calls_registered_runner_only_after_all_preflight(
     calls: list[object] = []
     fake_measurement = {"registered_measurement": True}
 
-    def run_measurement(dataset, pair_set):
+    def run_measurement(dataset, pair_set, delay_registration):
         calls.append(
             (
                 "measure",
                 dataset.artifact_root_digest,
                 pair_set.pair_digest,
+                delay_registration.digest,
             )
         )
         return fake_measurement
@@ -444,6 +449,7 @@ def test_measure_calls_registered_runner_only_after_all_preflight(
         "measure",
         _ARTIFACT_DIGEST,
         _pair_set().pair_digest,
+        _delay_registration().digest,
     )
     assert calls[1][0] == "write"
     assert calls[1][3] == _HEAD
@@ -523,5 +529,37 @@ def test_prepare_rejects_declared_scientific_head_mismatch(
                 str(tmp_path / "prospective"),
                 "--scientific-head",
                 "0" * 40,
+            ]
+        )
+
+
+def test_measure_rejects_delay_registration_mismatch_before_measurement(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cli = _cli()
+    root, manifest_sha = _prepare_root(cli, tmp_path, monkeypatch)
+    monkeypatch.setattr(cli, "_current_head", lambda: _HEAD)
+    monkeypatch.setattr(
+        cli,
+        "run_registered_memory_benchmark",
+        _forbidden_measurement,
+    )
+    monkeypatch.setattr(
+        cli,
+        "build_delay_registration",
+        lambda dataset: _delay_registration(id_offset=1000),
+    )
+
+    with pytest.raises(SystemExit, match="delay registration"):
+        cli.main(
+            [
+                "measure",
+                "--artifact-root",
+                str(tmp_path / "artifact"),
+                "--root",
+                str(root),
+                "--manifest-sha256",
+                manifest_sha,
             ]
         )
