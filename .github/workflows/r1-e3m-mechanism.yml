@@ -8,6 +8,8 @@ on:
       - src/neural_state_machine/r1_e3m_*.py
       - scripts/prepare_r1_e3m_artifact.py
       - scripts/benchmark_r1_e3m_memory.py
+      - scripts/extract_r1_e3m_tracks.py
+      - configs/r1_e3m_botsort.yaml
       - tests/test_r1_e3m_*.py
       - docs/superpowers/specs/2026-09-19-r1-e3m-label-free-real-track-memory-design.md
       - docs/superpowers/plans/2026-09-19-r1-e3m-label-free-real-track-memory.md
@@ -17,6 +19,8 @@ on:
       - src/neural_state_machine/r1_e3m_*.py
       - scripts/prepare_r1_e3m_artifact.py
       - scripts/benchmark_r1_e3m_memory.py
+      - scripts/extract_r1_e3m_tracks.py
+      - configs/r1_e3m_botsort.yaml
       - tests/test_r1_e3m_*.py
       - docs/superpowers/specs/2026-09-19-r1-e3m-label-free-real-track-memory-design.md
       - docs/superpowers/plans/2026-09-19-r1-e3m-label-free-real-track-memory.md
@@ -61,6 +65,7 @@ jobs:
             src/neural_state_machine/r1_e3m_*.py \
             scripts/prepare_r1_e3m_artifact.py \
             scripts/benchmark_r1_e3m_memory.py \
+            scripts/extract_r1_e3m_tracks.py \
             tests/test_r1_e3m_*.py
 
       - name: Fail closed on forbidden semantic coupling
@@ -69,7 +74,8 @@ jobs:
           set -euo pipefail
           if grep -R -n -E             'semantic-review|batch1-semantic-review|approach|touch|pick_up|pass_by'             src/neural_state_machine/r1_e3m_*.py \
             scripts/prepare_r1_e3m_artifact.py \
-            scripts/benchmark_r1_e3m_memory.py; then
+            scripts/benchmark_r1_e3m_memory.py \
+            scripts/extract_r1_e3m_tracks.py; then
             echo "R1-E3M production code must not depend on semantic labels/artifacts"
             exit 1
           fi
