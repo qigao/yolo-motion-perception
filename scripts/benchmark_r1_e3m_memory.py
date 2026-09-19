@@ -24,6 +24,11 @@ from neural_state_machine.r1_e3m_evidence import (
 )
 from neural_state_machine.r1_e3m_pairs import build_history_pairs
 from neural_state_machine.r1_e3m_probe import DELAYS
+from neural_state_machine.r1_e3m_registration import (
+    DelayRegistrationInvalid,
+    build_delay_registration,
+    validate_delay_registration_gate,
+)
 
 
 def _current_head() -> str:
@@ -112,6 +117,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             dataset.training,
             dataset.evaluation,
         )
+        delay_registration = build_delay_registration(dataset)
+        try:
+            validate_delay_registration_gate(delay_registration)
+        except DelayRegistrationInvalid as exc:
+            raise SystemExit(str(exc)) from exc
         _print(
             {
                 "registered_measurement": False,
@@ -124,6 +134,22 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "history_pair_count": len(pair_set.pairs),
                 "history_prefix_threshold":
                     pair_set.prefix_threshold,
+                "delay_registration_digest":
+                    delay_registration.digest,
+                "delay_registration": [
+                    {
+                        "delay": entry.delay,
+                        "training_window_count":
+                            len(entry.training_window_ids),
+                        "evaluation_window_count":
+                            len(entry.evaluation_window_ids),
+                        "training_video_count":
+                            len(entry.training_video_ids),
+                        "evaluation_video_count":
+                            len(entry.evaluation_video_ids),
+                    }
+                    for entry in delay_registration.delays
+                ],
                 "protocol": registered_manifest_payload(
                     dataset.artifact_root_digest
                 ),
