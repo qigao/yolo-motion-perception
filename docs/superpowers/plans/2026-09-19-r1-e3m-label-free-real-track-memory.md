@@ -13,6 +13,9 @@ with no human behavior annotations and no semantic action claim.
 
 - Reuse the frozen 11-video Batch-1 source set.
 - Reuse the existing R1-E3 extraction contract.
+- Freeze extraction to YOLO11n person-only class 0, confidence 0.25, IoU 0.70,
+  imgsz 640, native frame stride 6, and the committed
+  `configs/r1_e3m_botsort.yaml` configuration.
 - Extraction is frozen before real scoring to Ultralytics 8.4.155,
   YOLO11n/person-only, conf 0.25, IoU 0.70, imgsz 640, CPU, native stride 6
   (5 FPS for the frozen 30 FPS Batch-1 sources), and
@@ -332,8 +335,8 @@ Add a source scan test enforcing these invariants.
 No mechanism scoring yet.
 
 - [ ] download exact frozen 11-video artifact;
-- [ ] run one sealed YOLO11 + BoT-SORT extraction under the existing extraction
-  contract;
+- [ ] run one sealed YOLO11n person-only + BoT-SORT extraction under the
+  frozen extraction contract and committed tracker configuration;
 - [ ] record detector/tracker/runtime digests;
 - [ ] freeze immutable raw-track rows;
 - [ ] build deterministic 2-second windows;
