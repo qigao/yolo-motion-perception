@@ -1,0 +1,59 @@
+name: R1-E3A annotation freeze gate
+
+on:
+  push:
+    branches:
+      - research/r1-e3a-annotation-freeze
+    paths:
+      - tools/r1_e3a_annotation_freeze.py
+      - tests/test_r1_e3a_annotation_freeze.py
+      - .github/workflows/r1-e3a-annotation-freeze-gate.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: r1-e3a-annotation-freeze-gate
+  cancel-in-progress: true
+
+jobs:
+  validate-tooling:
+    name: Validate annotation freeze tooling
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install focused test dependencies
+        run: python -m pip install --disable-pip-version-check pytest ruff
+
+      - name: Focused annotation freeze tests
+        run: pytest -q tests/test_r1_e3a_annotation_freeze.py
+
+      - name: Ruff
+        run: >-
+          ruff check
+          tools/r1_e3a_annotation_freeze.py
+          tests/test_r1_e3a_annotation_freeze.py
+
+      - name: Report success to issue 11
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue comment 11 --repo qigao/yolo-motion-perception \
+            --body "R1-E3A annotation freeze tooling gate passed at head `$GITHUB_SHA` in workflow run `$GITHUB_RUN_ID`. This validates only the post-human-review fail-closed tooling; no semantic labels, YOLO/BoT-SORT, prospective sealing, or registered measurement were produced."
+
+      - name: Report failure to issue 11
+        if: ${{ failure() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue comment 11 --repo qigao/yolo-motion-perception \
+            --body "R1-E3A annotation freeze tooling gate failed at head `$GITHUB_SHA` in workflow run `$GITHUB_RUN_ID`. Human semantic annotation remains unfreezable until this tooling failure is resolved."
