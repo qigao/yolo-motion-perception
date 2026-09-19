@@ -108,6 +108,16 @@ jobs:
           print(f"- physical events reviewed: {summary['physical_event_count']}")
           print(f"- registration minima met: {summary['registration_minima_met']}")
           print(f"- next batch required: {summary['next_batch_required']}")
+          print(
+              "- distinct accepted source videos: "
+              f"train={summary['distinct_accepted_source_videos']['train']}, "
+              f"eval={summary['distinct_accepted_source_videos']['eval']}"
+          )
+          print(
+              "- distinct accepted guarded components: "
+              f"train={summary['distinct_accepted_source_window_components']['train']}, "
+              f"eval={summary['distinct_accepted_source_window_components']['eval']}"
+          )
           print()
           print("| split | approach | touch | pick_up | pass_by |")
           print("| --- | ---: | ---: | ---: | ---: |")
