@@ -2,6 +2,11 @@ name: R1-E3M sealed real-track extraction
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - research/r1-e3m-real-track-memory
+    paths:
+      - .github/r1-e3m-extraction-trigger
 
 env:
   R1_E3M_EXACT_HEAD: ${{ github.sha }}
