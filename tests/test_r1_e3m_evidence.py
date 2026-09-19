@@ -58,6 +58,52 @@ def _pair_set():
     return build_history_pairs(training, evaluation)
 
 
+
+def _delay_registration():
+    import numpy as np
+
+    from neural_state_machine.r1_e3m_dataset import (
+        MechanismDataset,
+        MechanismSample,
+    )
+    from neural_state_machine.r1_e3m_registration import (
+        build_delay_registration,
+        validate_delay_registration_gate,
+    )
+
+    def sample(index: int, split: str, video_index: int):
+        tensor = np.zeros((20, 6), dtype=np.float64)
+        tensor[:, 0] = 0.01 * index + np.linspace(0.0, 0.19, 20)
+        tensor[:, 1] = 0.005 * index + np.linspace(0.0, 0.095, 20)
+        tensor[:, 2] = 0.1
+        tensor[:, 3] = 0.2
+        tensor[:, 4] = 0.9
+        tensor[:, 5] = 1.0
+        return MechanismSample(
+            window_id=f"{index + 1:064x}",
+            video_id=f"{split}-video-{video_index}",
+            split=split,
+            track_id=index,
+            source_start_seconds=float(index * 2),
+            source_end_seconds=float(index * 2 + 2),
+            tensor=tensor,
+        )
+
+    dataset = MechanismDataset(
+        training=tuple(
+            sample(index, "train", index % 2)
+            for index in range(20)
+        ),
+        evaluation=tuple(
+            sample(100 + index, "eval", index % 2)
+            for index in range(10)
+        ),
+        artifact_root_digest="a" * 64,
+    )
+    registration = build_delay_registration(dataset)
+    validate_delay_registration_gate(registration)
+    return registration
+
 def test_registered_manifest_freezes_mechanism_protocol() -> None:
     _, _, manifest_payload, _ = _api()
 
@@ -93,6 +139,7 @@ def test_prepare_and_verify_prospective_only_state(tmp_path: Path) -> None:
         scientific_head="1" * 40,
         artifact_root_digest="a" * 64,
         history_pair_set=_pair_set(),
+        delay_registration=_delay_registration(),
     )
     verified = verify(root, no_result_ok=True)
 
@@ -116,6 +163,7 @@ def test_prepare_is_write_once(tmp_path: Path) -> None:
         scientific_head="1" * 40,
         artifact_root_digest="a" * 64,
         history_pair_set=_pair_set(),
+        delay_registration=_delay_registration(),
     )
 
     with pytest.raises(FileExistsError):
@@ -135,6 +183,7 @@ def test_verify_rejects_protocol_mutation(tmp_path: Path) -> None:
         scientific_head="1" * 40,
         artifact_root_digest="a" * 64,
         history_pair_set=_pair_set(),
+        delay_registration=_delay_registration(),
     )
 
     manifest_path = root / "manifest.json"
@@ -163,6 +212,7 @@ def test_verify_without_result_fails_when_not_explicitly_allowed(
         scientific_head="1" * 40,
         artifact_root_digest="a" * 64,
         history_pair_set=_pair_set(),
+        delay_registration=_delay_registration(),
     )
 
     with pytest.raises(Invalid, match="result is missing"):
@@ -264,6 +314,7 @@ def test_write_and_verify_registered_measurement(tmp_path: Path) -> None:
         scientific_head="1" * 40,
         artifact_root_digest="a" * 64,
         history_pair_set=_pair_set(),
+        delay_registration=_delay_registration(),
     )
 
     written = write_measurement(
@@ -295,6 +346,7 @@ def test_measurement_rejects_control_refit(tmp_path: Path) -> None:
         scientific_head="1" * 40,
         artifact_root_digest="a" * 64,
         history_pair_set=_pair_set(),
+        delay_registration=_delay_registration(),
     )
     measurement = _measurement("a" * 64)
     measurement["arms"][0]["delays"][0]["reset_control"][
@@ -325,6 +377,7 @@ def test_measurement_rejects_long_delay_aggregate_mutation(
         scientific_head="1" * 40,
         artifact_root_digest="a" * 64,
         history_pair_set=_pair_set(),
+        delay_registration=_delay_registration(),
     )
     measurement = _measurement("a" * 64)
     measurement["arms"][0]["long_delay_delta"] = 0.99
@@ -351,6 +404,7 @@ def test_measurement_rejects_outcome_mutation(tmp_path: Path) -> None:
         scientific_head="1" * 40,
         artifact_root_digest="a" * 64,
         history_pair_set=_pair_set(),
+        delay_registration=_delay_registration(),
     )
     measurement = _measurement("a" * 64)
     measurement["outcome"] = "M-C"
@@ -375,6 +429,7 @@ def test_prepare_freezes_history_pair_payload_and_digest(tmp_path: Path) -> None
         scientific_head="1" * 40,
         artifact_root_digest="a" * 64,
         history_pair_set=pair_set,
+        delay_registration=_delay_registration(),
     )
     payload = json.loads(
         (root / "history-pairs.json").read_text(encoding="utf-8")
@@ -400,6 +455,7 @@ def test_verify_rejects_history_pair_file_mutation(tmp_path: Path) -> None:
         scientific_head="1" * 40,
         artifact_root_digest="a" * 64,
         history_pair_set=_pair_set(),
+        delay_registration=_delay_registration(),
     )
     path = root / "history-pairs.json"
     payload = json.loads(path.read_text(encoding="utf-8"))
@@ -425,6 +481,7 @@ def test_measurement_rejects_history_pair_digest_mutation(
         scientific_head="1" * 40,
         artifact_root_digest="a" * 64,
         history_pair_set=_pair_set(),
+        delay_registration=_delay_registration(),
     )
     measurement = _measurement("a" * 64)
     measurement["pair_set_digest"] = "f" * 64
@@ -451,6 +508,7 @@ def test_measurement_rejects_history_pair_diagnostic_mutation(
         scientific_head="1" * 40,
         artifact_root_digest="a" * 64,
         history_pair_set=_pair_set(),
+        delay_registration=_delay_registration(),
     )
     measurement = _measurement("a" * 64)
     measurement["arms"][0]["pair_diagnostics"][0][
