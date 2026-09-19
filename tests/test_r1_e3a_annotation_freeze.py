@@ -89,8 +89,13 @@ def review(records, *, train_count=0, train_b_count=0, eval_count=0):
 
 
 def accepted(event_id, video_id, label, start, end, context=None):
+    split = "train" if video_id.startswith("train") else "eval"
+    component = "train-component" if split == "train" else "eval-component"
     return {
+        "episode_id": f"episode-{event_id}",
         "physical_event_id": event_id,
+        "split": split,
+        "source_window_component_id": component,
         "registered_video_id": video_id,
         "context_video_ids": list(context or []),
         "start_frame_inclusive": start,
@@ -202,3 +207,28 @@ def test_review_status_must_be_reviewed_before_freeze():
 
     with pytest.raises(ValueError, match="review status"):
         validate(payload, manifest())
+
+
+def test_duplicate_episode_id_fails_closed():
+    first = accepted("event-a", "train-a", "approach", 1, 20)
+    second = accepted("event-b", "train-a", "pass_by", 30, 50)
+    second["episode_id"] = first["episode_id"]
+
+    with pytest.raises(ValueError, match="duplicate episode_id"):
+        validate(review([first, second], train_count=2), manifest())
+
+
+def test_record_split_must_match_registered_video():
+    record = accepted("evt", "train-a", "approach", 10, 20)
+    record["split"] = "eval"
+
+    with pytest.raises(ValueError, match="split mismatch"):
+        validate(review([record], train_count=1), manifest())
+
+
+def test_record_component_must_match_registered_video():
+    record = accepted("evt", "train-a", "approach", 10, 20)
+    record["source_window_component_id"] = "other-component"
+
+    with pytest.raises(ValueError, match="source-window component mismatch"):
+        validate(review([record], train_count=1), manifest())
