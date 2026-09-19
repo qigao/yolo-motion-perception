@@ -136,3 +136,15 @@ def test_extraction_module_contains_no_semantic_label_dependency() -> None:
         "target_track_id",
     )
     assert not any(value in text for value in forbidden)
+
+
+def test_sealed_extraction_workflow_is_explicit_dispatch_only() -> None:
+    workflow = (
+        Path(__file__).parents[1]
+        / ".github"
+        / "workflows"
+        / "r1-e3m-extraction.yml"
+    ).read_text(encoding="utf-8")
+
+    assert "workflow_dispatch:" in workflow
+    assert "pull_request:" not in workflow
