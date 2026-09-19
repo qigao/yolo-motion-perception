@@ -135,3 +135,19 @@ def test_gait_config_rejects_invalid_thresholds():
         GaitConfig(min_leg_support_fraction=1.1)
     with pytest.raises(ValueError):
         GaitConfig(walking_cadence_min_hz=2.5, walking_cadence_max_hz=2.0)
+
+
+def test_dropped_frames_preserve_running_periodicity_on_real_timestamps():
+    history = make_history(1.5, amplitude=0.06)
+    dropped = {8, 9, 10, 22, 23, 31, 32, 33}
+    sampled = [
+        observation
+        for index, observation in enumerate(history)
+        if index not in dropped
+    ]
+
+    evidence = estimate_gait(sampled, config())
+
+    assert evidence.cadence_hz == pytest.approx(3.0, abs=0.25)
+    assert evidence.periodicity >= config().min_periodicity
+    assert evidence.bilateral_correlation >= config().min_bilateral_correlation
