@@ -78,6 +78,11 @@ def _prepare_root(
         "load_mechanism_dataset",
         lambda root: _dataset(),
     )
+    monkeypatch.setattr(
+        cli,
+        "build_history_pairs",
+        lambda training, evaluation: _pair_set(),
+    )
     root = tmp_path / "prospective"
     assert (
         cli.main(
@@ -111,6 +116,11 @@ def test_protocol_command_does_not_measure(
         cli,
         "load_mechanism_dataset",
         lambda root: _dataset(),
+    )
+    monkeypatch.setattr(
+        cli,
+        "build_history_pairs",
+        lambda training, evaluation: _pair_set(),
     )
 
     assert (
