@@ -19,7 +19,47 @@ def _cli():
 
 
 def _dataset(digest: str = _ARTIFACT_DIGEST):
-    return SimpleNamespace(artifact_root_digest=digest)
+    return SimpleNamespace(
+        artifact_root_digest=digest,
+        training=(),
+        evaluation=(),
+    )
+
+
+def _pair_set(prefix_shift: float = 0.0):
+    import numpy as np
+
+    from neural_state_machine.r1_e3m_dataset import MechanismSample
+    from neural_state_machine.r1_e3m_pairs import build_history_pairs
+
+    def sample(name: str, split: str, track_id: int, prefix: float):
+        tensor = np.zeros((20, 6), dtype=np.float64)
+        tensor[:16, 0] = prefix + prefix_shift
+        tensor[16:20, 0] = 0.1 + 0.001 * track_id
+        tensor[:, 2] = 0.1
+        tensor[:, 3] = 0.2
+        tensor[:, 4] = 0.9
+        tensor[:, 5] = 1.0
+        return MechanismSample(
+            window_id=(name.encode("utf-8").hex() + "0" * 64)[:64],
+            video_id=f"{split}-video-{track_id}",
+            split=split,
+            track_id=track_id,
+            source_start_seconds=0.0,
+            source_end_seconds=2.0,
+            tensor=tensor,
+        )
+
+    training = (
+        sample("t0", "train", 1, 0.0),
+        sample("t1", "train", 2, 1.0),
+        sample("t2", "train", 3, 2.0),
+    )
+    evaluation = (
+        sample("e0", "eval", 10, 0.0),
+        sample("e1", "eval", 11, 2.0),
+    )
+    return build_history_pairs(training, evaluation)
 
 
 def _forbidden_measurement(*args, **kwargs):
