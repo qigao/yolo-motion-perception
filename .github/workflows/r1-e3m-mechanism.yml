@@ -60,6 +60,7 @@ jobs:
           ruff check \
             src/neural_state_machine/r1_e3m_*.py \
             scripts/prepare_r1_e3m_artifact.py \
+            scripts/benchmark_r1_e3m_memory.py \
             tests/test_r1_e3m_*.py
 
       - name: Fail closed on forbidden semantic coupling
@@ -67,7 +68,8 @@ jobs:
         run: |
           set -euo pipefail
           if grep -R -n -E             'semantic-review|batch1-semantic-review|approach|touch|pick_up|pass_by'             src/neural_state_machine/r1_e3m_*.py \
-            scripts/prepare_r1_e3m_artifact.py; then
+            scripts/prepare_r1_e3m_artifact.py \
+            scripts/benchmark_r1_e3m_memory.py; then
             echo "R1-E3M production code must not depend on semantic labels/artifacts"
             exit 1
           fi
