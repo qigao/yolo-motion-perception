@@ -19,6 +19,12 @@ from neural_state_machine.r1_e3m_controls import (
     evaluate_fixed_probe,
 )
 from neural_state_machine.r1_e3m_dataset import MechanismDataset
+from neural_state_machine.r1_e3m_pairs import (
+    HistoryPairSet,
+    PairStateDiagnostic,
+    build_history_pairs,
+    score_history_pairs,
+)
 from neural_state_machine.r1_e3m_probe import (
     DELAYS,
     MultiTargetRidgeProbe,
@@ -71,6 +77,8 @@ class MemoryArmResult:
     h2_long_delay_drop: float
     reservoir_parameter_digest: str
     artifact_root_digest: str
+    pair_set_digest: str
+    pair_diagnostics: tuple[PairStateDiagnostic, ...]
 
 
 @dataclass(frozen=True)
@@ -80,6 +88,9 @@ class RegisteredMemoryResult:
     positive_arm_count: int
     median_h1_long_delay_drop: float
     outcome: str
+    pair_set_digest: str
+    history_pair_count: int
+    history_prefix_threshold: float
 
 
 def registered_specs() -> tuple[E2ReservoirSpec, ...]:
@@ -97,10 +108,12 @@ def registered_specs() -> tuple[E2ReservoirSpec, ...]:
 def evaluate_memory_arm(
     spec: E2ReservoirSpec,
     dataset: MechanismDataset,
+    pair_set: HistoryPairSet,
 ) -> MemoryArmResult:
     _validated_spec(spec)
     if not isinstance(dataset, MechanismDataset):
         raise ValueError("dataset must be MechanismDataset")
+    pair_set = _validated_pair_set(dataset, pair_set)
 
     training_tensors, _ = _sample_matrix(dataset.training)
     evaluation_tensors, evaluation_ids = _sample_matrix(
@@ -117,6 +130,12 @@ def evaluate_memory_arm(
     )
 
     parameter_digest = build_e2_reservoir(spec).parameter_digest()
+    pair_diagnostics = score_history_pairs(
+        pair_set,
+        dataset.evaluation,
+        evaluation_states,
+        reset_states,
+    )
 
     delay_results: list[DelayMemoryResult] = []
     for delay in DELAYS:
@@ -210,17 +229,21 @@ def evaluate_memory_arm(
         h2_long_delay_drop=h2_long_delay_drop,
         reservoir_parameter_digest=parameter_digest,
         artifact_root_digest=dataset.artifact_root_digest,
+        pair_set_digest=pair_set.pair_digest,
+        pair_diagnostics=pair_diagnostics,
     )
 
 
 def run_registered_memory_benchmark(
     dataset: MechanismDataset,
+    pair_set: HistoryPairSet,
 ) -> RegisteredMemoryResult:
     if not isinstance(dataset, MechanismDataset):
         raise ValueError("dataset must be MechanismDataset")
+    pair_set = _validated_pair_set(dataset, pair_set)
 
     arms = tuple(
-        evaluate_memory_arm(spec, dataset)
+        evaluate_memory_arm(spec, dataset, pair_set)
         for spec in registered_specs()
     )
     if len(arms) != ARM_COUNT:
@@ -234,6 +257,9 @@ def run_registered_memory_benchmark(
         positive_arm_count=sum(value > 0.0 for value in deltas),
         median_h1_long_delay_drop=float(median(h1_drops)),
         outcome=classify_memory_outcome(deltas, h1_drops),
+        pair_set_digest=pair_set.pair_digest,
+        history_pair_count=len(pair_set.pairs),
+        history_prefix_threshold=pair_set.prefix_threshold,
     )
 
 
@@ -262,6 +288,24 @@ def classify_memory_outcome(
     if median_delta > 0.0:
         return "M-B"
     return "M-C"
+
+
+
+def _validated_pair_set(
+    dataset: MechanismDataset,
+    pair_set: object,
+) -> HistoryPairSet:
+    if not isinstance(pair_set, HistoryPairSet):
+        raise ValueError("history pair set must be HistoryPairSet")
+    expected = build_history_pairs(
+        dataset.training,
+        dataset.evaluation,
+    )
+    if pair_set != expected:
+        raise ValueError(
+            "history pair set does not match frozen dataset inputs"
+        )
+    return pair_set
 
 
 def _probe_result(
