@@ -8,6 +8,7 @@ def _api():
     from neural_state_machine.r1_e3m_probe import (
         DELAYS,
         RIDGE_REGULARIZATION,
+        delay_valid_mask,
         delayed_geometry_targets,
         evaluate_regression,
         fit_instantaneous_delay_probe,
@@ -17,6 +18,7 @@ def _api():
     return (
         DELAYS,
         RIDGE_REGULARIZATION,
+        delay_valid_mask,
         delayed_geometry_targets,
         evaluate_regression,
         fit_instantaneous_delay_probe,
@@ -44,7 +46,7 @@ def test_delays_are_exactly_frozen_values() -> None:
 
 
 def test_delayed_target_is_exact_geometry_from_bin_19_minus_delay() -> None:
-    _, _, delayed_targets, *_ = _api()
+    _, _, _, delayed_targets, *_ = _api()
     tensors = _tensors()
 
     targets = delayed_targets(tensors, 5)
@@ -54,14 +56,14 @@ def test_delayed_target_is_exact_geometry_from_bin_19_minus_delay() -> None:
 
 
 def test_unregistered_delay_fails_closed() -> None:
-    _, _, delayed_targets, *_ = _api()
+    _, _, _, delayed_targets, *_ = _api()
 
     with pytest.raises(ValueError, match="registered delays"):
         delayed_targets(_tensors(), 3)
 
 
 def test_instantaneous_probe_uses_bin_19_and_frozen_regularization() -> None:
-    _, regularization, _, _, fit_instantaneous, _ = _api()
+    _, regularization, _, _, _, fit_instantaneous, _ = _api()
     tensors = _tensors()
 
     probe = fit_instantaneous(tensors, 5)
@@ -73,7 +75,7 @@ def test_instantaneous_probe_uses_bin_19_and_frozen_regularization() -> None:
 
 
 def test_reservoir_probe_accepts_final_states_and_same_delayed_target() -> None:
-    _, _, delayed_targets, _, _, fit_reservoir = _api()
+    _, _, _, delayed_targets, _, _, fit_reservoir = _api()
     tensors = _tensors()
     targets = delayed_targets(tensors, 10)
     states = np.column_stack(
@@ -94,7 +96,7 @@ def test_reservoir_probe_accepts_final_states_and_same_delayed_target() -> None:
 
 
 def test_regression_metrics_are_deterministic_and_per_channel() -> None:
-    _, _, delayed_targets, evaluate, fit_instantaneous, _ = _api()
+    _, _, _, delayed_targets, evaluate, fit_instantaneous, _ = _api()
     tensors = _tensors()
     targets = delayed_targets(tensors, 1)
     probe = fit_instantaneous(tensors, 1)
@@ -111,10 +113,35 @@ def test_regression_metrics_are_deterministic_and_per_channel() -> None:
 
 
 def test_coefficient_digest_is_repeatable() -> None:
-    _, _, _, _, fit_instantaneous, _ = _api()
+    _, _, _, _, _, fit_instantaneous, _ = _api()
     tensors = _tensors()
 
     first = fit_instantaneous(tensors, 2)
     second = fit_instantaneous(tensors, 2)
 
     assert first.coefficient_digest() == second.coefficient_digest()
+
+
+def test_delay_valid_mask_requires_observed_target_bin() -> None:
+    _, _, valid_mask, _, _, _, _ = _api()
+    tensors = _tensors(4)
+    target_bin = 19 - 10
+    tensors[1, target_bin, :5] = 0.0
+    tensors[1, target_bin, 5] = 0.0
+
+    mask = valid_mask(tensors, 10)
+
+    assert mask.tolist() == [True, False, True, True]
+    assert mask.dtype == np.bool_
+    assert mask.flags.writeable is False
+
+
+def test_delay_mask_does_not_require_current_bin_presence() -> None:
+    _, _, valid_mask, _, _, _, _ = _api()
+    tensors = _tensors(3)
+    tensors[0, 19, :5] = 0.0
+    tensors[0, 19, 5] = 0.0
+
+    mask = valid_mask(tensors, 15)
+
+    assert mask.tolist() == [True, True, True]
