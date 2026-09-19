@@ -107,6 +107,42 @@ Frozen R1-E3M extraction settings:
 
 No ESN score may influence extraction or split membership.
 
+## Frozen extraction runtime
+
+R1-E3M freezes one detector/tracker configuration before mechanism scoring:
+
+- detector: Ultralytics YOLO11n;
+- weights logical name: `yolo11n.pt`, exact bytes recorded by SHA-256;
+- class filter: person only, COCO class `0`;
+- detector confidence threshold: `0.25`;
+- detector NMS/IoU threshold: `0.70`;
+- detector image size: `640`;
+- native source-frame stride: `6`;
+- for the frozen 30 fps Batch-1 videos this yields a 5 fps detector/tracker
+  observation cadence;
+- tracker: BoT-SORT;
+- tracker configuration path: `configs/r1_e3m_botsort.yaml`;
+- tracker configuration bytes and parsed values are recorded in extraction
+  provenance and bound by SHA-256;
+- no detector/tracker parameter may be selected or changed using an ESN
+  mechanism score.
+
+The frozen BoT-SORT configuration is:
+
+- `track_high_thresh=0.25`;
+- `track_low_thresh=0.1`;
+- `new_track_thresh=0.25`;
+- `track_buffer=30`;
+- `match_thresh=0.8`;
+- `fuse_score=true`;
+- `gmc_method=sparseOptFlow`;
+- `proximity_thresh=0.5`;
+- `appearance_thresh=0.8`;
+- `with_reid=false`.
+
+Any change to these extraction choices creates a new raw-track artifact revision
+and requires a new prospective mechanism seal.
+
 ## Raw track representation
 
 Each raw row retains:
