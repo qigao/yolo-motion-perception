@@ -55,45 +55,72 @@ A semantic episode that cannot be bound to eligible frozen tracks is rejected by
 the predeclared Stage-A eligibility gate. Its semantic annotation remains in the
 audit record unchanged.
 
-## 3. MEVA capture groups and split isolation
+## 3. MEVA source-window components and split isolation
 
-### 3.1 Capture-group identity
+### 3.1 Exact capture-group identity
 
-For MEVA ground-camera filenames, define:
+For MEVA ground-camera filenames, retain the descriptive exact group:
 
 ```text
 capture_group_id =
   <date>.<start-time>.<end-time>.<site>
 ```
 
-The camera token is deliberately omitted.
+The camera token is deliberately omitted. This catches synchronized multi-view
+files whose source window strings are identical.
 
-Example:
+### 3.2 Stronger source-window component
 
-```text
-2018-03-11.17-25-00.17-30-00.school
-```
+The first real inventory showed that exact equality is not sufficient. MEVA
+contains same-date/site source windows whose timestamps differ by one second or
+whose nominal windows touch even though they may originate from the same
+continuous recording boundary.
 
-Videos such as G299 and G330 from this same recording window can be different
-views of the same physical event.
+Therefore the split unit is the stronger `source_window_component_id`:
 
-### 3.2 Split rule
+1. group exact capture groups by `date + site`;
+2. sort by source start time;
+3. transitively merge the next source window when
+   `next_start <= current_end + 1 second`;
+4. assign the whole connected source-window component to one split.
 
-All videos sharing one `capture_group_id` MUST receive the same split.
+The one-second guard band is a fail-closed protection against timestamp
+rounding/off-by-one clip boundaries. It is defined before source-video download,
+YOLO/BoT-SORT extraction, or any R1-E3 score.
+
+### 3.3 Split rule
+
+All selected videos sharing one `source_window_component_id` MUST receive the
+same split.
 
 The stronger Stage-A split requirements are therefore:
 
 - zero video SHA-256 overlap across train/eval;
 - zero re-encoded/cropped/overlapping-source overlap across train/eval;
-- zero `capture_group_id` overlap across train/eval;
-- at least two distinct training capture groups;
-- at least two distinct evaluation capture groups;
+- zero `source_window_component_id` overlap across train/eval;
+- at least two distinct training source-window components;
+- at least two distinct evaluation source-window components;
 - retain the registered minimum of at least two source videos in each split;
 - where practical, use the same site/camera families on both sides while using
-  different capture groups, so background or camera identity is not a trivial
-  split cue.
+  different source-window components, so background or camera identity is not a
+  trivial split cue.
 
 The split is frozen before accepted extraction.
+
+### 3.4 Multiview event de-duplication
+
+Multiple selected cameras from one source-window component may be used as
+source-pixel context during semantic review, but simultaneous views of the same
+physical actor-target event MUST NOT become multiple registered episodes.
+
+Each semantic event receives a stable `physical_event_id`. Exactly one source
+view is designated the registered episode view before accepted detector/tracker
+extraction. Other synchronized views are `context_only` and remain audit
+evidence.
+
+The registered view may be chosen from source pixels for semantic visibility,
+occlusion, and event continuity only. Detector confidence, track quality, or
+decoder score must not influence view choice.
 
 ## 4. Candidate discovery is not a registered label
 
@@ -114,10 +141,13 @@ One annotation represents one complete reviewed actor-target event.
 The annotator freezes:
 
 - `episode_id`;
+- `physical_event_id`;
 - `video_id`;
 - `capture_group_id`;
-- `start_time_seconds`;
-- `end_time_seconds`;
+- `source_window_component_id`;
+- `start_frame_inclusive`;
+- `end_frame_exclusive`;
+- derived `start_time_seconds` / `end_time_seconds`;
 - one registered label;
 - stable actor description for audit;
 - stable target description for audit;
@@ -125,10 +155,14 @@ The annotator freezes:
 - annotator identity/provenance;
 - review status and reviewer/provenance.
 
+The frame interval is authoritative. Time-in-seconds fields are derived from
+the frozen source FPS and are convenience metadata only.
+
 After the accepted extraction, the frozen event is bound to exactly one
 `actor_track_id` and one `target_track_id`.
 
-The semantic label and bounds are not changed during track binding.
+The semantic label, registered source view, and frame bounds are not changed
+during track binding.
 
 ## 6. Maximal-outcome rule
 
@@ -218,6 +252,10 @@ If contact occurs, the event is not `pass_by`.
 
 The purpose of the window is to include the informative history that culminates
 in the maximal outcome. It is not a short crop around the final frame.
+
+Freeze boundaries as a half-open source-frame interval
+`[start_frame_inclusive, end_frame_exclusive)`. Do not freeze floating-point
+seconds as the primary boundary representation.
 
 ### 8.1 Start
 
@@ -329,9 +367,12 @@ Before accepted E3A artifact generation, record:
 - this handbook SHA-256;
 - source-video candidate inventory digest;
 - final source-video manifest SHA-256;
-- capture-group assignment manifest SHA-256;
-- zero capture-group overlap assertion;
+- source-window component / split manifest SHA-256;
+- one-second source-window guard rule/version;
+- zero source-window-component overlap assertion;
 - semantic annotation file SHA-256;
+- multiview `physical_event_id` de-duplication assertion;
+- registered-view/context-view audit fields;
 - review file SHA-256;
 - rejected/ambiguous candidate counts by reason;
 - per-label train/eval counts;
