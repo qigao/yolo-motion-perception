@@ -125,13 +125,12 @@ def test_valid_review_reconciles_video_candidate_counts():
 
 
 def test_duplicate_physical_event_fails_closed():
-    records = [
-        accepted("same", "train-a", "approach", 1, 20),
-        accepted("same", "train-a", "pass_by", 30, 50),
-    ]
+    first = accepted("same", "train-a", "approach", 1, 20)
+    second = accepted("same", "train-a", "pass_by", 30, 50)
+    second["episode_id"] = "episode-same-second"
 
     with pytest.raises(ValueError, match="duplicate physical_event_id"):
-        validate(review(records, train_count=2), manifest())
+        validate(review([first, second], train_count=2), manifest())
 
 
 def test_frame_bounds_must_fit_frozen_source():
