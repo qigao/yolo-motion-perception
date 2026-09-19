@@ -52,6 +52,12 @@ class HistoryPairSet:
             )
         ):
             raise ValueError("pair_digest must be SHA-256")
+        expected_digest = _pair_digest(
+            float(self.prefix_threshold),
+            self.pairs,
+        )
+        if self.pair_digest != expected_digest:
+            raise ValueError("pair_digest mismatch")
 
 
 @dataclass(frozen=True)
@@ -62,6 +68,72 @@ class PairStateDiagnostic:
     prefix_distance: float
     normal_state_distance: float
     reset_state_distance: float
+
+
+
+def history_pair_set_payload(
+    pair_set: HistoryPairSet,
+) -> dict[str, object]:
+    if not isinstance(pair_set, HistoryPairSet):
+        raise ValueError("pair_set must be HistoryPairSet")
+    return {
+        "schema": "r1-e3m-history-pairs-v1",
+        "prefix_threshold": pair_set.prefix_threshold,
+        "pair_count": len(pair_set.pairs),
+        "pair_digest": pair_set.pair_digest,
+        "pairs": [
+            {
+                "left_window_id": pair.left_window_id,
+                "right_window_id": pair.right_window_id,
+                "suffix_distance": pair.suffix_distance,
+                "prefix_distance": pair.prefix_distance,
+            }
+            for pair in pair_set.pairs
+        ],
+    }
+
+
+def history_pair_set_from_payload(
+    payload: object,
+) -> HistoryPairSet:
+    if not isinstance(payload, dict):
+        raise ValueError("history-pair payload must be an object")
+    if payload.get("schema") != "r1-e3m-history-pairs-v1":
+        raise ValueError("history-pair schema mismatch")
+    prefix_threshold = payload.get("prefix_threshold")
+    if (
+        isinstance(prefix_threshold, bool)
+        or not isinstance(prefix_threshold, (int, float))
+        or not math.isfinite(float(prefix_threshold))
+        or float(prefix_threshold) < 0.0
+    ):
+        raise ValueError("history-pair prefix_threshold must be finite")
+    raw_pairs = payload.get("pairs")
+    if not isinstance(raw_pairs, list):
+        raise ValueError("history-pair pairs must be an array")
+    pairs = []
+    for raw in raw_pairs:
+        if not isinstance(raw, dict):
+            raise ValueError("history-pair row must be an object")
+        pairs.append(
+            HistoryPair(
+                left_window_id=str(raw.get("left_window_id", "")),
+                right_window_id=str(raw.get("right_window_id", "")),
+                suffix_distance=float(raw.get("suffix_distance")),
+                prefix_distance=float(raw.get("prefix_distance")),
+            )
+        )
+    pair_count = payload.get("pair_count")
+    if type(pair_count) is not int or pair_count != len(pairs):
+        raise ValueError("history-pair pair_count mismatch")
+    pair_digest = payload.get("pair_digest")
+    if not isinstance(pair_digest, str):
+        raise ValueError("history-pair pair_digest must be a string")
+    return HistoryPairSet(
+        prefix_threshold=float(prefix_threshold),
+        pairs=tuple(pairs),
+        pair_digest=pair_digest,
+    )
 
 
 def build_history_pairs(
