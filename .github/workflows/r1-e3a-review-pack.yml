@@ -72,6 +72,7 @@ jobs:
           python tools/r1_e3a_review_pack.py \
             --video-root _r1-e3a-review-input/videos \
             --manifest _r1-e3a-review-input/r1_e3a_source_video_manifest.json \
+            --handbook docs/r1-e3/acquisition-annotation-handbook.md \
             --sampling-protocol docs/r1-e3/annotation-sampling-protocol.md \
             --out-dir _r1-e3a-review-pack
 
@@ -88,7 +89,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          sha256sum docs/r1-e3/acquisition-annotation-handbook.md
           sha256sum docs/r1-e3/annotation-sampling-protocol.md
+          sha256sum _r1-e3a-review-pack/annotation-review-template.json
           sha256sum _r1-e3a-review-pack/review-index.json
           sha256sum _r1-e3a-review-pack/review-pack.sha256
           cat _r1-e3a-review-pack/README.md
@@ -108,7 +111,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          handbook_sha="$(sha256sum docs/r1-e3/acquisition-annotation-handbook.md | awk '{print $1}')"
           sampling_sha="$(sha256sum docs/r1-e3/annotation-sampling-protocol.md | awk '{print $1}')"
+          template_sha="$(sha256sum _r1-e3a-review-pack/annotation-review-template.json | awk '{print $1}')"
           index_sha="$(sha256sum _r1-e3a-review-pack/review-index.json | awk '{print $1}')"
           digest_sha="$(sha256sum _r1-e3a-review-pack/review-pack.sha256 | awk '{print $1}')"
           bytes="$(du -sb _r1-e3a-review-pack | awk '{print $1}')"
@@ -119,13 +124,15 @@ jobs:
             echo "- acquisition-tool head: $GITHUB_SHA"
             echo "- frozen source run: 35434084445"
             echo "- frozen source manifest SHA-256: 1db8cc200ba9eaab2c14ed260b06ed582ed75d54f57c3036e1312cd2f184f4cf"
+            echo "- handbook SHA-256: $handbook_sha"
             echo "- sampling protocol SHA-256: $sampling_sha"
+            echo "- canonical annotation-review template SHA-256: $template_sha"
             echo "- review-index SHA-256: $index_sha"
             echo "- review-pack digest-list SHA-256: $digest_sha"
             echo "- uncompressed review-pack bytes: $bytes"
             echo "- artifact: r1-e3a-human-review-pack"
             echo
-            echo "This artifact contains review-only source proxies/contact sheets, an empty semantic annotation template, and a per-video full-range review-completion template. No human labels, YOLO/BoT-SORT extraction, R1-E3 score, prospective sealing, or registered measurement were produced."
+            echo "This artifact contains review-only source proxies/contact sheets plus a canonical JSON annotation-review template bound to the frozen source manifest, handbook, and sampling protocol. No human labels, YOLO/BoT-SORT extraction, R1-E3 score, prospective sealing, or registered measurement were produced."
           } > _r1-e3a-review-pack/issue11-status.md
           gh issue comment 11 --repo qigao/yolo-motion-perception             --body-file _r1-e3a-review-pack/issue11-status.md
 
