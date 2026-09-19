@@ -188,7 +188,12 @@ def render_overview(sources: list[Path], output: Path) -> None:
     )
 
 
-def render_pack(video_root: Path, manifest_path: Path, out_dir: Path) -> dict[str, Any]:
+def render_pack(
+    video_root: Path,
+    manifest_path: Path,
+    sampling_protocol_path: Path,
+    out_dir: Path,
+) -> dict[str, Any]:
     manifest = load_manifest(manifest_path)
     validate_sources(video_root, manifest)
     groups = review_groups(manifest)
@@ -241,6 +246,7 @@ def render_pack(video_root: Path, manifest_path: Path, out_dir: Path) -> dict[st
         "schema": REVIEW_SCHEMA,
         "status": "review_only_not_semantic_annotation",
         "source_manifest_sha256": sha256_file(manifest_path),
+        "sampling_protocol_sha256": sha256_file(sampling_protocol_path),
         "source_artifact_head_sha": manifest["acquisition_head_sha"],
         "science_head_sha": manifest["science_head_sha"],
         "rules": {
@@ -261,6 +267,7 @@ def render_pack(video_root: Path, manifest_path: Path, out_dir: Path) -> dict[st
     )
     write_readme(out_dir, index)
     write_annotation_template(out_dir)
+    write_review_completion_template(out_dir, manifest)
 
     digest_lines = []
     for path in sorted(p for p in out_dir.rglob("*") if p.is_file()):
@@ -300,6 +307,36 @@ def write_annotation_template(out_dir: Path) -> None:
         )
 
 
+def write_review_completion_template(
+    out_dir: Path,
+    manifest: dict[str, Any],
+) -> None:
+    template_path = out_dir / "semantic-review-completion-template.csv"
+    videos = sorted(
+        manifest["videos"],
+        key=lambda record: str(record["source_video_id"]),
+    )
+    with template_path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(
+            (
+                "source_video_id",
+                "full_range_reviewed",
+                "reviewed_candidate_count",
+                "reviewer",
+            )
+        )
+        for record in videos:
+            writer.writerow(
+                (
+                    record["source_video_id"],
+                    "false",
+                    "0",
+                    "UNASSIGNED",
+                )
+            )
+
+
 def write_readme(out_dir: Path, index: dict[str, Any]) -> None:
     lines = [
         "# R1-E3A human semantic review pack",
@@ -326,6 +363,14 @@ def write_readme(out_dir: Path, index: dict[str, Any]) -> None:
             "pickup decisions must be checked against the source bytes."
         ),
         "- Do not inspect detector/tracker/decoder outputs while annotating.",
+        (
+            "- Complete a full chronological source-video scan for every activated "
+            "video; do not stop when a class quota is reached."
+        ),
+        (
+            "- Fill semantic-review-completion-template.csv only after the full "
+            "source-frame range has been reviewed."
+        ),
         "",
         "## Review groups",
         "",
@@ -353,9 +398,15 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--video-root", type=Path, required=True)
     parser.add_argument("--manifest", type=Path, required=True)
+    parser.add_argument("--sampling-protocol", type=Path, required=True)
     parser.add_argument("--out-dir", type=Path, required=True)
     args = parser.parse_args()
-    index = render_pack(args.video_root, args.manifest, args.out_dir)
+    index = render_pack(
+        args.video_root,
+        args.manifest,
+        args.sampling_protocol,
+        args.out_dir,
+    )
     print(json.dumps({"review_groups": len(index["groups"])}, sort_keys=True))
     return 0
 
