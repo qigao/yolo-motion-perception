@@ -13,8 +13,8 @@ from pathlib import Path
 
 import cv2
 import numpy as np
-import yaml
 import ultralytics
+import yaml
 from rtmlib import RTMPose
 from ultralytics import YOLO
 
