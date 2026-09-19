@@ -242,7 +242,6 @@ def write_measurement(
         "numpy": np.__version__,
         "registered_measurement": True,
         "registered_arm_count": validation["registered_arm_count"],
-        "history_pair_digest": sealed["history_pair_digest"],
         "history_pair_count": sealed["history_pair_count"],
         "outcome": validation["outcome"],
     }
