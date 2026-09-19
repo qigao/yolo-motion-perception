@@ -330,7 +330,12 @@ def test_measure_calls_registered_runner_only_after_all_preflight(
     assert calls[1][0] == "write"
     assert calls[1][3] == _HEAD
     assert calls[1][4] == _ARTIFACT_DIGEST
-    assert calls[1][5] is fake_measurement
+    wrapped = calls[1][5]
+    assert wrapped["registered_measurement"] is True
+    assert (
+        wrapped["manifest"]["artifact_root_digest"]
+        == _ARTIFACT_DIGEST
+    )
 
 
 def test_focused_ci_never_invokes_registered_measurement() -> None:
