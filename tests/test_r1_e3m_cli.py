@@ -34,7 +34,7 @@ def _pair_set(prefix_shift: float = 0.0):
 
     def sample(name: str, split: str, track_id: int, prefix: float):
         tensor = np.zeros((20, 6), dtype=np.float64)
-        tensor[:16, 0] = prefix + prefix_shift
+        tensor[:16, 0] = prefix
         tensor[16:20, 0] = 0.1 + 0.001 * track_id
         tensor[:, 2] = 0.1
         tensor[:, 3] = 0.2
@@ -56,7 +56,7 @@ def _pair_set(prefix_shift: float = 0.0):
         sample("t2", "train", 3, 2.0),
     )
     evaluation = (
-        sample("e0", "eval", 10, 0.0),
+        sample("e0", "eval", 10, prefix_shift),
         sample("e1", "eval", 11, 2.0),
     )
     return build_history_pairs(training, evaluation)
