@@ -338,6 +338,10 @@ def test_write_and_verify_registered_measurement(tmp_path: Path) -> None:
     assert verified["valid"] is True
     assert verified["prospective_only"] is False
     assert verified["registered_arm_count"] == 20
+    assert (
+        verified["delay_registration_digest"]
+        == _delay_registration().digest
+    )
     assert verified["outcome"] == "M-A"
 
 
@@ -530,3 +534,29 @@ def test_measurement_rejects_history_pair_diagnostic_mutation(
             artifact_root_digest="a" * 64,
             raw_result=measurement,
         )
+
+
+def test_verify_rejects_delay_registration_file_mutation(
+    tmp_path: Path,
+) -> None:
+    Invalid, prepare, _, verify = _api()
+    root = tmp_path / "evidence"
+    prepare(
+        root,
+        scientific_head="1" * 40,
+        artifact_root_digest="a" * 64,
+        history_pair_set=_pair_set(),
+        delay_registration=_delay_registration(),
+    )
+    path = root / "delay-registration.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["delays"][0]["training_window_ids"] = (
+        payload["delays"][0]["training_window_ids"][1:]
+    )
+    path.write_text(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(Invalid, match="sha256"):
+        verify(root, no_result_ok=True)
