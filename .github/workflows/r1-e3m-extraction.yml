@@ -2,19 +2,9 @@ name: R1-E3M sealed real-track extraction
 
 on:
   workflow_dispatch:
-  pull_request:
-    paths:
-      - .github/workflows/r1-e3m-extraction.yml
-      - scripts/extract_r1_e3m_tracks.py
-      - scripts/prepare_r1_e3m_artifact.py
-      - src/neural_state_machine/r1_e3m_extraction.py
-      - src/neural_state_machine/r1_e3m_window.py
-      - src/neural_state_machine/r1_e3m_artifact.py
-      - src/neural_state_machine/r1_e3m_artifact_evidence.py
-      - configs/r1_e3m_botsort.yaml
 
 env:
-  R1_E3M_EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  R1_E3M_EXACT_HEAD: ${{ github.sha }}
 
 permissions:
   contents: read
