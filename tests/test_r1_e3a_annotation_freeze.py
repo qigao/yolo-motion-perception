@@ -11,6 +11,7 @@ FREEZE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(FREEZE)
 
 validate_review = FREEZE.validate_review
+registration_minima_are_met = FREEZE.registration_minima_are_met
 
 SOURCE_MANIFEST_SHA256 = "1" * 64
 HANDBOOK_SHA256 = "2" * 64
@@ -232,3 +233,34 @@ def test_record_component_must_match_registered_video():
 
     with pytest.raises(ValueError, match="source-window component mismatch"):
         validate(review([record], train_count=1), manifest())
+
+
+def complete_class_counts(train_count=20, eval_count=10):
+    return {
+        "train": {label: train_count for label in FREEZE.LABELS},
+        "eval": {label: eval_count for label in FREEZE.LABELS},
+    }
+
+
+def test_registration_gate_requires_two_source_videos_per_split():
+    assert not registration_minima_are_met(
+        complete_class_counts(),
+        accepted_source_video_counts={"train": 1, "eval": 2},
+        accepted_component_counts={"train": 2, "eval": 2},
+    )
+
+
+def test_registration_gate_requires_two_components_per_split():
+    assert not registration_minima_are_met(
+        complete_class_counts(),
+        accepted_source_video_counts={"train": 2, "eval": 2},
+        accepted_component_counts={"train": 1, "eval": 2},
+    )
+
+
+def test_registration_gate_accepts_class_and_structural_minima():
+    assert registration_minima_are_met(
+        complete_class_counts(),
+        accepted_source_video_counts={"train": 2, "eval": 2},
+        accepted_component_counts={"train": 2, "eval": 2},
+    )
