@@ -254,9 +254,16 @@ Pairing is frozen before reservoir scoring and uses input space only.
 
 - suffix = bins 16..19;
 - prefix = bins 0..15;
-- deterministic nearest-neighbor candidate ordering;
-- no same window;
-- no semantic labels;
+- RMS distance over all six channels;
+- candidate neighbor must use a different `(video_id, track_id)`;
+- ties break by lexical `window_id`;
+- training threshold = median prefix distance of each training window's
+  nearest-suffix different-track neighbor;
+- evaluation pairs use the same deterministic nearest-suffix rule;
+- canonicalize/deduplicate unordered pairs;
+- retain only pairs with prefix distance strictly greater than the frozen
+  training threshold;
+- no semantic labels or reservoir states enter pair construction;
 - pair list digest frozen.
 
 Report normal vs reset reservoir-state distances.
