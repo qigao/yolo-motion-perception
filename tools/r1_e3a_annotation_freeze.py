@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Validate and summarize a completed R1-E3A semantic annotation review.
 
 This is a fail-closed acquisition/annotation gate. It does not infer labels and
@@ -152,7 +151,7 @@ def validate_review(
 
         context_video_ids = row.get("context_video_ids", [])
         if not isinstance(context_video_ids, list):
-            raise ValueError(f"{context}: context_video_ids must be a list")
+            raise TypeError(f"{context}: context_video_ids must be a list")
         if len(context_video_ids) != len(set(context_video_ids)):
             raise ValueError(f"{context}: duplicate context_video_ids")
         if registered_video_id in context_video_ids:
