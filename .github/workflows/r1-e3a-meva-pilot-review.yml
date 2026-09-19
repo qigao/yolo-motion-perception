@@ -1,0 +1,226 @@
+name: R1-E3A MEVA pilot review
+
+on:
+  push:
+    branches:
+      - research/r1-e3a-meva-corpus
+    paths:
+      - .github/workflows/r1-e3a-meva-pilot-review.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: r1-e3a-meva-pilot-review
+  cancel-in-progress: true
+
+jobs:
+  review-proxy:
+    name: Build no-model review proxy
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      MEVA_BUCKET: mevadata-public-01
+      SOURCE_VIDEO_ID: 2018-03-11.11-20-00.11-25-00.school.G299
+      SOURCE_KEY: drops-123-r13/2018-03-11/11/2018-03-11.11-20-00.11-25-00.school.G299.r13.avi
+      SOURCE_EXPECTED_BYTES: "156966208"
+      KPF_EXPECTED_SHA256: 6d3a3af8344bd1c299ceeff00760430a4b62ac5e4d8a090bf1be4fc336b9ce46
+      KPF_RAW_URL: https://gitlab.kitware.com/meva/meva-data-repo/-/raw/master/annotation/DIVA-phase-2/MEVA/kitware/2018-03-11/11/2018-03-11.11-20-00.11-25-00.school.G299.activities.yml
+
+    steps:
+      - name: Checkout acquisition branch
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install acquisition-only dependencies
+        run: python -m pip install --disable-pip-version-check boto3 pyyaml
+
+      - name: Download one public MEVA source video
+        run: |
+          mkdir -p "$RUNNER_TEMP/r1-e3a-pilot"
+          python - <<'PY'
+          import os
+          from pathlib import Path
+
+          import boto3
+          from botocore import UNSIGNED
+          from botocore.config import Config
+
+          out = Path(os.environ["RUNNER_TEMP"]) / "r1-e3a-pilot" / "source.avi"
+          s3 = boto3.client(
+              "s3",
+              region_name="us-east-1",
+              config=Config(signature_version=UNSIGNED),
+          )
+          s3.download_file(os.environ["MEVA_BUCKET"], os.environ["SOURCE_KEY"], str(out))
+          expected = int(os.environ["SOURCE_EXPECTED_BYTES"])
+          actual = out.stat().st_size
+          if actual != expected:
+              raise SystemExit(f"source byte-size mismatch: expected={expected} actual={actual}")
+          print(f"downloaded {actual} bytes")
+          PY
+
+      - name: Fetch and verify public KPF activity annotation
+        run: |
+          out="$RUNNER_TEMP/r1-e3a-pilot/source.activities.yml"
+          curl \
+            --fail \
+            --location \
+            --retry 3 \
+            --retry-delay 2 \
+            --retry-all-errors \
+            "$KPF_RAW_URL" \
+            --output "$out"
+          printf '%s  %s\n' "$KPF_EXPECTED_SHA256" "$out" | sha256sum --check -
+
+      - name: Freeze pilot source metadata and pickup timestamps
+        run: |
+          root="$RUNNER_TEMP/r1-e3a-pilot"
+          sha256sum "$root/source.avi" > "$root/source.sha256"
+          ffprobe \
+            -v error \
+            -show_entries stream=index,codec_type,codec_name,width,height,r_frame_rate,avg_frame_rate,nb_frames,duration \
+            -show_entries format=duration,size,format_name \
+            -of json \
+            "$root/source.avi" > "$root/ffprobe.json"
+
+          python - <<'PY'
+          import csv
+          import json
+          import os
+          from pathlib import Path
+
+          import yaml
+
+          root = Path(os.environ["RUNNER_TEMP"]) / "r1-e3a-pilot"
+          doc = yaml.safe_load((root / "source.activities.yml").read_text(
+              encoding="utf-8", errors="ignore"
+          )) or []
+
+          events = []
+          for ordinal, item in enumerate(doc):
+              act = item.get("act") if isinstance(item, dict) else None
+              if not isinstance(act, dict):
+                  continue
+              act2 = act.get("act2") or {}
+              name = str(next(iter(act2), "")) if isinstance(act2, dict) else ""
+              if name != "person_picks_up_object":
+                  continue
+
+              spans = []
+              actor_ids = []
+              for actor in act.get("actors", []):
+                  if not isinstance(actor, dict):
+                      continue
+                  if actor.get("id1") is not None:
+                      actor_ids.append(int(actor["id1"]))
+                  for ts in actor.get("timespan", []):
+                      if not isinstance(ts, dict):
+                          continue
+                      tsr = ts.get("tsr0")
+                      if isinstance(tsr, list) and len(tsr) == 2:
+                          spans.append((int(tsr[0]), int(tsr[1])))
+
+              if not spans:
+                  continue
+              start_frame = min(a for a, _ in spans)
+              end_frame = max(b for _, b in spans)
+              events.append(
+                  {
+                      "ordinal": ordinal,
+                      "activity": name,
+                      "start_frame": start_frame,
+                      "end_frame": end_frame,
+                      "start_seconds_at_30fps": start_frame / 30.0,
+                      "end_seconds_at_30fps": end_frame / 30.0,
+                      "actor_ids": sorted(set(actor_ids)),
+                  }
+              )
+
+          if len(events) != 129:
+              raise SystemExit(
+                  f"pilot pickup-count mismatch: inventory=129 parsed={len(events)}"
+              )
+
+          (root / "pickup_events.json").write_text(
+              json.dumps(events, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          with (root / "pickup_events.csv").open("w", newline="", encoding="utf-8") as handle:
+              writer = csv.DictWriter(
+                  handle,
+                  fieldnames=[
+                      "ordinal",
+                      "activity",
+                      "start_frame",
+                      "end_frame",
+                      "start_seconds_at_30fps",
+                      "end_seconds_at_30fps",
+                      "actor_ids",
+                  ],
+              )
+              writer.writeheader()
+              for event in events:
+                  row = dict(event)
+                  row["actor_ids"] = " ".join(map(str, row["actor_ids"]))
+                  writer.writerow(row)
+
+          meta = {
+              "status": "pilot_screening_only_not_frozen_source_manifest",
+              "source_video_id": os.environ["SOURCE_VIDEO_ID"],
+              "source_key": os.environ["SOURCE_KEY"],
+              "selection_rule": (
+                  "single no-model feasibility pilot selected from the successful "
+                  "candidate inventory using high pickup-count per downloaded byte; "
+                  "not a train/eval assignment"
+              ),
+              "inventory_pickup_count": 129,
+              "detector_or_tracker_run": False,
+              "r1_e3_score_computed": False,
+              "split_assigned": False,
+          }
+          (root / "pilot_metadata.json").write_text(
+              json.dumps(meta, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          print(json.dumps(meta, indent=2, sort_keys=True))
+          print(f"parsed pickup events: {len(events)}")
+          PY
+
+      - name: Build low-rate visual review proxy
+        run: |
+          root="$RUNNER_TEMP/r1-e3a-pilot"
+          ffmpeg \
+            -hide_banner \
+            -loglevel error \
+            -y \
+            -i "$root/source.avi" \
+            -an \
+            -vf "fps=5,scale=-2:720" \
+            -c:v libx264 \
+            -preset veryfast \
+            -crf 28 \
+            -movflags +faststart \
+            "$root/review-5fps-720p.mp4"
+
+          rm "$root/source.avi"
+          sha256sum \
+            "$root/review-5fps-720p.mp4" \
+            "$root/pickup_events.json" \
+            "$root/pickup_events.csv" \
+            "$root/ffprobe.json" \
+            "$root/pilot_metadata.json" \
+            > "$root/pilot_artifact.sha256"
+
+      - name: Upload no-model pilot review artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: r1-e3a-meva-pilot-review
+          path: ${{ runner.temp }}/r1-e3a-pilot/
+          if-no-files-found: error
+          retention-days: 14
