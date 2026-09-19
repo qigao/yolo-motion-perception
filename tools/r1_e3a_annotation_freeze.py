@@ -78,9 +78,26 @@ def _manifest_videos(manifest: dict[str, Any]) -> dict[str, dict[str, Any]]:
 def validate_review(
     review: dict[str, Any],
     manifest: dict[str, Any],
+    *,
+    source_manifest_sha256: str,
+    handbook_sha256: str,
+    sampling_protocol_sha256: str,
 ) -> dict[str, Any]:
     if review.get("schema") != SCHEMA:
         raise ValueError(f"expected review schema {SCHEMA}")
+    if review.get("status") != "reviewed":
+        raise ValueError("review status must be reviewed before freeze")
+
+    bindings = {
+        "source_manifest_sha256": source_manifest_sha256,
+        "handbook_sha256": handbook_sha256,
+        "sampling_protocol_sha256": sampling_protocol_sha256,
+    }
+    for field, expected in bindings.items():
+        if review.get(field) != expected:
+            raise ValueError(
+                f"{field} mismatch: expected {expected}, got {review.get(field)}"
+            )
 
     science_head = manifest.get("science_head_sha")
     if review.get("science_head_sha") != science_head:
@@ -288,16 +305,29 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--review", type=Path, required=True)
     parser.add_argument("--manifest", type=Path, required=True)
+    parser.add_argument("--handbook", type=Path, required=True)
+    parser.add_argument("--sampling-protocol", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--require-registration-minima", action="store_true")
     args = parser.parse_args()
 
     review = json.loads(args.review.read_text(encoding="utf-8"))
     manifest = json.loads(args.manifest.read_text(encoding="utf-8"))
-    summary = validate_review(review, manifest)
+    source_manifest_sha256 = sha256_file(args.manifest)
+    handbook_sha256 = sha256_file(args.handbook)
+    sampling_protocol_sha256 = sha256_file(args.sampling_protocol)
+    summary = validate_review(
+        review,
+        manifest,
+        source_manifest_sha256=source_manifest_sha256,
+        handbook_sha256=handbook_sha256,
+        sampling_protocol_sha256=sampling_protocol_sha256,
+    )
 
     summary["review_sha256"] = sha256_file(args.review)
-    summary["source_manifest_sha256"] = sha256_file(args.manifest)
+    summary["source_manifest_sha256"] = source_manifest_sha256
+    summary["handbook_sha256"] = handbook_sha256
+    summary["sampling_protocol_sha256"] = sampling_protocol_sha256
 
     if args.require_registration_minima and not summary["registration_minima_met"]:
         raise SystemExit("registered semantic count minima are not met")
