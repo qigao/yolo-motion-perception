@@ -208,7 +208,16 @@ def test_pair_set_rejects_digest_that_does_not_match_content() -> None:
 
 def test_pair_set_payload_roundtrip_preserves_digest() -> None:
     _, _, build, from_payload, to_payload, _ = _api()
-    pair_set = build(_training(), _evaluation())
+    training = (
+        _sample("rt0", "train", 1, 0.0, 0.000),
+        _sample("rt1", "train", 2, 0.5, 0.001),
+        _sample("rt2", "train", 3, 1.0, 0.002),
+    )
+    evaluation = (
+        _sample("re0", "eval", 10, 0.0, 0.000),
+        _sample("re1", "eval", 11, 1.5, 0.001),
+    )
+    pair_set = build(training, evaluation)
 
     payload = to_payload(pair_set)
     restored = from_payload(payload)
