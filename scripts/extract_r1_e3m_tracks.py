@@ -58,6 +58,9 @@ def _write_json(path: Path, payload: object) -> None:
 
 
 def _current_head() -> str:
+    exact_head = os.environ.get("R1_E3M_EXACT_HEAD")
+    if exact_head:
+        return exact_head
     github_sha = os.environ.get("GITHUB_SHA")
     if github_sha:
         return github_sha
