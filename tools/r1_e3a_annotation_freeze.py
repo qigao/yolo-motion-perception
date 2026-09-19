@@ -31,6 +31,32 @@ REJECTION_REASONS = {
 }
 TRAIN_MIN_PER_CLASS = 20
 EVAL_MIN_PER_CLASS = 10
+MIN_SOURCE_VIDEOS_PER_SPLIT = 2
+MIN_SOURCE_WINDOW_COMPONENTS_PER_SPLIT = 2
+
+
+
+def registration_minima_are_met(
+    accepted_counts: dict[str, dict[str, int]],
+    *,
+    accepted_source_video_counts: dict[str, int],
+    accepted_component_counts: dict[str, int],
+) -> bool:
+    class_minima_met = all(
+        accepted_counts["train"][label] >= TRAIN_MIN_PER_CLASS
+        and accepted_counts["eval"][label] >= EVAL_MIN_PER_CLASS
+        for label in LABELS
+    )
+    source_video_minima_met = all(
+        accepted_source_video_counts[split] >= MIN_SOURCE_VIDEOS_PER_SPLIT
+        for split in ("train", "eval")
+    )
+    component_minima_met = all(
+        accepted_component_counts[split]
+        >= MIN_SOURCE_WINDOW_COMPONENTS_PER_SPLIT
+        for split in ("train", "eval")
+    )
+    return class_minima_met and source_video_minima_met and component_minima_met
 
 
 def sha256_file(path: Path) -> str:
@@ -280,10 +306,18 @@ def validate_review(
         split: {label: int(accepted[split][label]) for label in LABELS}
         for split in ("train", "eval")
     }
-    minima_met = all(
-        accepted["train"][label] >= TRAIN_MIN_PER_CLASS
-        and accepted["eval"][label] >= EVAL_MIN_PER_CLASS
-        for label in LABELS
+    accepted_source_video_counts = {
+        split: len(accepted_videos[split])
+        for split in ("train", "eval")
+    }
+    accepted_component_counts = {
+        split: len(accepted_components[split])
+        for split in ("train", "eval")
+    }
+    minima_met = registration_minima_are_met(
+        accepted_summary,
+        accepted_source_video_counts=accepted_source_video_counts,
+        accepted_component_counts=accepted_component_counts,
     )
 
     return {
@@ -302,17 +336,14 @@ def validate_review(
             reason: int(rejected[reason])
             for reason in sorted(rejected)
         },
-        "distinct_accepted_source_videos": {
-            split: len(accepted_videos[split])
-            for split in ("train", "eval")
-        },
-        "distinct_accepted_source_window_components": {
-            split: len(accepted_components[split])
-            for split in ("train", "eval")
-        },
+        "distinct_accepted_source_videos": accepted_source_video_counts,
+        "distinct_accepted_source_window_components": accepted_component_counts,
         "registration_minima": {
             "train_per_class": TRAIN_MIN_PER_CLASS,
             "eval_per_class": EVAL_MIN_PER_CLASS,
+            "source_videos_per_split": MIN_SOURCE_VIDEOS_PER_SPLIT,
+            "source_window_components_per_split":
+                MIN_SOURCE_WINDOW_COMPONENTS_PER_SPLIT,
         },
         "registration_minima_met": minima_met,
         "next_batch_required": not minima_met,
