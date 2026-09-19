@@ -170,11 +170,17 @@ def main(argv: Sequence[str] | None = None) -> int:
             dataset.training,
             dataset.evaluation,
         )
+        delay_registration = build_delay_registration(dataset)
+        try:
+            validate_delay_registration_gate(delay_registration)
+        except DelayRegistrationInvalid as exc:
+            raise SystemExit(str(exc)) from exc
         prepared = prepare_prospective(
             args.output,
             scientific_head=args.scientific_head,
             artifact_root_digest=dataset.artifact_root_digest,
             history_pair_set=pair_set,
+            delay_registration=delay_registration,
         )
         _print(prepared)
         return 0
