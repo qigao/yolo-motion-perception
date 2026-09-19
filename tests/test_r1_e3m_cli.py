@@ -83,6 +83,7 @@ def _prepare_root(
         "build_history_pairs",
         lambda training, evaluation: _pair_set(),
     )
+    monkeypatch.setattr(cli, "_current_head", lambda: _HEAD)
     root = tmp_path / "prospective"
     assert (
         cli.main(
@@ -434,5 +435,36 @@ def test_measure_rejects_history_pair_mismatch_before_measurement(
                 str(root),
                 "--manifest-sha256",
                 manifest_sha,
+            ]
+        )
+
+
+def test_prepare_rejects_declared_scientific_head_mismatch(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cli = _cli()
+    monkeypatch.setattr(
+        cli,
+        "load_mechanism_dataset",
+        lambda root: _dataset(),
+    )
+    monkeypatch.setattr(
+        cli,
+        "build_history_pairs",
+        lambda training, evaluation: _pair_set(),
+    )
+    monkeypatch.setattr(cli, "_current_head", lambda: _HEAD)
+
+    with pytest.raises(SystemExit, match="scientific head"):
+        cli.main(
+            [
+                "prepare",
+                "--artifact-root",
+                str(tmp_path / "artifact"),
+                "--output",
+                str(tmp_path / "prospective"),
+                "--scientific-head",
+                "0" * 40,
             ]
         )
