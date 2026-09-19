@@ -73,6 +73,21 @@ jobs:
           python scripts/benchmark_r1_e2_reservoir.py verify
           --root docs/experiments/r1-e2-reservoir-representation
 
+      - name: R1 E3 focused tests
+        run: >-
+          pytest -q
+          tests/test_r1_e3_artifact.py
+          tests/test_r1_e3_normalize.py
+          tests/test_r1_e3_artifact_evidence.py
+          tests/test_r1_e3_artifact_cli.py
+          tests/test_r1_e3_extraction_contract.py
+          tests/test_r1_e3_dataset.py
+          tests/test_r1_e3_readout.py
+          tests/test_r1_e3_benchmark.py
+          tests/test_r1_e3_protocol.py
+          tests/test_r1_e3_evidence.py
+          tests/test_r1_e3_cli.py
+
       - name: Deterministic benchmark
         run: python scripts/benchmark.py
 
