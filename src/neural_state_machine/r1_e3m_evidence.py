@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import platform
+from dataclasses import asdict, is_dataclass
 from pathlib import Path
+from statistics import median
 from typing import Mapping
 
 import numpy as np
@@ -14,6 +17,7 @@ from neural_state_machine.r1_e3m_benchmark import (
     LONG_DELAYS,
     REGISTERED_ARCHITECTURES,
     REGISTERED_SEEDS,
+    classify_memory_outcome,
 )
 from neural_state_machine.r1_e3m_probe import DELAYS, RIDGE_REGULARIZATION
 
@@ -25,7 +29,7 @@ class EvidenceInvalid(RuntimeError):
 def canonical_json_bytes(payload: object) -> bytes:
     return (
         json.dumps(
-            payload,
+            _jsonable(payload),
             sort_keys=True,
             separators=(",", ":"),
             ensure_ascii=False,
@@ -100,14 +104,13 @@ def prepare_prospective(
         )
     root_path.mkdir(parents=True, exist_ok=True)
 
-    protocol = registered_manifest_payload(artifact_digest)
     manifest = {
         "schema": "r1-e3m-manifest-v1",
         "scientific_head": head,
         "artifact_root_digest": artifact_digest,
         "python": platform.python_version(),
         "numpy": np.__version__,
-        "protocol": protocol,
+        "protocol": registered_manifest_payload(artifact_digest),
     }
     manifest_sha = _write_pair(
         root_path,
@@ -135,12 +138,280 @@ def prepare_prospective(
     }
 
 
+def write_measurement(
+    root: Path | str,
+    *,
+    manifest_sha256: str,
+    scientific_head: str,
+    artifact_root_digest: object,
+    raw_result: object,
+) -> dict[str, object]:
+    root_path = Path(root)
+    head = _validated_head(scientific_head)
+    artifact_digest = _validated_digest(
+        artifact_root_digest,
+        "artifact_root_digest",
+    )
+    sealed = _load_prospective(root_path)
+
+    if manifest_sha256 != sealed["manifest_sha256"]:
+        raise EvidenceInvalid(
+            "manifest sha256 does not match sealed manifest"
+        )
+    if head != sealed["scientific_head"]:
+        raise EvidenceInvalid(
+            "scientific head does not match sealed manifest"
+        )
+    if artifact_digest != sealed["artifact_root_digest"]:
+        raise EvidenceInvalid(
+            "artifact root digest does not match sealed manifest"
+        )
+    _require_runtime_match(
+        sealed["manifest"],
+        python_version=platform.python_version(),
+        numpy_version=np.__version__,
+    )
+
+    for name in (
+        "result.json",
+        "result.sha256",
+        "provenance.json",
+        "provenance.sha256",
+        "trace-index.json",
+        "trace-index.sha256",
+    ):
+        if (root_path / name).exists():
+            raise FileExistsError(
+                "registered measurement evidence is write-once"
+            )
+
+    measurement = _jsonable(raw_result)
+    validation = _validate_registered_measurement(
+        measurement,
+        expected_artifact_digest=artifact_digest,
+    )
+
+    result_payload = {
+        "schema": "r1-e3m-result-v1",
+        "manifest_sha256": sealed["manifest_sha256"],
+        "artifact_root_digest": artifact_digest,
+        "measurement": measurement,
+    }
+    result_sha = _write_pair(
+        root_path,
+        "result.json",
+        result_payload,
+    )
+    provenance = {
+        "schema": "r1-e3m-provenance-v1",
+        "scientific_head": head,
+        "artifact_root_digest": artifact_digest,
+        "manifest_sha256": sealed["manifest_sha256"],
+        "result_sha256": result_sha,
+        "python": platform.python_version(),
+        "numpy": np.__version__,
+        "registered_measurement": True,
+        "registered_arm_count": validation["registered_arm_count"],
+        "outcome": validation["outcome"],
+    }
+    provenance_sha = _write_pair(
+        root_path,
+        "provenance.json",
+        provenance,
+    )
+    trace = {
+        "schema": "r1-e3m-trace-index-v1",
+        "manifest_sha256": sealed["manifest_sha256"],
+        "result_sha256": result_sha,
+        "provenance_sha256": provenance_sha,
+        "artifact_root_digest": artifact_digest,
+    }
+    trace_sha = _write_pair(
+        root_path,
+        "trace-index.json",
+        trace,
+    )
+    return {
+        "manifest_sha256": sealed["manifest_sha256"],
+        "result_sha256": result_sha,
+        "provenance_sha256": provenance_sha,
+        "trace_index_sha256": trace_sha,
+        "registered_arm_count": validation["registered_arm_count"],
+        "outcome": validation["outcome"],
+    }
+
+
 def verify_evidence(
     root: Path | str,
     *,
     no_result_ok: bool = False,
 ) -> dict[str, object]:
     root_path = Path(root)
+    sealed = _load_prospective(root_path)
+
+    if not (root_path / "result.json").exists():
+        if no_result_ok:
+            return {
+                "valid": True,
+                "prospective_only": True,
+                "scientific_head": sealed["scientific_head"],
+                "artifact_root_digest": sealed[
+                    "artifact_root_digest"
+                ],
+                "manifest_sha256": sealed["manifest_sha256"],
+                "registered_arm_count": ARM_COUNT,
+                "delays": list(DELAYS),
+            }
+        raise EvidenceInvalid(
+            "registered result is missing"
+        )
+
+    result = _mapping(
+        _read_verified(root_path, "result.json"),
+        "result",
+    )
+    provenance = _mapping(
+        _read_verified(root_path, "provenance.json"),
+        "provenance",
+    )
+    trace = _mapping(
+        _read_verified(root_path, "trace-index.json"),
+        "trace index",
+    )
+
+    if result.get("schema") != "r1-e3m-result-v1":
+        raise EvidenceInvalid("result schema mismatch")
+    if (
+        result.get("manifest_sha256")
+        != sealed["manifest_sha256"]
+    ):
+        raise EvidenceInvalid(
+            "result manifest sha256 mismatch"
+        )
+    if (
+        result.get("artifact_root_digest")
+        != sealed["artifact_root_digest"]
+    ):
+        raise EvidenceInvalid(
+            "result artifact root digest mismatch"
+        )
+
+    result_sha = _read_digest(
+        root_path,
+        "result.sha256",
+    )
+    provenance_sha = _read_digest(
+        root_path,
+        "provenance.sha256",
+    )
+
+    if provenance.get("schema") != "r1-e3m-provenance-v1":
+        raise EvidenceInvalid("provenance schema mismatch")
+    if (
+        provenance.get("scientific_head")
+        != sealed["scientific_head"]
+    ):
+        raise EvidenceInvalid(
+            "provenance scientific head mismatch"
+        )
+    if (
+        provenance.get("artifact_root_digest")
+        != sealed["artifact_root_digest"]
+    ):
+        raise EvidenceInvalid(
+            "provenance artifact root digest mismatch"
+        )
+    if (
+        provenance.get("manifest_sha256")
+        != sealed["manifest_sha256"]
+    ):
+        raise EvidenceInvalid(
+            "provenance manifest sha256 mismatch"
+        )
+    if provenance.get("result_sha256") != result_sha:
+        raise EvidenceInvalid(
+            "provenance result sha256 mismatch"
+        )
+    if provenance.get("registered_measurement") is not True:
+        raise EvidenceInvalid(
+            "provenance measurement flag mismatch"
+        )
+    _require_runtime_match(
+        sealed["manifest"],
+        python_version=provenance.get("python"),
+        numpy_version=provenance.get("numpy"),
+    )
+
+    if trace.get("schema") != "r1-e3m-trace-index-v1":
+        raise EvidenceInvalid("trace schema mismatch")
+    if (
+        trace.get("manifest_sha256")
+        != sealed["manifest_sha256"]
+    ):
+        raise EvidenceInvalid(
+            "trace manifest sha256 mismatch"
+        )
+    if trace.get("result_sha256") != result_sha:
+        raise EvidenceInvalid(
+            "trace result sha256 mismatch"
+        )
+    if trace.get("provenance_sha256") != provenance_sha:
+        raise EvidenceInvalid(
+            "trace provenance sha256 mismatch"
+        )
+    if (
+        trace.get("artifact_root_digest")
+        != sealed["artifact_root_digest"]
+    ):
+        raise EvidenceInvalid(
+            "trace artifact root digest mismatch"
+        )
+
+    validation = _validate_registered_measurement(
+        result.get("measurement"),
+        expected_artifact_digest=sealed[
+            "artifact_root_digest"
+        ],
+    )
+    if (
+        provenance.get("registered_arm_count")
+        != validation["registered_arm_count"]
+    ):
+        raise EvidenceInvalid(
+            "provenance registered arm count mismatch"
+        )
+    if provenance.get("outcome") != validation["outcome"]:
+        raise EvidenceInvalid(
+            "provenance outcome mismatch"
+        )
+
+    return {
+        "valid": True,
+        "prospective_only": False,
+        "scientific_head": sealed["scientific_head"],
+        "artifact_root_digest": sealed[
+            "artifact_root_digest"
+        ],
+        "manifest_sha256": sealed["manifest_sha256"],
+        "registered_arm_count": validation[
+            "registered_arm_count"
+        ],
+        "outcome": validation["outcome"],
+        "median_long_delay_delta": validation[
+            "median_long_delay_delta"
+        ],
+        "positive_arm_count": validation[
+            "positive_arm_count"
+        ],
+        "median_h1_long_delay_drop": validation[
+            "median_h1_long_delay_drop"
+        ],
+    }
+
+
+def _load_prospective(
+    root_path: Path,
+) -> dict[str, object]:
     manifest = _mapping(
         _read_verified(root_path, "manifest.json"),
         "manifest",
@@ -159,7 +430,9 @@ def verify_evidence(
 
     if manifest.get("schema") != "r1-e3m-manifest-v1":
         raise EvidenceInvalid("manifest schema mismatch")
-    head = _validated_head(manifest.get("scientific_head"))
+    head = _validated_head(
+        manifest.get("scientific_head")
+    )
     artifact_digest = _validated_digest(
         manifest.get("artifact_root_digest"),
         "artifact_root_digest",
@@ -203,25 +476,317 @@ def verify_evidence(
         python_version=prospective.get("python"),
         numpy_version=prospective.get("numpy"),
     )
+    return {
+        "manifest": manifest,
+        "prospective": prospective,
+        "scientific_head": head,
+        "artifact_root_digest": artifact_digest,
+        "manifest_sha256": manifest_sha,
+    }
 
-    if not (root_path / "result.json").exists():
-        if no_result_ok:
-            return {
-                "valid": True,
-                "prospective_only": True,
-                "scientific_head": head,
-                "artifact_root_digest": artifact_digest,
-                "manifest_sha256": manifest_sha,
-                "registered_arm_count": ARM_COUNT,
-                "delays": list(DELAYS),
-            }
+
+def _validate_registered_measurement(
+    value: object,
+    *,
+    expected_artifact_digest: str,
+) -> dict[str, object]:
+    measurement = _mapping(
+        value,
+        "registered measurement",
+    )
+    if measurement.get("registered_measurement") is not True:
         raise EvidenceInvalid(
-            "registered result is missing"
+            "registered measurement flag is missing"
+        )
+    if (
+        measurement.get("manifest")
+        != registered_manifest_payload(
+            expected_artifact_digest
+        )
+    ):
+        raise EvidenceInvalid(
+            "registered measurement manifest mismatch"
         )
 
-    raise EvidenceInvalid(
-        "registered result verification is not implemented yet"
+    arms = measurement.get("arms")
+    if not isinstance(arms, list) or len(arms) != ARM_COUNT:
+        raise EvidenceInvalid(
+            "registered arm count mismatch"
+        )
+    expected_keys = {
+        (seed, int(architecture))
+        for seed in REGISTERED_SEEDS
+        for architecture in REGISTERED_ARCHITECTURES
+    }
+    seen: set[tuple[int, int]] = set()
+    long_deltas: list[float] = []
+    h1_long_drops: list[float] = []
+
+    for arm in arms:
+        arm_map = _mapping(arm, "registered arm")
+        seed = arm_map.get("seed")
+        architecture = arm_map.get("architecture")
+        if type(seed) is not int or type(architecture) is not int:
+            raise EvidenceInvalid(
+                "registered arm identity must be integer"
+            )
+        key = (seed, architecture)
+        if key not in expected_keys or key in seen:
+            raise EvidenceInvalid(
+                "registered arm identity is duplicated or unregistered"
+            )
+        seen.add(key)
+
+        if (
+            arm_map.get("artifact_root_digest")
+            != expected_artifact_digest
+        ):
+            raise EvidenceInvalid(
+                "registered arm artifact root digest mismatch"
+            )
+        _validated_digest(
+            arm_map.get("reservoir_parameter_digest"),
+            "reservoir_parameter_digest",
+        )
+
+        delay_rows = arm_map.get("delays")
+        if (
+            not isinstance(delay_rows, list)
+            or len(delay_rows) != len(DELAYS)
+        ):
+            raise EvidenceInvalid(
+                "registered arm delays mismatch"
+            )
+
+        by_delay: dict[int, dict[str, float]] = {}
+        for expected_delay, delay_value in zip(
+            DELAYS,
+            delay_rows,
+            strict=True,
+        ):
+            delay_map = _mapping(
+                delay_value,
+                "delay result",
+            )
+            if delay_map.get("delay") != expected_delay:
+                raise EvidenceInvalid(
+                    "registered delay order/identity mismatch"
+                )
+
+            instantaneous = _validate_probe_result(
+                delay_map.get("instantaneous"),
+                "instantaneous",
+            )
+            reservoir = _validate_probe_result(
+                delay_map.get("reservoir"),
+                "reservoir",
+            )
+            reset = _validate_probe_result(
+                delay_map.get("reset_control"),
+                "reset_control",
+            )
+            permuted = _validate_probe_result(
+                delay_map.get("permuted_control"),
+                "permuted_control",
+            )
+            sample_counts = {
+                instantaneous["sample_count"],
+                reservoir["sample_count"],
+                reset["sample_count"],
+                permuted["sample_count"],
+            }
+            if len(sample_counts) != 1:
+                raise EvidenceInvalid(
+                    "delay result sample-count mismatch"
+                )
+            if (
+                reset["coefficient_digest"]
+                != reservoir["coefficient_digest"]
+                or permuted["coefficient_digest"]
+                != reservoir["coefficient_digest"]
+            ):
+                raise EvidenceInvalid(
+                    "control refit detected"
+                )
+
+            delta = (
+                reservoir["mean_r2"]
+                - instantaneous["mean_r2"]
+            )
+            h1_drop = (
+                reservoir["mean_r2"]
+                - reset["mean_r2"]
+            )
+            h2_drop = (
+                reservoir["mean_r2"]
+                - permuted["mean_r2"]
+            )
+            _require_close(
+                delay_map.get("delta_r2"),
+                delta,
+                "delta_r2",
+            )
+            _require_close(
+                delay_map.get("h1_drop_r2"),
+                h1_drop,
+                "h1_drop_r2",
+            )
+            _require_close(
+                delay_map.get("h2_drop_r2"),
+                h2_drop,
+                "h2_drop_r2",
+            )
+            by_delay[expected_delay] = {
+                "delta": delta,
+                "h1": h1_drop,
+                "h2": h2_drop,
+            }
+
+        expected_long_delta = _mean(
+            by_delay[delay]["delta"]
+            for delay in LONG_DELAYS
+        )
+        expected_h1_long = _mean(
+            by_delay[delay]["h1"]
+            for delay in LONG_DELAYS
+        )
+        expected_h2_long = _mean(
+            by_delay[delay]["h2"]
+            for delay in LONG_DELAYS
+        )
+        _require_close(
+            arm_map.get("long_delay_delta"),
+            expected_long_delta,
+            "long_delay_delta",
+        )
+        _require_close(
+            arm_map.get("h1_long_delay_drop"),
+            expected_h1_long,
+            "h1_long_delay_drop",
+        )
+        _require_close(
+            arm_map.get("h2_long_delay_drop"),
+            expected_h2_long,
+            "h2_long_delay_drop",
+        )
+        long_deltas.append(expected_long_delta)
+        h1_long_drops.append(expected_h1_long)
+
+    if seen != expected_keys:
+        raise EvidenceInvalid(
+            "registered arm set does not match registration"
+        )
+
+    expected_median_delta = float(median(long_deltas))
+    expected_positive_count = sum(
+        value > 0.0 for value in long_deltas
     )
+    expected_median_h1 = float(median(h1_long_drops))
+    expected_outcome = classify_memory_outcome(
+        long_deltas,
+        h1_long_drops,
+    )
+
+    _require_close(
+        measurement.get("median_long_delay_delta"),
+        expected_median_delta,
+        "median_long_delay_delta",
+    )
+    if (
+        measurement.get("positive_arm_count")
+        != expected_positive_count
+    ):
+        raise EvidenceInvalid(
+            "positive_arm_count mismatch"
+        )
+    _require_close(
+        measurement.get("median_h1_long_delay_drop"),
+        expected_median_h1,
+        "median_h1_long_delay_drop",
+    )
+    if measurement.get("outcome") != expected_outcome:
+        raise EvidenceInvalid(
+            "registered outcome mismatch"
+        )
+
+    return {
+        "registered_arm_count": len(arms),
+        "median_long_delay_delta": expected_median_delta,
+        "positive_arm_count": expected_positive_count,
+        "median_h1_long_delay_drop": expected_median_h1,
+        "outcome": expected_outcome,
+    }
+
+
+def _validate_probe_result(
+    value: object,
+    name: str,
+) -> dict[str, object]:
+    probe = _mapping(value, name)
+    coefficient_digest = _validated_digest(
+        probe.get("coefficient_digest"),
+        f"{name} coefficient_digest",
+    )
+    prediction_digest = _validated_digest(
+        probe.get("prediction_digest"),
+        f"{name} prediction_digest",
+    )
+    metrics = _mapping(
+        probe.get("metrics"),
+        f"{name} metrics",
+    )
+    sample_count = metrics.get("sample_count")
+    if type(sample_count) is not int or sample_count <= 0:
+        raise EvidenceInvalid(
+            f"{name} sample_count must be positive"
+        )
+    mean_r2 = _finite_float(
+        metrics.get("mean_r2"),
+        f"{name} mean_r2",
+    )
+    mse = _finite_float(
+        metrics.get("mse"),
+        f"{name} mse",
+    )
+    if mse < 0.0:
+        raise EvidenceInvalid(
+            f"{name} mse must be non-negative"
+        )
+    per_channel = metrics.get("r2_per_channel")
+    if not isinstance(per_channel, list) or len(per_channel) != 4:
+        raise EvidenceInvalid(
+            f"{name} r2_per_channel must contain four values"
+        )
+    for index, metric in enumerate(per_channel):
+        _finite_float(
+            metric,
+            f"{name} r2_per_channel[{index}]",
+        )
+    return {
+        "coefficient_digest": coefficient_digest,
+        "prediction_digest": prediction_digest,
+        "sample_count": sample_count,
+        "mean_r2": mean_r2,
+    }
+
+
+def _jsonable(value: object) -> object:
+    if is_dataclass(value):
+        return _jsonable(asdict(value))
+    if isinstance(value, Mapping):
+        return {
+            str(key): _jsonable(item)
+            for key, item in value.items()
+        }
+    if isinstance(value, (tuple, list)):
+        return [_jsonable(item) for item in value]
+    if isinstance(value, np.ndarray):
+        return _jsonable(value.tolist())
+    if isinstance(value, np.generic):
+        return value.item()
+    if isinstance(value, Path):
+        return str(value)
+    return value
 
 
 def _write_pair(
@@ -310,6 +875,25 @@ def _validated_digest(
     return value
 
 
+def _finite_float(
+    value: object,
+    name: str,
+) -> float:
+    if isinstance(value, bool) or not isinstance(
+        value,
+        (int, float),
+    ):
+        raise EvidenceInvalid(
+            f"{name} must be finite"
+        )
+    result = float(value)
+    if not math.isfinite(result):
+        raise EvidenceInvalid(
+            f"{name} must be finite"
+        )
+    return result
+
+
 def _mapping(
     value: object,
     name: str,
@@ -334,3 +918,34 @@ def _require_runtime_match(
         raise EvidenceInvalid(
             "runtime does not match sealed manifest"
         )
+
+
+def _require_close(
+    actual: object,
+    expected: float,
+    name: str,
+) -> None:
+    observed = _finite_float(actual, name)
+    if not math.isclose(
+        observed,
+        expected,
+        rel_tol=0.0,
+        abs_tol=1e-12,
+    ):
+        raise EvidenceInvalid(
+            f"{name} mismatch"
+        )
+
+
+def _mean(values: object) -> float:
+    array = np.asarray(
+        tuple(values),
+        dtype=np.float64,
+    )
+    if array.size == 0 or not np.isfinite(array).all():
+        raise EvidenceInvalid(
+            "aggregate values must be finite and non-empty"
+        )
+    return float(
+        np.mean(array, dtype=np.float64)
+    )
