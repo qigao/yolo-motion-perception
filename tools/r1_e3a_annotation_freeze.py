@@ -128,6 +128,7 @@ def validate_review(
             f"extra={extra_reviews}"
         )
 
+    episode_ids: set[str] = set()
     event_ids: set[str] = set()
     appearances: Counter[str] = Counter()
     accepted: dict[str, Counter[str]] = {
@@ -146,6 +147,11 @@ def validate_review(
 
     for index, row in enumerate(review.get("records", []), start=1):
         context = f"record {index}"
+        episode_id = _required_text(row, "episode_id", context=context)
+        if episode_id in episode_ids:
+            raise ValueError(f"duplicate episode_id: {episode_id}")
+        episode_ids.add(episode_id)
+
         event_id = _required_text(
             row,
             "physical_event_id",
@@ -165,6 +171,19 @@ def validate_review(
                 f"{context}: unknown registered_video_id {registered_video_id}"
             )
         registered_video = videos[registered_video_id]
+
+        if row.get("split") != registered_video["split"]:
+            raise ValueError(
+                f"{context}: split mismatch for {registered_video_id}"
+            )
+        if (
+            row.get("source_window_component_id")
+            != registered_video["source_window_component_id"]
+        ):
+            raise ValueError(
+                f"{context}: source-window component mismatch for "
+                f"{registered_video_id}"
+            )
 
         context_video_ids = row.get("context_video_ids", [])
         if not isinstance(context_video_ids, list):
@@ -272,6 +291,7 @@ def validate_review(
         "review_schema": SCHEMA,
         "science_head_sha": science_head,
         "video_count": len(videos),
+        "episode_count": len(episode_ids),
         "physical_event_count": len(event_ids),
         "reviewed_candidate_appearances": {
             video_id: int(appearances[video_id])
