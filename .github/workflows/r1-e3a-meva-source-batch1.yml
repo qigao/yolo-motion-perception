@@ -1,0 +1,291 @@
+name: R1-E3A MEVA source batch 1
+
+on:
+  push:
+    branches:
+      - research/r1-e3a-meva-corpus
+    paths:
+      - .github/workflows/r1-e3a-meva-source-batch1.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: r1-e3a-meva-source-batch1
+  cancel-in-progress: true
+
+jobs:
+  freeze-source-batch1:
+    name: Freeze real MEVA source bytes for annotation
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout acquisition branch
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install acquisition-only dependencies
+        run: python -m pip install --disable-pip-version-check boto3 pyyaml
+
+      - name: Fetch public MEVA activity annotations
+        timeout-minutes: 10
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/meva-annotations.tar.gz"
+          unpack="$RUNNER_TEMP/meva-annotations"
+          archive_url='https://gitlab.kitware.com/api/v4/projects/meva%2Fmeva-data-repo/repository/archive.tar.gz?path=annotation%2FDIVA-phase-2%2FMEVA&include_lfs_blobs=false'
+
+          mkdir -p "$unpack"
+          curl --fail --location --retry 3 --retry-delay 2 --retry-all-errors             "$archive_url" --output "$archive"
+          tar -xzf "$archive" -C "$unpack"
+
+          kpf_root="$(find "$unpack" -type d -path '*/annotation/DIVA-phase-2/MEVA' -print -quit)"
+          test -n "$kpf_root"
+          test -d "$kpf_root"
+          printf 'MEVA_KPF_ROOT=%s\n' "$kpf_root" >> "$GITHUB_ENV"
+
+      - name: Recreate candidate inventory and guarded source-pool plan
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$GITHUB_WORKSPACE/_r1-e3a-source-freeze"
+          mkdir -p "$root"
+
+          python tools/r1_e3a_meva_inventory.py             --kpf-root "$MEVA_KPF_ROOT"             --out-dir "$root"
+
+          inventory="$root/meva_candidate_inventory.json"
+          inventory_sha="$(sha256sum "$inventory" | awk '{print $1}')"
+          python tools/r1_e3a_source_pool.py             --inventory "$inventory"             --output "$root/r1_e3a_source_pool_plan.json"             --inventory-sha256 "$inventory_sha"             --inventory-workflow-run "$GITHUB_RUN_ID"
+
+      - name: Install ffprobe
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg
+
+      - name: Download only preregistered batch-1 source videos
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$GITHUB_WORKSPACE/_r1-e3a-source-freeze"
+          videos="$root/videos"
+          mkdir -p "$videos"
+
+          python - <<'PY' > "$root/batch1.tsv"
+          import json
+          from pathlib import Path
+
+          root = Path("_r1-e3a-source-freeze")
+          plan = json.loads((root / "r1_e3a_source_pool_plan.json").read_text())
+          for component in plan["components"]:
+              if component["activation_batch"] != 1:
+                  continue
+              for view in component["selected_views"]:
+                  print(
+                      component["split"],
+                      component["source_window_component_id"],
+                      view["source_video_id"],
+                      view["s3_key"],
+                      view["expected_byte_size"],
+                      sep="\t",
+                  )
+          PY
+
+          while IFS=$'\t' read -r split component video_id s3_key expected_size; do
+            test -n "$video_id"
+            dest="$videos/$video_id.avi"
+            url="https://mevadata-public-01.s3.amazonaws.com/$s3_key"
+            echo "download $split $component $video_id"
+            curl --fail --location --retry 4 --retry-delay 3 --retry-all-errors               "$url" --output "$dest"
+            actual_size="$(stat -c%s "$dest")"
+            test "$actual_size" = "$expected_size"
+          done < "$root/batch1.tsv"
+
+      - name: Freeze source hashes and ffprobe metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$GITHUB_WORKSPACE/_r1-e3a-source-freeze"
+          export R1_E3A_FREEZE_ROOT="$root"
+          export R1_E3A_ACQUISITION_HEAD="$GITHUB_SHA"
+
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          import subprocess
+          from fractions import Fraction
+          from pathlib import Path
+
+          root = Path(os.environ["R1_E3A_FREEZE_ROOT"])
+          videos = root / "videos"
+          plan_path = root / "r1_e3a_source_pool_plan.json"
+          inventory_path = root / "meva_candidate_inventory.json"
+          handbook_path = Path("docs/r1-e3/acquisition-annotation-handbook.md")
+
+          def sha256(path: Path) -> str:
+              digest = hashlib.sha256()
+              with path.open("rb") as handle:
+                  for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                      digest.update(chunk)
+              return digest.hexdigest()
+
+          plan = json.loads(plan_path.read_text())
+          records = []
+          split_components = {"train": set(), "eval": set()}
+          seen_videos = set()
+
+          for component in plan["components"]:
+              if component["activation_batch"] != 1:
+                  continue
+              split = component["split"]
+              component_id = component["source_window_component_id"]
+              split_components[split].add(component_id)
+              for view in component["selected_views"]:
+                  video_id = view["source_video_id"]
+                  if video_id in seen_videos:
+                      raise SystemExit(f"duplicate selected video: {video_id}")
+                  seen_videos.add(video_id)
+                  path = videos / f"{video_id}.avi"
+                  if path.stat().st_size != view["expected_byte_size"]:
+                      raise SystemExit(f"byte-size mismatch: {video_id}")
+
+                  probe = subprocess.run(
+                      [
+                          "ffprobe", "-v", "error", "-count_frames",
+                          "-select_streams", "v:0",
+                          "-show_entries",
+                          "stream=width,height,avg_frame_rate,r_frame_rate,nb_read_frames",
+                          "-show_entries", "format=duration",
+                          "-of", "json", str(path),
+                      ],
+                      check=True,
+                      capture_output=True,
+                      text=True,
+                  )
+                  meta = json.loads(probe.stdout)
+                  stream = meta["streams"][0]
+                  fps_text = stream.get("avg_frame_rate") or stream["r_frame_rate"]
+                  fps = float(Fraction(fps_text))
+                  frame_count = int(stream["nb_read_frames"])
+
+                  records.append(
+                      {
+                          "source_video_id": video_id,
+                          "split": split,
+                          "source_window_component_id": component_id,
+                          "anchor_capture_group_id": component["anchor_capture_group_id"],
+                          "camera": view["camera"],
+                          "s3_key": view["s3_key"],
+                          "sha256": sha256(path),
+                          "byte_size": path.stat().st_size,
+                          "width": int(stream["width"]),
+                          "height": int(stream["height"]),
+                          "fps": fps,
+                          "fps_rational": fps_text,
+                          "frame_count": frame_count,
+                          "duration_seconds": float(meta["format"]["duration"]),
+                          "role": "semantic_annotation_source_or_context",
+                      }
+                  )
+
+          overlap = split_components["train"] & split_components["eval"]
+          if overlap:
+              raise SystemExit(f"source-window component split overlap: {sorted(overlap)}")
+          if len(split_components["train"]) < 2 or len(split_components["eval"]) < 2:
+              raise SystemExit("batch 1 must contain at least two guarded components per split")
+
+          manifest = {
+              "schema": "r1-e3a-source-video-manifest-v1",
+              "status": "batch1_source_bytes_frozen_pre_annotation",
+              "acquisition_head_sha": os.environ["R1_E3A_ACQUISITION_HEAD"],
+              "science_head_sha": "90cf4b55398935786de1c5e24c80c1a7597ac43b",
+              "inventory_sha256": sha256(inventory_path),
+              "source_pool_plan_sha256": sha256(plan_path),
+              "handbook_sha256": sha256(handbook_path),
+              "constraints": {
+                  "activation_batch": 1,
+                  "no_detector_or_tracker_run": True,
+                  "no_r1_e3_score_computed": True,
+                  "semantic_annotations_pending": True,
+                  "registered_measurement_forbidden": True,
+              },
+              "summary": {
+                  "train_videos": sum(record["split"] == "train" for record in records),
+                  "eval_videos": sum(record["split"] == "eval" for record in records),
+                  "train_source_window_components": len(split_components["train"]),
+                  "eval_source_window_components": len(split_components["eval"]),
+                  "total_bytes": sum(record["byte_size"] for record in records),
+              },
+              "videos": sorted(records, key=lambda row: row["source_video_id"]),
+          }
+
+          manifest_path = root / "r1_e3a_source_video_manifest.json"
+          manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+          (root / "source_freeze.sha256").write_text(
+              f"{sha256(inventory_path)}  {inventory_path.name}\n"
+              f"{sha256(plan_path)}  {plan_path.name}\n"
+              f"{sha256(handbook_path)}  {handbook_path}\n"
+              f"{sha256(manifest_path)}  {manifest_path.name}\n"
+          )
+          print(json.dumps(manifest["summary"], indent=2, sort_keys=True))
+          print((root / "source_freeze.sha256").read_text(), end="")
+          PY
+
+      - name: Upload freeze metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: r1-e3a-meva-source-batch1-metadata
+          path: |
+            _r1-e3a-source-freeze/meva_candidate_inventory.json
+            _r1-e3a-source-freeze/inventory_files.sha256
+            _r1-e3a-source-freeze/r1_e3a_source_pool_plan.json
+            _r1-e3a-source-freeze/r1_e3a_source_pool_plan.json.sha256
+            _r1-e3a-source-freeze/batch1.tsv
+            _r1-e3a-source-freeze/r1_e3a_source_video_manifest.json
+            _r1-e3a-source-freeze/source_freeze.sha256
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload real source videos
+        uses: actions/upload-artifact@v4
+        with:
+          name: r1-e3a-meva-source-batch1-videos
+          path: |
+            _r1-e3a-source-freeze/videos/
+            _r1-e3a-source-freeze/r1_e3a_source_video_manifest.json
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+
+      - name: Report successful source freeze to issue 11
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$GITHUB_WORKSPACE/_r1-e3a-source-freeze"
+          manifest_sha="$(sha256sum "$root/r1_e3a_source_video_manifest.json" | awk '{print $1}')"
+          plan_sha="$(sha256sum "$root/r1_e3a_source_pool_plan.json" | awk '{print $1}')"
+          handbook_sha="$(sha256sum docs/r1-e3/acquisition-annotation-handbook.md | awk '{print $1}')"
+          {
+            echo "R1-E3A source batch 1 freeze succeeded."
+            echo
+            echo "- workflow run: $GITHUB_RUN_ID"
+            echo "- acquisition head: $GITHUB_SHA"
+            echo "- science head remains: 90cf4b55398935786de1c5e24c80c1a7597ac43b"
+            echo "- source manifest SHA-256: $manifest_sha"
+            echo "- source-pool plan SHA-256: $plan_sha"
+            echo "- frozen handbook SHA-256: $handbook_sha"
+            echo "- artifacts: r1-e3a-meva-source-batch1-metadata and r1-e3a-meva-source-batch1-videos"
+            echo
+            echo "No YOLO/BoT-SORT extraction, R1-E3 score, prospective sealing, or registered measurement ran in this workflow."
+          } > "$root/issue11-status.md"
+          gh issue comment 11 --repo qigao/yolo-motion-perception --body-file "$root/issue11-status.md"
