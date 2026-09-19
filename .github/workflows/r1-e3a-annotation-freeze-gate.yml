@@ -48,7 +48,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh issue comment 11 --repo qigao/yolo-motion-perception \
-            --body "R1-E3A annotation freeze tooling gate passed at head `$GITHUB_SHA` in workflow run `$GITHUB_RUN_ID`. This validates only the post-human-review fail-closed tooling; no semantic labels, YOLO/BoT-SORT, prospective sealing, or registered measurement were produced."
+            --body "R1-E3A annotation freeze tooling gate passed at head $GITHUB_SHA in workflow run $GITHUB_RUN_ID. This validates only the post-human-review fail-closed tooling; no semantic labels, YOLO/BoT-SORT, prospective sealing, or registered measurement were produced."
 
       - name: Report failure to issue 11
         if: ${{ failure() }}
@@ -56,4 +56,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh issue comment 11 --repo qigao/yolo-motion-perception \
-            --body "R1-E3A annotation freeze tooling gate failed at head `$GITHUB_SHA` in workflow run `$GITHUB_RUN_ID`. Human semantic annotation remains unfreezable until this tooling failure is resolved."
+            --body "R1-E3A annotation freeze tooling gate failed at head $GITHUB_SHA in workflow run $GITHUB_RUN_ID. Human semantic annotation remains unfreezable until this tooling failure is resolved."
