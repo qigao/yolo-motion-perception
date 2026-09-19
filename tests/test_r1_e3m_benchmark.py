@@ -200,3 +200,49 @@ def test_registered_benchmark_rejects_pair_set_from_other_inputs() -> None:
 
     with pytest.raises(ValueError, match="history pair set"):
         run_registered_memory_benchmark(dataset, wrong)
+
+
+def test_all_delay_arms_share_same_target_presence_mask() -> None:
+    _, _, _, evaluate_arm, _ = _api()
+    base = _dataset()
+    first = base.evaluation[0]
+    tensor = first.tensor.copy()
+    tensor.setflags(write=True)
+    target_bin = 19 - 10
+    tensor[target_bin, :5] = 0.0
+    tensor[target_bin, 5] = 0.0
+    changed = MechanismSample(
+        window_id=first.window_id,
+        video_id=first.video_id,
+        split=first.split,
+        track_id=first.track_id,
+        source_start_seconds=first.source_start_seconds,
+        source_end_seconds=first.source_end_seconds,
+        tensor=tensor,
+    )
+    dataset = MechanismDataset(
+        training=base.training,
+        evaluation=(changed, *base.evaluation[1:]),
+        artifact_root_digest=base.artifact_root_digest,
+    )
+    pair_set = build_history_pairs(
+        dataset.training,
+        dataset.evaluation,
+    )
+
+    result = evaluate_arm(
+        E2ReservoirSpec(
+            E2Architecture.FLAT,
+            input_size=6,
+            seed=7,
+        ),
+        dataset,
+        pair_set,
+    )
+    delay10 = next(item for item in result.delays if item.delay == 10)
+
+    expected = len(dataset.evaluation) - 1
+    assert delay10.instantaneous.metrics.sample_count == expected
+    assert delay10.reservoir.metrics.sample_count == expected
+    assert delay10.reset_control.metrics.sample_count == expected
+    assert delay10.permuted_control.metrics.sample_count == expected
