@@ -169,7 +169,11 @@ def _run_scenario(
     frame_number = 0
 
     jsonl_path = output_dir / f"{name}.jsonl"
-    with jsonl_path.open("w", encoding="utf-8") as jsonl:
+    articulated_path = output_dir / f"{name}.articulated.jsonl"
+    with (
+        jsonl_path.open("w", encoding="utf-8") as jsonl,
+        articulated_path.open("w", encoding="utf-8") as articulated_jsonl,
+    ):
         try:
             while True:
                 ok, raw_frame = capture.read()
@@ -249,6 +253,40 @@ def _run_scenario(
                     )
                     if articulated is not None:
                         evidence_frames += 1
+                        articulated_jsonl.write(
+                            json.dumps(
+                                {
+                                    "scenario": name,
+                                    "frame": frame_number,
+                                    "timestamp": timestamp,
+                                    "track_id": articulated.track_id,
+                                    "start_timestamp": articulated.start_timestamp,
+                                    "end_timestamp": articulated.end_timestamp,
+                                    "quality": articulated.quality,
+                                    "pose_flow_agreement":
+                                        articulated.pose_flow_agreement,
+                                    "person_height_px":
+                                        articulated.person_height_px,
+                                    "normalized_torso_dx":
+                                        articulated.normalized_torso_dx,
+                                    "normalized_torso_dy":
+                                        articulated.normalized_torso_dy,
+                                    "region_flow": {
+                                        region_name: {
+                                            "dx": region.dx,
+                                            "dy": region.dy,
+                                            "energy": region.energy,
+                                            "valid_fraction":
+                                                region.valid_fraction,
+                                        }
+                                        for region_name, region
+                                        in articulated.region_flow.items()
+                                    },
+                                },
+                                sort_keys=True,
+                            )
+                            + "\n"
+                        )
                         gait_result = gait_pipeline.update(articulated)
                         if gait_result is not None:
                             payload = {
