@@ -59,6 +59,8 @@ class ProbeResult:
 @dataclass(frozen=True)
 class DelayMemoryResult:
     delay: int
+    training_sample_count: int
+    evaluation_sample_count: int
     instantaneous: ProbeResult
     reservoir: ProbeResult
     reset_control: FixedProbeControlResult
@@ -140,6 +142,10 @@ def evaluate_memory_arm(
 
     delay_results: list[DelayMemoryResult] = []
     for delay in DELAYS:
+        training_mask = delay_valid_mask(
+            training_tensors,
+            delay,
+        )
         evaluation_mask = delay_valid_mask(
             evaluation_tensors,
             delay,
@@ -204,6 +210,8 @@ def evaluate_memory_arm(
         delay_results.append(
             DelayMemoryResult(
                 delay=delay,
+                training_sample_count=int(np.count_nonzero(training_mask)),
+                evaluation_sample_count=int(np.count_nonzero(evaluation_mask)),
                 instantaneous=instantaneous,
                 reservoir=reservoir,
                 reset_control=reset_control,
