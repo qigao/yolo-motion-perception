@@ -1,9 +1,10 @@
 # R1-E3A Real-Video Acquisition and Annotation Handbook
 
-Status: **pre-freeze acquisition draft**
+Status: **frozen acquisition protocol v1**
 
 This handbook is Stage-A protocol material only. It does not authorize R1-E3B
-prospective sealing or any registered R1-E3 measurement.
+prospective sealing or any registered R1-E3 measurement. Any later semantic or
+split-rule change requires a new handbook revision and a new E3A artifact revision.
 
 The verified science head remains external to this acquisition branch. This
 document must be reviewed and frozen before accepted episode annotation begins.
