@@ -288,9 +288,6 @@ def write_measurement(
         "registered_measurement": True,
         "registered_arm_count": validation["registered_arm_count"],
         "history_pair_count": sealed["history_pair_count"],
-        "delay_registration_digest": sealed[
-            "delay_registration_digest"
-        ],
         "outcome": validation["outcome"],
     }
     provenance_sha = _write_pair(
