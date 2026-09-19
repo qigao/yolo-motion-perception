@@ -19,7 +19,8 @@ with no human behavior annotations and no semantic action claim.
 - Window duration is exactly 2.0 seconds.
 - Window tensor shape is exactly `20 x 6`.
 - Presence gate is exactly >=16/20 bins.
-- Interpolation gap limit is exactly 0.5 seconds.
+- Causal observation-age limit is exactly 0.5 seconds.
+- A bin may never use a future detector/tracker observation.
 - Delays are exactly `[1,2,5,10,15]`.
 - Long-delay aggregate uses exactly `[5,10,15]`.
 - Architectures/seeds remain exactly 4 x 5 = 20 arms.
@@ -85,7 +86,9 @@ Prove:
 - windows are anchored to source-video time `[0,2),[2,4),...`;
 - no track ID is bridged;
 - output shape is exactly `20 x 6`;
-- interpolation never crosses a >0.5s bracketing gap;
+- each bin uses only the latest same-track observation at or before the bin;
+- an observation older than 0.5s is rejected for that bin;
+- future observations are never used;
 - missing bins are zero geometry/confidence with presence=0;
 - <16 present bins rejects window;
 - exactly 16 present bins is accepted;
@@ -98,7 +101,7 @@ Prove:
 Provide:
 
 - `build_track_windows(raw_rows, video_manifest)`;
-- deterministic interpolation;
+- deterministic causal resampling;
 - deterministic sort order:
   `video_id, track_id, source_start_seconds`.
 
