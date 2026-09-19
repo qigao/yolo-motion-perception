@@ -130,7 +130,10 @@ def test_candidate_count_includes_context_video_appearances():
         )
     ]
 
-    summary = validate_review(review(records, train_count=1, eval_count=1), manifest())
+    summary = validate_review(
+        review(records, train_count=1, train_b_count=1),
+        manifest(),
+    )
 
     assert summary["reviewed_candidate_appearances"]["train-a"] == 1
     assert summary["reviewed_candidate_appearances"]["train-b"] == 1
