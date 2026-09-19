@@ -1,0 +1,70 @@
+name: R1-E3M code gate
+
+on:
+  push:
+    branches:
+      - research/r1-e3m-unlabeled-real-track-memory
+    paths:
+      - "src/neural_state_machine/r1_e3m_*.py"
+      - "tests/test_r1_e3m_*.py"
+      - "docs/superpowers/specs/2026-09-19-r1-e3m-unlabeled-real-track-memory-design.md"
+      - "docs/superpowers/plans/2026-09-19-r1-e3m-unlabeled-real-track-memory.md"
+      - ".github/workflows/r1-e3m-code-gate.yml"
+  pull_request:
+    paths:
+      - "src/neural_state_machine/r1_e3m_*.py"
+      - "tests/test_r1_e3m_*.py"
+      - "docs/superpowers/specs/2026-09-19-r1-e3m-unlabeled-real-track-memory-design.md"
+      - "docs/superpowers/plans/2026-09-19-r1-e3m-unlabeled-real-track-memory.md"
+      - ".github/workflows/r1-e3m-code-gate.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: r1-e3m-code-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  focused:
+    name: Focused unlabeled memory gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install project and test tools
+        run: python -m pip install --disable-pip-version-check -e ".[dev]"
+
+      - name: Focused R1-E3M tests
+        run: pytest -q tests/test_r1_e3m_*.py
+
+      - name: R1-E3M Ruff
+        run: ruff check src/neural_state_machine/r1_e3m_*.py tests/test_r1_e3m_*.py
+
+      - name: Assert no model/runtime imports in mechanism modules
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -RniE '(^|[[:space:]])(import|from)[[:space:]]+(ultralytics|torch|cv2|rtmlib)' \
+              src/neural_state_machine/r1_e3m_*.py; then
+            echo "R1-E3M mechanism modules must remain NumPy-only."
+            exit 1
+          fi
+
+      - name: Assert no semantic review dependency
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -RniE 'semantic-review|semantic_annotation|batch1-semantic-review|review_status' \
+              src/neural_state_machine/r1_e3m_*.py; then
+            echo "R1-E3M mechanism modules must not consume semantic review artifacts."
+            exit 1
+          fi
