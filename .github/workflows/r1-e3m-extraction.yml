@@ -2,9 +2,7 @@ name: R1-E3M sealed real-track extraction
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - research/r1-e3m-real-track-memory
+  pull_request:
     paths:
       - .github/workflows/r1-e3m-extraction.yml
       - scripts/extract_r1_e3m_tracks.py
@@ -14,6 +12,9 @@ on:
       - src/neural_state_machine/r1_e3m_artifact.py
       - src/neural_state_machine/r1_e3m_artifact_evidence.py
       - configs/r1_e3m_botsort.yaml
+
+env:
+  R1_E3M_EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
 
 permissions:
   contents: read
@@ -32,6 +33,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.R1_E3M_EXACT_HEAD }}
 
       - uses: actions/setup-python@v5
         with:
@@ -77,6 +80,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.R1_E3M_EXACT_HEAD }}
 
       - uses: actions/setup-python@v5
         with:
@@ -184,7 +189,7 @@ jobs:
           evidence = {
               "schema": "r1-e3m-accepted-extraction-v1",
               "workflow_run": os.environ["GITHUB_RUN_ID"],
-              "exact_head": os.environ["GITHUB_SHA"],
+              "exact_head": os.environ["R1_E3M_EXACT_HEAD"],
               "source_manifest_sha256": summary["source_manifest_sha256"],
               "raw_tracks_sha256": summary["raw_tracks_sha256"],
               "extraction_provenance_sha256":
@@ -271,4 +276,4 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh issue comment 15 --repo qigao/yolo-motion-perception             --body "R1-E3M Task 11 sealed extraction failed at head $GITHUB_SHA in workflow run $GITHUB_RUN_ID. No accepted real-track/window artifact, prospective seal, or registered mechanism measurement is authorized from this run."
+          gh issue comment 15 --repo qigao/yolo-motion-perception             --body "R1-E3M Task 11 sealed extraction failed at head $R1_E3M_EXACT_HEAD in workflow run $GITHUB_RUN_ID. No accepted real-track/window artifact, prospective seal, or registered mechanism measurement is authorized from this run."
