@@ -62,6 +62,53 @@ def _pair_set(prefix_shift: float = 0.0):
     return build_history_pairs(training, evaluation)
 
 
+
+def _delay_registration(id_offset: int = 0):
+    import numpy as np
+
+    from neural_state_machine.r1_e3m_dataset import (
+        MechanismDataset,
+        MechanismSample,
+    )
+    from neural_state_machine.r1_e3m_registration import (
+        build_delay_registration,
+        validate_delay_registration_gate,
+    )
+
+    def sample(index: int, split: str, video_index: int):
+        tensor = np.zeros((20, 6), dtype=np.float64)
+        tensor[:, 0] = 0.01 * index + np.linspace(0.0, 0.19, 20)
+        tensor[:, 1] = 0.005 * index + np.linspace(0.0, 0.095, 20)
+        tensor[:, 2] = 0.1
+        tensor[:, 3] = 0.2
+        tensor[:, 4] = 0.9
+        tensor[:, 5] = 1.0
+        window_number = index + id_offset + 1
+        return MechanismSample(
+            window_id=f"{window_number:064x}",
+            video_id=f"{split}-video-{video_index}",
+            split=split,
+            track_id=index,
+            source_start_seconds=float(index * 2),
+            source_end_seconds=float(index * 2 + 2),
+            tensor=tensor,
+        )
+
+    dataset = MechanismDataset(
+        training=tuple(
+            sample(index, "train", index % 2)
+            for index in range(20)
+        ),
+        evaluation=tuple(
+            sample(100 + index, "eval", index % 2)
+            for index in range(10)
+        ),
+        artifact_root_digest=_ARTIFACT_DIGEST,
+    )
+    registration = build_delay_registration(dataset)
+    validate_delay_registration_gate(registration)
+    return registration
+
 def _forbidden_measurement(*args, **kwargs):
     pytest.fail(
         "registered E3M measurement was invoked before preflight completed"
@@ -82,6 +129,11 @@ def _prepare_root(
         cli,
         "build_history_pairs",
         lambda training, evaluation: _pair_set(),
+    )
+    monkeypatch.setattr(
+        cli,
+        "build_delay_registration",
+        lambda dataset: _delay_registration(),
     )
     monkeypatch.setattr(cli, "_current_head", lambda: _HEAD)
     root = tmp_path / "prospective"
@@ -122,6 +174,11 @@ def test_protocol_command_does_not_measure(
         cli,
         "build_history_pairs",
         lambda training, evaluation: _pair_set(),
+    )
+    monkeypatch.setattr(
+        cli,
+        "build_delay_registration",
+        lambda dataset: _delay_registration(),
     )
 
     assert (
