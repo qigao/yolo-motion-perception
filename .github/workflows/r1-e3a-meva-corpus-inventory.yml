@@ -6,6 +6,8 @@ on:
       - research/r1-e3a-meva-corpus
     paths:
       - tools/r1_e3a_meva_inventory.py
+      - tools/r1_e3a_source_pool.py
+      - tests/test_r1_e3a_source_pool.py
       - .github/workflows/r1-e3a-meva-corpus-inventory.yml
   workflow_dispatch:
 
@@ -63,7 +65,20 @@ jobs:
             --kpf-root "$MEVA_KPF_ROOT" \
             --out-dir "$RUNNER_TEMP/r1-e3a-meva-inventory"
 
-      - name: Print inventory summary
+      - name: Build fail-closed source-pool ladder
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/r1-e3a-meva-inventory"
+          inventory="$root/meva_candidate_inventory.json"
+          inventory_sha="$(sha256sum "$inventory" | awk '{print $1}')"
+          python tools/r1_e3a_source_pool.py \
+            --inventory "$inventory" \
+            --output "$root/r1_e3a_source_pool_plan.json" \
+            --inventory-sha256 "$inventory_sha" \
+            --inventory-workflow-run "$GITHUB_RUN_ID"
+
+      - name: Print inventory and source-pool summaries
         run: |
           python - <<'PY'
           import json
@@ -71,12 +86,15 @@ jobs:
           from pathlib import Path
 
           root = Path(os.environ["RUNNER_TEMP"]) / "r1-e3a-meva-inventory"
-          payload = json.loads((root / "meva_candidate_inventory.json").read_text())
-          print(json.dumps(payload["summary"], indent=2, sort_keys=True))
+          inventory = json.loads((root / "meva_candidate_inventory.json").read_text())
+          plan = json.loads((root / "r1_e3a_source_pool_plan.json").read_text())
+          print(json.dumps(inventory["summary"], indent=2, sort_keys=True))
+          print(json.dumps(plan["inventory_structure"], indent=2, sort_keys=True))
           print((root / "inventory_files.sha256").read_text(), end="")
+          print((root / "r1_e3a_source_pool_plan.json.sha256").read_text(), end="")
           PY
 
-      - name: Upload candidate inventory
+      - name: Upload candidate inventory and source-pool plan
         uses: actions/upload-artifact@v4
         with:
           name: r1-e3a-meva-candidate-inventory
