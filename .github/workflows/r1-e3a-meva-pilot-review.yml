@@ -38,7 +38,10 @@ jobs:
           python-version: "3.12"
 
       - name: Install acquisition-only dependencies
-        run: python -m pip install --disable-pip-version-check boto3 pyyaml
+        run: |
+          python -m pip install --disable-pip-version-check boto3 pyyaml
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends ffmpeg
 
       - name: Download one public MEVA source video
         run: |
