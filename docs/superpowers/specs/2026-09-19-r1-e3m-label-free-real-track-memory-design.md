@@ -85,6 +85,26 @@ The extraction manifest must freeze at minimum:
 - Python/runtime identity;
 - raw-track artifact SHA-256.
 
+Frozen R1-E3M extraction settings:
+
+- Ultralytics package: `8.4.155`;
+- detector: `yolo11n.pt`;
+- detector class filter: person only (COCO class 0);
+- detector confidence threshold: `0.25`;
+- detector IoU/NMS threshold: `0.70`;
+- inference size: `640`;
+- device: CPU;
+- half precision: disabled;
+- source sampling: every 6th native frame;
+- current Batch-1 sources are 30 FPS, therefore effective detector/tracker rate
+  is 5 FPS;
+- timestamp and `frame_index` remain in native source-video coordinates;
+- BoT-SORT configuration is repository-owned
+  `configs/r1_e3m_botsort.yaml`;
+- ReID is disabled;
+- no detector/tracker parameter may be changed after extraction results are
+  observed.
+
 No ESN score may influence extraction or split membership.
 
 ## Raw track representation
