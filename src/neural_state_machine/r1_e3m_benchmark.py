@@ -25,6 +25,11 @@ from neural_state_machine.r1_e3m_pairs import (
     build_history_pairs,
     score_history_pairs,
 )
+from neural_state_machine.r1_e3m_registration import (
+    DelayRegistration,
+    build_delay_registration,
+    validate_delay_registration_gate,
+)
 from neural_state_machine.r1_e3m_probe import (
     DELAYS,
     MultiTargetRidgeProbe,
@@ -80,6 +85,7 @@ class MemoryArmResult:
     h2_long_delay_drop: float
     reservoir_parameter_digest: str
     artifact_root_digest: str
+    delay_registration_digest: str
     pair_set_digest: str
     pair_diagnostics: tuple[PairStateDiagnostic, ...]
 
@@ -94,6 +100,7 @@ class RegisteredMemoryResult:
     pair_set_digest: str
     history_pair_count: int
     history_prefix_threshold: float
+    delay_registration_digest: str
 
 
 def registered_specs() -> tuple[E2ReservoirSpec, ...]:
@@ -112,11 +119,17 @@ def evaluate_memory_arm(
     spec: E2ReservoirSpec,
     dataset: MechanismDataset,
     pair_set: HistoryPairSet,
+    delay_registration: DelayRegistration,
 ) -> MemoryArmResult:
     _validated_spec(spec)
     if not isinstance(dataset, MechanismDataset):
         raise ValueError("dataset must be MechanismDataset")
     pair_set = _validated_pair_set(dataset, pair_set)
+    delay_registration = _validated_delay_registration(
+        dataset,
+        delay_registration,
+        enforce_gate=False,
+    )
 
     training_tensors, _ = _sample_matrix(dataset.training)
     evaluation_tensors, evaluation_ids = _sample_matrix(
@@ -251,6 +264,7 @@ def evaluate_memory_arm(
         h2_long_delay_drop=h2_long_delay_drop,
         reservoir_parameter_digest=parameter_digest,
         artifact_root_digest=dataset.artifact_root_digest,
+        delay_registration_digest=delay_registration.digest,
         pair_set_digest=pair_set.pair_digest,
         pair_diagnostics=pair_diagnostics,
     )
@@ -259,13 +273,24 @@ def evaluate_memory_arm(
 def run_registered_memory_benchmark(
     dataset: MechanismDataset,
     pair_set: HistoryPairSet,
+    delay_registration: DelayRegistration,
 ) -> RegisteredMemoryResult:
     if not isinstance(dataset, MechanismDataset):
         raise ValueError("dataset must be MechanismDataset")
     pair_set = _validated_pair_set(dataset, pair_set)
+    delay_registration = _validated_delay_registration(
+        dataset,
+        delay_registration,
+        enforce_gate=True,
+    )
 
     arms = tuple(
-        evaluate_memory_arm(spec, dataset, pair_set)
+        evaluate_memory_arm(
+            spec,
+            dataset,
+            pair_set,
+            delay_registration,
+        )
         for spec in registered_specs()
     )
     if len(arms) != ARM_COUNT:
@@ -282,6 +307,7 @@ def run_registered_memory_benchmark(
         pair_set_digest=pair_set.pair_digest,
         history_pair_count=len(pair_set.pairs),
         history_prefix_threshold=pair_set.prefix_threshold,
+        delay_registration_digest=delay_registration.digest,
     )
 
 
@@ -311,6 +337,27 @@ def classify_memory_outcome(
         return "M-B"
     return "M-C"
 
+
+
+
+def _validated_delay_registration(
+    dataset: MechanismDataset,
+    registration: object,
+    *,
+    enforce_gate: bool,
+) -> DelayRegistration:
+    if not isinstance(registration, DelayRegistration):
+        raise ValueError(
+            "delay registration must be DelayRegistration"
+        )
+    expected = build_delay_registration(dataset)
+    if registration != expected:
+        raise ValueError(
+            "delay registration does not match frozen dataset inputs"
+        )
+    if enforce_gate:
+        validate_delay_registration_gate(registration)
+    return registration
 
 
 def _validated_pair_set(
