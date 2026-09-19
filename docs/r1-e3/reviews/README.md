@@ -40,9 +40,32 @@ The canonical JSON is:
 
 `docs/r1-e3/reviews/batch1-semantic-review.json`
 
-Start from the canonical `annotation-review-template.json` in the current
-human-review-pack artifact. The source AVI bytes remain authoritative for frame
-bounds; proxies are navigation aids only.
+Two equivalent human-entry paths are supported:
+
+1. edit the canonical `annotation-review-template.json` directly; or
+2. fill `semantic-annotation-template.csv` and
+   `semantic-review-completion-template.csv`, then convert them mechanically
+   with `tools/r1_e3a_review_csv_to_json.py`.
+
+The CSV converter only parses the human-entered fields, checks the registered
+video's frozen split/source-window component, and binds the current manifest,
+handbook, and sampling digests. It never infers a label, frame boundary,
+physical-event identity, actor/target identity, or review status.
+
+Example:
+
+```bash
+python tools/r1_e3a_review_csv_to_json.py \
+  --annotations-csv semantic-annotation.csv \
+  --completion-csv semantic-review-completion.csv \
+  --manifest r1_e3a_source_video_manifest.json \
+  --handbook docs/r1-e3/acquisition-annotation-handbook.md \
+  --sampling-protocol docs/r1-e3/annotation-sampling-protocol.md \
+  --output docs/r1-e3/reviews/batch1-semantic-review.json
+```
+
+The source AVI bytes remain authoritative for frame bounds; proxies are
+navigation aids only.
 
 Reviewer/annotator fields may use stable pseudonymous reviewer IDs if direct
 personal names are not desired, but the IDs must remain auditable and must not
