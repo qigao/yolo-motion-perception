@@ -277,3 +277,12 @@ jobs:
             echo "No YOLO/BoT-SORT extraction, R1-E3 score, prospective sealing, or registered measurement ran in this workflow."
           } > "$root/issue11-status.md"
           gh issue comment 11 --repo qigao/yolo-motion-perception --body-file "$root/issue11-status.md"
+
+
+      - name: Report source-freeze failure to issue 11
+        if: ${{ failure() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          gh issue comment 11 --repo qigao/yolo-motion-perception --body "R1-E3A source batch 1 freeze failed in workflow run $GITHUB_RUN_ID at acquisition head $GITHUB_SHA. No successful source-byte freeze may be claimed from this run; inspect the failed job before proceeding."
