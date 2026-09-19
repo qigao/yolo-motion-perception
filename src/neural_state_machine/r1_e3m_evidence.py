@@ -19,6 +19,11 @@ from neural_state_machine.r1_e3m_benchmark import (
     REGISTERED_SEEDS,
     classify_memory_outcome,
 )
+from neural_state_machine.r1_e3m_pairs import (
+    HistoryPairSet,
+    history_pair_set_from_payload,
+    history_pair_set_payload,
+)
 from neural_state_machine.r1_e3m_probe import DELAYS, RIDGE_REGULARIZATION
 
 
@@ -91,6 +96,7 @@ def prepare_prospective(
     *,
     scientific_head: str,
     artifact_root_digest: object,
+    history_pair_set: HistoryPairSet,
 ) -> dict[str, object]:
     root_path = Path(root)
     head = _validated_head(scientific_head)
@@ -103,6 +109,21 @@ def prepare_prospective(
             f"destination is not empty: {root_path}"
         )
     root_path.mkdir(parents=True, exist_ok=True)
+    if not isinstance(history_pair_set, HistoryPairSet):
+        raise EvidenceInvalid(
+            "history_pair_set must be a validated HistoryPairSet"
+        )
+    history_pair_sha = _write_pair(
+        root_path,
+        "history-pairs.json",
+        history_pair_set_payload(history_pair_set),
+    )
+    history_pair_meta = {
+        "pair_digest": history_pair_set.pair_digest,
+        "prefix_threshold": history_pair_set.prefix_threshold,
+        "pair_count": len(history_pair_set.pairs),
+        "file_sha256": history_pair_sha,
+    }
 
     manifest = {
         "schema": "r1-e3m-manifest-v1",
@@ -110,6 +131,7 @@ def prepare_prospective(
         "artifact_root_digest": artifact_digest,
         "python": platform.python_version(),
         "numpy": np.__version__,
+        "history_pairs": history_pair_meta,
         "protocol": registered_manifest_payload(artifact_digest),
     }
     manifest_sha = _write_pair(
@@ -124,6 +146,8 @@ def prepare_prospective(
         "manifest_sha256": manifest_sha,
         "python": manifest["python"],
         "numpy": manifest["numpy"],
+        "history_pair_digest": history_pair_set.pair_digest,
+        "history_pair_file_sha256": history_pair_sha,
         "registered_measurement": False,
     }
     _write_pair(
@@ -135,6 +159,9 @@ def prepare_prospective(
         "scientific_head": head,
         "artifact_root_digest": artifact_digest,
         "manifest_sha256": manifest_sha,
+        "history_pair_digest": history_pair_set.pair_digest,
+        "history_pair_count": len(history_pair_set.pairs),
+        "history_prefix_threshold": history_pair_set.prefix_threshold,
     }
 
 
@@ -189,12 +216,14 @@ def write_measurement(
     validation = _validate_registered_measurement(
         measurement,
         expected_artifact_digest=artifact_digest,
+        expected_pair_set=sealed["history_pair_set"],
     )
 
     result_payload = {
         "schema": "r1-e3m-result-v1",
         "manifest_sha256": sealed["manifest_sha256"],
         "artifact_root_digest": artifact_digest,
+        "history_pair_digest": sealed["history_pair_digest"],
         "measurement": measurement,
     }
     result_sha = _write_pair(
@@ -206,12 +235,15 @@ def write_measurement(
         "schema": "r1-e3m-provenance-v1",
         "scientific_head": head,
         "artifact_root_digest": artifact_digest,
+        "history_pair_digest": sealed["history_pair_digest"],
         "manifest_sha256": sealed["manifest_sha256"],
         "result_sha256": result_sha,
         "python": platform.python_version(),
         "numpy": np.__version__,
         "registered_measurement": True,
         "registered_arm_count": validation["registered_arm_count"],
+        "history_pair_digest": sealed["history_pair_digest"],
+        "history_pair_count": sealed["history_pair_count"],
         "outcome": validation["outcome"],
     }
     provenance_sha = _write_pair(
@@ -225,6 +257,7 @@ def write_measurement(
         "result_sha256": result_sha,
         "provenance_sha256": provenance_sha,
         "artifact_root_digest": artifact_digest,
+        "history_pair_digest": sealed["history_pair_digest"],
     }
     trace_sha = _write_pair(
         root_path,
@@ -259,6 +292,11 @@ def verify_evidence(
                     "artifact_root_digest"
                 ],
                 "manifest_sha256": sealed["manifest_sha256"],
+                "history_pair_digest": sealed["history_pair_digest"],
+                "history_pair_count": sealed["history_pair_count"],
+                "history_prefix_threshold": sealed[
+                    "history_prefix_threshold"
+                ],
                 "registered_arm_count": ARM_COUNT,
                 "delays": list(DELAYS),
             }
@@ -295,6 +333,13 @@ def verify_evidence(
         raise EvidenceInvalid(
             "result artifact root digest mismatch"
         )
+    if (
+        result.get("history_pair_digest")
+        != sealed["history_pair_digest"]
+    ):
+        raise EvidenceInvalid(
+            "result history pair digest mismatch"
+        )
 
     result_sha = _read_digest(
         root_path,
@@ -320,6 +365,13 @@ def verify_evidence(
     ):
         raise EvidenceInvalid(
             "provenance artifact root digest mismatch"
+        )
+    if (
+        provenance.get("history_pair_digest")
+        != sealed["history_pair_digest"]
+    ):
+        raise EvidenceInvalid(
+            "provenance history pair digest mismatch"
         )
     if (
         provenance.get("manifest_sha256")
@@ -366,12 +418,20 @@ def verify_evidence(
         raise EvidenceInvalid(
             "trace artifact root digest mismatch"
         )
+    if (
+        trace.get("history_pair_digest")
+        != sealed["history_pair_digest"]
+    ):
+        raise EvidenceInvalid(
+            "trace history pair digest mismatch"
+        )
 
     validation = _validate_registered_measurement(
         result.get("measurement"),
         expected_artifact_digest=sealed[
             "artifact_root_digest"
         ],
+        expected_pair_set=sealed["history_pair_set"],
     )
     if (
         provenance.get("registered_arm_count")
@@ -393,6 +453,11 @@ def verify_evidence(
             "artifact_root_digest"
         ],
         "manifest_sha256": sealed["manifest_sha256"],
+        "history_pair_digest": sealed["history_pair_digest"],
+        "history_pair_count": sealed["history_pair_count"],
+        "history_prefix_threshold": sealed[
+            "history_prefix_threshold"
+        ],
         "registered_arm_count": validation[
             "registered_arm_count"
         ],
@@ -427,6 +492,18 @@ def _load_prospective(
         root_path,
         "manifest.sha256",
     )
+    history_pair_file_sha = _read_digest(
+        root_path,
+        "history-pairs.sha256",
+    )
+    try:
+        history_pair_set = history_pair_set_from_payload(
+            _read_verified(root_path, "history-pairs.json")
+        )
+    except ValueError as exc:
+        raise EvidenceInvalid(
+            f"history pair seal invalid: {exc}"
+        ) from exc
 
     if manifest.get("schema") != "r1-e3m-manifest-v1":
         raise EvidenceInvalid("manifest schema mismatch")
@@ -437,6 +514,20 @@ def _load_prospective(
         manifest.get("artifact_root_digest"),
         "artifact_root_digest",
     )
+    history_meta = _mapping(
+        manifest.get("history_pairs"),
+        "manifest history_pairs",
+    )
+    expected_history_meta = {
+        "pair_digest": history_pair_set.pair_digest,
+        "prefix_threshold": history_pair_set.prefix_threshold,
+        "pair_count": len(history_pair_set.pairs),
+        "file_sha256": history_pair_file_sha,
+    }
+    if history_meta != expected_history_meta:
+        raise EvidenceInvalid(
+            "manifest history pair seal mismatch"
+        )
     if (
         manifest.get("protocol")
         != registered_manifest_payload(artifact_digest)
@@ -467,6 +558,15 @@ def _load_prospective(
         raise EvidenceInvalid(
             "prospective manifest sha256 mismatch"
         )
+    if (
+        prospective.get("history_pair_digest")
+        != history_pair_set.pair_digest
+        or prospective.get("history_pair_file_sha256")
+        != history_pair_file_sha
+    ):
+        raise EvidenceInvalid(
+            "prospective history pair seal mismatch"
+        )
     if prospective.get("registered_measurement") is not False:
         raise EvidenceInvalid(
             "prospective measurement flag mismatch"
@@ -482,6 +582,11 @@ def _load_prospective(
         "scientific_head": head,
         "artifact_root_digest": artifact_digest,
         "manifest_sha256": manifest_sha,
+        "history_pair_set": history_pair_set,
+        "history_pair_digest": history_pair_set.pair_digest,
+        "history_pair_count": len(history_pair_set.pairs),
+        "history_prefix_threshold": history_pair_set.prefix_threshold,
+        "history_pair_file_sha256": history_pair_file_sha,
     }
 
 
@@ -489,6 +594,7 @@ def _validate_registered_measurement(
     value: object,
     *,
     expected_artifact_digest: str,
+    expected_pair_set: HistoryPairSet,
 ) -> dict[str, object]:
     measurement = _mapping(
         value,
@@ -507,6 +613,26 @@ def _validate_registered_measurement(
         raise EvidenceInvalid(
             "registered measurement manifest mismatch"
         )
+
+    if (
+        measurement.get("pair_set_digest")
+        != expected_pair_set.pair_digest
+    ):
+        raise EvidenceInvalid(
+            "registered measurement history pair digest mismatch"
+        )
+    if (
+        measurement.get("history_pair_count")
+        != len(expected_pair_set.pairs)
+    ):
+        raise EvidenceInvalid(
+            "registered measurement history pair count mismatch"
+        )
+    _require_close(
+        measurement.get("history_prefix_threshold"),
+        expected_pair_set.prefix_threshold,
+        "history_prefix_threshold",
+    )
 
     arms = measurement.get("arms")
     if not isinstance(arms, list) or len(arms) != ARM_COUNT:
@@ -548,6 +674,61 @@ def _validate_registered_measurement(
             arm_map.get("reservoir_parameter_digest"),
             "reservoir_parameter_digest",
         )
+        if (
+            arm_map.get("pair_set_digest")
+            != expected_pair_set.pair_digest
+        ):
+            raise EvidenceInvalid(
+                "registered arm history pair digest mismatch"
+            )
+        pair_rows = arm_map.get("pair_diagnostics")
+        if (
+            not isinstance(pair_rows, list)
+            or len(pair_rows) != len(expected_pair_set.pairs)
+        ):
+            raise EvidenceInvalid(
+                "registered arm history pair diagnostics mismatch"
+            )
+        for expected_pair, pair_value in zip(
+            expected_pair_set.pairs,
+            pair_rows,
+            strict=True,
+        ):
+            pair_map = _mapping(
+                pair_value,
+                "history pair diagnostic",
+            )
+            if (
+                pair_map.get("left_window_id")
+                != expected_pair.left_window_id
+                or pair_map.get("right_window_id")
+                != expected_pair.right_window_id
+            ):
+                raise EvidenceInvalid(
+                    "history pair diagnostic identity mismatch"
+                )
+            _require_close(
+                pair_map.get("suffix_distance"),
+                expected_pair.suffix_distance,
+                "history pair suffix_distance",
+            )
+            _require_close(
+                pair_map.get("prefix_distance"),
+                expected_pair.prefix_distance,
+                "history pair prefix_distance",
+            )
+            normal_distance = _finite_float(
+                pair_map.get("normal_state_distance"),
+                "history pair normal_state_distance",
+            )
+            reset_distance = _finite_float(
+                pair_map.get("reset_state_distance"),
+                "history pair reset_state_distance",
+            )
+            if normal_distance < 0.0 or reset_distance < 0.0:
+                raise EvidenceInvalid(
+                    "history pair state distances must be non-negative"
+                )
 
         delay_rows = arm_map.get("delays")
         if (
@@ -715,6 +896,8 @@ def _validate_registered_measurement(
         "positive_arm_count": expected_positive_count,
         "median_h1_long_delay_drop": expected_median_h1,
         "outcome": expected_outcome,
+        "history_pair_digest": expected_pair_set.pair_digest,
+        "history_pair_count": len(expected_pair_set.pairs),
     }
 
 
