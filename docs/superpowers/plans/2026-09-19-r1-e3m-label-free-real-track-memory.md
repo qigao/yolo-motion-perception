@@ -29,6 +29,14 @@ with no human behavior annotations and no semantic action claim.
 - Causal observation-age limit is exactly 0.5 seconds.
 - A bin may never use a future detector/tracker observation.
 - Delays are exactly `[1,2,5,10,15]`.
+- A window is target-valid for delay `d` only when bin `19-d` has
+  `presence=1`; missing target bins are excluded rather than treated as zero
+  geometry.
+- M0/M1/H1/H2 share one frozen evaluation mask per delay; M0/M1 share one
+  frozen training mask per delay.
+- Before prospective sealing, every delay requires >=20 target-valid train
+  windows and >=10 target-valid eval windows, spanning >=2 source videos in
+  each split.
 - Long-delay aggregate uses exactly `[5,10,15]`.
 - Architectures/seeds remain exactly 4 x 5 = 20 arms.
 - Ridge regularization remains `1e-6`.
@@ -354,7 +362,10 @@ No human annotations are read.
 - [ ] exact-head tests + Ruff + CI green;
 - [ ] frozen E3M artifact verified;
 - [ ] prepare prospective manifest bound to exact science head + artifact root;
-- [ ] record runtime, delays, arm count=20, window counts;
+- [ ] record runtime, delays, arm count=20, per-delay valid window IDs/counts,
+  and per-delay source-video coverage;
+- [ ] require every delay to satisfy >=20 train / >=10 eval target-valid
+  windows and >=2 source videos per split;
 - [ ] prove result file absent;
 - [ ] STOP for explicit approval before measurement.
 
