@@ -172,6 +172,7 @@ def test_prepare_is_write_once(tmp_path: Path) -> None:
             scientific_head="1" * 40,
             artifact_root_digest="a" * 64,
             history_pair_set=_pair_set(),
+            delay_registration=_delay_registration(),
         )
 
 
