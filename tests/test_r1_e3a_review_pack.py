@@ -91,6 +91,7 @@ def test_render_pack_binds_sampling_protocol_digest(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     manifest_path = tmp_path / "manifest.json"
+    handbook_path = tmp_path / "handbook.md"
     sampling_path = tmp_path / "sampling.md"
     out_dir = tmp_path / "out"
     video_root = tmp_path / "videos"
@@ -103,6 +104,7 @@ def test_render_pack_binds_sampling_protocol_digest(
         "videos": [record("v1", "G299")],
     }
     manifest_path.write_text(json.dumps(manifest) + "\n", encoding="utf-8")
+    handbook_path.write_text("frozen handbook\n", encoding="utf-8")
     sampling_path.write_text("frozen sampling protocol\n", encoding="utf-8")
 
     monkeypatch.setattr(REVIEW_PACK, "validate_sources", lambda *_args: None)
@@ -120,6 +122,7 @@ def test_render_pack_binds_sampling_protocol_digest(
     index = REVIEW_PACK.render_pack(
         video_root,
         manifest_path,
+        handbook_path,
         sampling_path,
         out_dir,
     )
@@ -130,6 +133,23 @@ def test_render_pack_binds_sampling_protocol_digest(
     assert (
         out_dir / "semantic-review-completion-template.csv"
     ).is_file()
+    review_template = json.loads(
+        (out_dir / "annotation-review-template.json").read_text(encoding="utf-8")
+    )
+    assert review_template["schema"] == "r1-e3a-semantic-annotation-review-v1"
+    assert review_template["status"] == "draft_full_video_review_pending"
+    assert review_template["source_manifest_sha256"] == REVIEW_PACK.sha256_file(
+        manifest_path
+    )
+    assert review_template["handbook_sha256"] == REVIEW_PACK.sha256_file(
+        handbook_path
+    )
+    assert review_template["sampling_protocol_sha256"] == REVIEW_PACK.sha256_file(
+        sampling_path
+    )
+    assert len(review_template["video_reviews"]) == 1
+    assert review_template["video_reviews"][0]["video_id"] == "v1"
+    assert review_template["records"] == []
     assert "full chronological source-video scan" in (
         out_dir / "README.md"
     ).read_text(encoding="utf-8")
