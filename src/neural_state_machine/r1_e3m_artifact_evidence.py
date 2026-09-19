@@ -20,6 +20,7 @@ from neural_state_machine.r1_e3m_artifact import (
 
 
 FROZEN_SCHEMA = "r1-e3m-frozen-artifact-v1"
+CANDIDATE_SCHEMA = "r1-e3m-candidate-artifact-v1"
 _PAYLOAD_FILES = (
     "videos.json",
     "windows.json",
@@ -36,6 +37,98 @@ class FrozenMechanismArtifactEvidence:
     root_digest: str
     video_count: int
     window_count: int
+
+
+
+def write_mechanism_candidate(
+    artifact: MechanismArtifact,
+    candidate_root: Path | str,
+) -> Path:
+    root = Path(candidate_root)
+    if root.exists():
+        raise FileExistsError(root)
+    try:
+        validate_mechanism_artifact(artifact)
+    except MechanismArtifactInvalid as exc:
+        raise FrozenMechanismArtifactInvalid(str(exc)) from exc
+
+    root.mkdir(parents=True)
+    tensors = np.stack(
+        [window.tensor for window in artifact.windows],
+        axis=0,
+    ).astype(np.float64, copy=False)
+    with (root / "window-tensors.npy").open("wb") as handle:
+        np.save(handle, tensors, allow_pickle=False)
+    payload = {
+        "schema": CANDIDATE_SCHEMA,
+        "source_manifest_sha256": artifact.source_manifest_sha256,
+        "raw_track_sha256": artifact.raw_track_sha256,
+        "extraction_provenance_sha256":
+            artifact.extraction_provenance_sha256,
+        "videos": [_video_payload(video) for video in artifact.videos],
+        "windows": [
+            _window_payload(window, index)
+            for index, window in enumerate(artifact.windows)
+        ],
+    }
+    _write_json(root / "candidate.json", payload)
+    return root
+
+
+def load_mechanism_candidate(
+    candidate_root: Path | str,
+) -> MechanismArtifact:
+    root = Path(candidate_root)
+    payload = _read_json(root / "candidate.json")
+    if not isinstance(payload, dict):
+        raise FrozenMechanismArtifactInvalid(
+            "candidate.json must be an object"
+        )
+    if payload.get("schema") != CANDIDATE_SCHEMA:
+        raise FrozenMechanismArtifactInvalid(
+            "candidate schema mismatch"
+        )
+    videos_raw = payload.get("videos")
+    windows_raw = payload.get("windows")
+    if not isinstance(videos_raw, list) or not videos_raw:
+        raise FrozenMechanismArtifactInvalid(
+            "candidate videos must be a non-empty array"
+        )
+    if not isinstance(windows_raw, list) or not windows_raw:
+        raise FrozenMechanismArtifactInvalid(
+            "candidate windows must be a non-empty array"
+        )
+    tensors = _load_tensor_file(
+        root / "window-tensors.npy",
+        len(windows_raw),
+    )
+    try:
+        artifact = MechanismArtifact(
+            source_manifest_sha256=_required_digest(
+                payload.get("source_manifest_sha256"),
+                "source_manifest_sha256",
+            ),
+            raw_track_sha256=_required_digest(
+                payload.get("raw_track_sha256"),
+                "raw_track_sha256",
+            ),
+            extraction_provenance_sha256=_required_digest(
+                payload.get("extraction_provenance_sha256"),
+                "extraction_provenance_sha256",
+            ),
+            videos=tuple(
+                _video_from_payload(item)
+                for item in videos_raw
+            ),
+            windows=tuple(
+                _window_from_payload(item, tensors, index)
+                for index, item in enumerate(windows_raw)
+            ),
+        )
+        validate_mechanism_artifact(artifact)
+    except MechanismArtifactInvalid as exc:
+        raise FrozenMechanismArtifactInvalid(str(exc)) from exc
+    return artifact
 
 
 def freeze_mechanism_artifact(
@@ -123,25 +216,10 @@ def load_frozen_mechanism_artifact(
             "windows.json must be a non-empty array"
         )
 
-    try:
-        with (root / "window-tensors.npy").open("rb") as handle:
-            tensors = np.load(handle, allow_pickle=False)
-    except (OSError, ValueError) as exc:
-        raise FrozenMechanismArtifactInvalid(
-            "invalid window-tensors.npy"
-        ) from exc
-
-    if (
-        not isinstance(tensors, np.ndarray)
-        or tensors.dtype != np.float64
-        or tensors.ndim != 3
-        or tensors.shape[1:] != (20, 6)
-        or tensors.shape[0] != len(windows_raw)
-        or not np.isfinite(tensors).all()
-    ):
-        raise FrozenMechanismArtifactInvalid(
-            "window-tensors.npy must be finite float64 N x 20 x 6"
-        )
+    tensors = _load_tensor_file(
+        root / "window-tensors.npy",
+        len(windows_raw),
+    )
 
     try:
         videos = tuple(_video_from_payload(item) for item in videos_raw)
@@ -325,6 +403,29 @@ def _verify_payloads(
             raise FrozenMechanismArtifactInvalid(
                 f"{name} sha256 mismatch"
             )
+
+
+
+def _load_tensor_file(path: Path, expected_count: int) -> np.ndarray:
+    try:
+        with path.open("rb") as handle:
+            tensors = np.load(handle, allow_pickle=False)
+    except (OSError, ValueError) as exc:
+        raise FrozenMechanismArtifactInvalid(
+            "invalid window-tensors.npy"
+        ) from exc
+    if (
+        not isinstance(tensors, np.ndarray)
+        or tensors.dtype != np.float64
+        or tensors.ndim != 3
+        or tensors.shape[1:] != (20, 6)
+        or tensors.shape[0] != expected_count
+        or not np.isfinite(tensors).all()
+    ):
+        raise FrozenMechanismArtifactInvalid(
+            "window-tensors.npy must be finite float64 N x 20 x 6"
+        )
+    return tensors
 
 
 def _write_json(path: Path, payload: object) -> None:
