@@ -12,6 +12,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: r1-e3a-meva-corpus-inventory
+  cancel-in-progress: true
+
 jobs:
   inventory:
     name: Public MEVA source-video inventory
