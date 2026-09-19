@@ -13,6 +13,10 @@ with no human behavior annotations and no semantic action claim.
 
 - Reuse the frozen 11-video Batch-1 source set.
 - Reuse the existing R1-E3 extraction contract.
+- Extraction is frozen before real scoring to Ultralytics 8.4.155,
+  YOLO11n/person-only, conf 0.25, IoU 0.70, imgsz 640, CPU, native stride 6
+  (5 FPS for the frozen 30 FPS Batch-1 sources), and
+  `configs/r1_e3m_botsort.yaml`.
 - Never read #11 semantic annotations, semantic episode bounds, or MEVA KPF
   activity labels as mechanism targets.
 - Keep train/eval split at whole-video level.
