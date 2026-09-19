@@ -1,0 +1,128 @@
+name: R1-E3A human review pack
+
+on:
+  push:
+    branches:
+      - research/r1-e3a-meva-corpus
+    paths:
+      - tools/r1_e3a_review_pack.py
+      - tests/test_r1_e3a_review_pack.py
+      - .github/workflows/r1-e3a-review-pack.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+  issues: write
+
+concurrency:
+  group: r1-e3a-human-review-pack
+  cancel-in-progress: true
+
+jobs:
+  review-pack:
+    name: Render source-only human review pack
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout acquisition branch
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install test and lint tools
+        run: python -m pip install --disable-pip-version-check pytest ruff
+
+      - name: Focused acquisition-tool tests
+        run: pytest -q tests/test_r1_e3a_review_pack.py
+
+      - name: Acquisition-tool Ruff
+        run: ruff check tools/r1_e3a_review_pack.py tests/test_r1_e3a_review_pack.py
+
+      - name: Download exact frozen source-video artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: r1-e3a-meva-source-batch1-videos
+          path: _r1-e3a-review-input
+          github-token: ${{ github.token }}
+          repository: qigao/yolo-motion-perception
+          run-id: 35434084445
+
+      - name: Verify source manifest identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="1db8cc200ba9eaab2c14ed260b06ed582ed75d54f57c3036e1312cd2f184f4cf"
+          actual="$(sha256sum _r1-e3a-review-input/r1_e3a_source_video_manifest.json | awk '{print $1}')"
+          test "$actual" = "$expected"
+
+      - name: Install ffmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg
+
+      - name: Render synchronized review proxies and contact sheets
+        run: |
+          python tools/r1_e3a_review_pack.py             --video-root _r1-e3a-review-input/videos             --manifest _r1-e3a-review-input/r1_e3a_source_video_manifest.json             --out-dir _r1-e3a-review-pack
+
+      - name: Enforce portable review-pack size
+        shell: bash
+        run: |
+          set -euo pipefail
+          bytes="$(du -sb _r1-e3a-review-pack | awk '{print $1}')"
+          max_bytes=471859200
+          echo "review_pack_bytes=$bytes"
+          test "$bytes" -le "$max_bytes"
+
+      - name: Print review-pack identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha256sum _r1-e3a-review-pack/review-index.json
+          sha256sum _r1-e3a-review-pack/review-pack.sha256
+          cat _r1-e3a-review-pack/README.md
+
+      - name: Upload human review pack
+        uses: actions/upload-artifact@v4
+        with:
+          name: r1-e3a-human-review-pack
+          path: _r1-e3a-review-pack/
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+
+      - name: Report successful review-pack render to issue 11
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          index_sha="$(sha256sum _r1-e3a-review-pack/review-index.json | awk '{print $1}')"
+          digest_sha="$(sha256sum _r1-e3a-review-pack/review-pack.sha256 | awk '{print $1}')"
+          bytes="$(du -sb _r1-e3a-review-pack | awk '{print $1}')"
+          {
+            echo "R1-E3A human review pack render succeeded."
+            echo
+            echo "- workflow run: $GITHUB_RUN_ID"
+            echo "- acquisition-tool head: $GITHUB_SHA"
+            echo "- frozen source run: 35434084445"
+            echo "- frozen source manifest SHA-256: 1db8cc200ba9eaab2c14ed260b06ed582ed75d54f57c3036e1312cd2f184f4cf"
+            echo "- review-index SHA-256: $index_sha"
+            echo "- review-pack digest-list SHA-256: $digest_sha"
+            echo "- uncompressed review-pack bytes: $bytes"
+            echo "- artifact: r1-e3a-human-review-pack"
+            echo
+            echo "This artifact contains review-only source proxies/contact sheets and an empty semantic annotation template. No human labels, YOLO/BoT-SORT extraction, R1-E3 score, prospective sealing, or registered measurement were produced."
+          } > _r1-e3a-review-pack/issue11-status.md
+          gh issue comment 11 --repo qigao/yolo-motion-perception             --body-file _r1-e3a-review-pack/issue11-status.md
+
+      - name: Report review-pack failure to issue 11
+        if: ${{ failure() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue comment 11 --repo qigao/yolo-motion-perception             --body "R1-E3A human review pack failed in workflow run $GITHUB_RUN_ID at acquisition head $GITHUB_SHA. Human semantic annotation remains blocked until the failed review-pack step is resolved."
