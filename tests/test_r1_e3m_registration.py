@@ -22,9 +22,9 @@ def _api():
     )
 
     return (
+        MIN_TRAIN_WINDOWS_PER_DELAY,
         MIN_EVAL_WINDOWS_PER_DELAY,
         MIN_SOURCE_VIDEOS_PER_SPLIT,
-        MIN_TRAIN_WINDOWS_PER_DELAY,
         DelayRegistrationInvalid,
         build_delay_registration,
         delay_registration_from_payload,
@@ -125,7 +125,7 @@ def test_missing_target_bin_removes_only_that_delay_window() -> None:
 
 
 def test_registration_gate_requires_frozen_minima() -> None:
-    train_min, video_min, eval_min, Invalid, build, _, _, validate = _api()
+    train_min, eval_min, video_min, Invalid, build, _, _, validate = _api()
 
     assert train_min == 20
     assert eval_min == 10
