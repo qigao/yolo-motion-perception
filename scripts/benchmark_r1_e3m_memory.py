@@ -219,6 +219,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             dataset.training,
             dataset.evaluation,
         )
+        delay_registration = build_delay_registration(dataset)
+        try:
+            validate_delay_registration_gate(delay_registration)
+        except DelayRegistrationInvalid as exc:
+            raise SystemExit(str(exc)) from exc
         sealed_artifact_digest = manifest.get(
             "artifact_root_digest"
         )
@@ -242,6 +247,19 @@ def main(argv: Sequence[str] | None = None) -> int:
         ):
             raise SystemExit(
                 "history pair threshold mismatch before measurement"
+            )
+
+        sealed_delay_meta = manifest.get("delay_registration")
+        if not isinstance(sealed_delay_meta, dict):
+            raise SystemExit(
+                "sealed manifest delay_registration is missing"
+            )
+        if (
+            delay_registration.digest
+            != sealed_delay_meta.get("digest")
+        ):
+            raise SystemExit(
+                "delay registration digest mismatch before measurement"
             )
 
         try:
@@ -287,6 +305,14 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
 
         if (
+            preflight.get("delay_registration_digest")
+            != delay_registration.digest
+        ):
+            raise SystemExit(
+                "prospective verifier delay registration seal mismatch"
+            )
+
+        if (
             manifest.get("python") != platform.python_version()
             or manifest.get("numpy") != np.__version__
         ):
@@ -297,6 +323,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         result = run_registered_memory_benchmark(
             dataset,
             pair_set,
+            delay_registration,
         )
         measurement = _measurement_payload(
             result,
