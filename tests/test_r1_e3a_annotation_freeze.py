@@ -94,7 +94,7 @@ def test_valid_review_reconciles_video_candidate_counts():
         accepted("evt-eval", "eval-a", "touch", 20, 60),
     ]
 
-    summary = validate_review(review(records, train_count=1, train_b_count=1), manifest())
+    summary = validate_review(review(records, train_count=1, eval_count=1), manifest())
 
     assert summary["accepted"]["train"]["pick_up"] == 1
     assert summary["accepted"]["eval"]["touch"] == 1
