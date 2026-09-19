@@ -190,6 +190,35 @@ def _sample_interval(observations: list[ArticulatedFlowEvidence]) -> float:
     return float(np.median(intervals))
 
 
+
+def _uniform_timeline_signals(
+    observations: list[ArticulatedFlowEvidence],
+    left: np.ndarray,
+    right: np.ndarray,
+    dt: float,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Place irregular observations on a uniform time grid without interpolation."""
+
+    if dt <= 0.0 or len(observations) < 2:
+        return left, right
+
+    times = np.array(
+        [observation.end_timestamp for observation in observations],
+        dtype=float,
+    )
+    origin = float(times[0])
+    indices = np.rint((times - origin) / dt).astype(int)
+    if np.any(indices < 0) or np.any(np.diff(indices) <= 0):
+        return left, right
+
+    size = int(indices[-1]) + 1
+    uniform_left = np.full(size, np.nan, dtype=float)
+    uniform_right = np.full(size, np.nan, dtype=float)
+    uniform_left[indices] = left
+    uniform_right[indices] = right
+    return uniform_left, uniform_right
+
+
 def _fundamental_peak(lag_scores: list[tuple[int, float]]) -> tuple[int, float]:
     strongest_lag, strongest_score = max(lag_scores, key=lambda item: item[1])
     if strongest_score <= 0.0:
@@ -336,15 +365,21 @@ def estimate_gait(
     right_energy = float(np.mean(right_norms)) if right_norms else 0.0
 
     dt = _sample_interval(window)
-    stride_cycle_hz, periodicity = _stride_cycle_and_periodicity(
+    timing_left_signal, timing_right_signal = _uniform_timeline_signals(
+        window,
         left_signal,
         right_signal,
+        dt,
+    )
+    stride_cycle_hz, periodicity = _stride_cycle_and_periodicity(
+        timing_left_signal,
+        timing_right_signal,
         dt,
         config,
     )
     bilateral_correlation, phase_lag_seconds = _bilateral_phase(
-        left_signal,
-        right_signal,
+        timing_left_signal,
+        timing_right_signal,
         stride_cycle_hz,
         dt,
     )
