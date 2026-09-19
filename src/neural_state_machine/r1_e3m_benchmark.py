@@ -29,6 +29,7 @@ from neural_state_machine.r1_e3m_probe import (
     DELAYS,
     MultiTargetRidgeProbe,
     RegressionMetrics,
+    delay_valid_mask,
     delayed_geometry_targets,
     evaluate_regression,
     fit_instantaneous_delay_probe,
@@ -139,7 +140,20 @@ def evaluate_memory_arm(
 
     delay_results: list[DelayMemoryResult] = []
     for delay in DELAYS:
-        targets = delayed_geometry_targets(evaluation_tensors, delay)
+        evaluation_mask = delay_valid_mask(
+            evaluation_tensors,
+            delay,
+        )
+        if not np.any(evaluation_mask):
+            raise ValueError(
+                "no evaluation windows have an observed delayed target "
+                f"for delay {delay}"
+            )
+        masked_evaluation_tensors = evaluation_tensors[evaluation_mask]
+        targets = delayed_geometry_targets(
+            masked_evaluation_tensors,
+            delay,
+        )
 
         instantaneous_probe = fit_instantaneous_delay_probe(
             training_tensors,
@@ -152,10 +166,10 @@ def evaluate_memory_arm(
         )
 
         instantaneous_predictions = instantaneous_probe.predict(
-            evaluation_tensors[:, 19, :]
+            masked_evaluation_tensors[:, 19, :]
         )
         reservoir_predictions = reservoir_probe.predict(
-            evaluation_states
+            evaluation_states[evaluation_mask]
         )
 
         instantaneous = _probe_result(
@@ -170,12 +184,12 @@ def evaluate_memory_arm(
         )
         reset_control = evaluate_fixed_probe(
             reservoir_probe,
-            reset_states,
+            reset_states[evaluation_mask],
             targets,
         )
         permuted_control = evaluate_fixed_probe(
             reservoir_probe,
-            permuted_states,
+            permuted_states[evaluation_mask],
             targets,
         )
 
