@@ -189,6 +189,18 @@ def _probe(mean_r2: float, coefficient: str) -> dict[str, object]:
 def _measurement(artifact_digest: str) -> dict[str, object]:
     from neural_state_machine.r1_e3m_evidence import registered_manifest_payload
 
+    pair_set = _pair_set()
+    pair_diagnostics = [
+        {
+            "left_window_id": pair.left_window_id,
+            "right_window_id": pair.right_window_id,
+            "suffix_distance": pair.suffix_distance,
+            "prefix_distance": pair.prefix_distance,
+            "normal_state_distance": 0.5,
+            "reset_state_distance": 0.1,
+        }
+        for pair in pair_set.pairs
+    ]
     arms = []
     architectures = (0, 1, 2, 3)
     seeds = (7, 17, 29, 43, 61)
@@ -221,6 +233,8 @@ def _measurement(artifact_digest: str) -> dict[str, object]:
                     "h2_long_delay_drop": 0.12,
                     "reservoir_parameter_digest": "e" * 64,
                     "artifact_root_digest": artifact_digest,
+                    "pair_set_digest": pair_set.pair_digest,
+                    "pair_diagnostics": pair_diagnostics,
                 }
             )
     return {
@@ -231,6 +245,9 @@ def _measurement(artifact_digest: str) -> dict[str, object]:
         "positive_arm_count": 20,
         "median_h1_long_delay_drop": 0.15,
         "outcome": "M-A",
+        "pair_set_digest": pair_set.pair_digest,
+        "history_pair_count": len(pair_set.pairs),
+        "history_prefix_threshold": pair_set.prefix_threshold,
     }
 
 
@@ -393,3 +410,57 @@ def test_verify_rejects_history_pair_file_mutation(tmp_path: Path) -> None:
 
     with pytest.raises(Invalid, match="sha256"):
         verify(root, no_result_ok=True)
+
+
+def test_measurement_rejects_history_pair_digest_mutation(
+    tmp_path: Path,
+) -> None:
+    from neural_state_machine.r1_e3m_evidence import write_measurement
+
+    Invalid, prepare, _, _ = _api()
+    root = tmp_path / "evidence"
+    prepared = prepare(
+        root,
+        scientific_head="1" * 40,
+        artifact_root_digest="a" * 64,
+        history_pair_set=_pair_set(),
+    )
+    measurement = _measurement("a" * 64)
+    measurement["pair_set_digest"] = "f" * 64
+
+    with pytest.raises(Invalid, match="history pair digest"):
+        write_measurement(
+            root,
+            manifest_sha256=prepared["manifest_sha256"],
+            scientific_head="1" * 40,
+            artifact_root_digest="a" * 64,
+            raw_result=measurement,
+        )
+
+
+def test_measurement_rejects_history_pair_diagnostic_mutation(
+    tmp_path: Path,
+) -> None:
+    from neural_state_machine.r1_e3m_evidence import write_measurement
+
+    Invalid, prepare, _, _ = _api()
+    root = tmp_path / "evidence"
+    prepared = prepare(
+        root,
+        scientific_head="1" * 40,
+        artifact_root_digest="a" * 64,
+        history_pair_set=_pair_set(),
+    )
+    measurement = _measurement("a" * 64)
+    measurement["arms"][0]["pair_diagnostics"][0][
+        "prefix_distance"
+    ] += 0.5
+
+    with pytest.raises(Invalid, match="prefix_distance"):
+        write_measurement(
+            root,
+            manifest_sha256=prepared["manifest_sha256"],
+            scientific_head="1" * 40,
+            artifact_root_digest="a" * 64,
+            raw_result=measurement,
+        )
