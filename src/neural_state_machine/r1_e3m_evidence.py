@@ -25,6 +25,13 @@ from neural_state_machine.r1_e3m_pairs import (
     history_pair_set_payload,
 )
 from neural_state_machine.r1_e3m_probe import DELAYS, RIDGE_REGULARIZATION
+from neural_state_machine.r1_e3m_registration import (
+    DelayRegistration,
+    DelayRegistrationInvalid,
+    delay_registration_from_payload,
+    delay_registration_payload,
+    validate_delay_registration_gate,
+)
 
 
 class EvidenceInvalid(RuntimeError):
@@ -97,6 +104,7 @@ def prepare_prospective(
     scientific_head: str,
     artifact_root_digest: object,
     history_pair_set: HistoryPairSet,
+    delay_registration: DelayRegistration,
 ) -> dict[str, object]:
     root_path = Path(root)
     head = _validated_head(scientific_head)
@@ -113,6 +121,30 @@ def prepare_prospective(
         raise EvidenceInvalid(
             "history_pair_set must be a validated HistoryPairSet"
         )
+    if not isinstance(delay_registration, DelayRegistration):
+        raise EvidenceInvalid(
+            "delay_registration must be a validated DelayRegistration"
+        )
+    if delay_registration.artifact_root_digest != artifact_digest:
+        raise EvidenceInvalid(
+            "delay registration artifact root digest mismatch"
+        )
+    try:
+        validate_delay_registration_gate(delay_registration)
+    except DelayRegistrationInvalid as exc:
+        raise EvidenceInvalid(
+            f"delay registration gate failed: {exc}"
+        ) from exc
+    delay_registration_sha = _write_pair(
+        root_path,
+        "delay-registration.json",
+        delay_registration_payload(delay_registration),
+    )
+    delay_registration_meta = {
+        "digest": delay_registration.digest,
+        "file_sha256": delay_registration_sha,
+    }
+
     history_pair_sha = _write_pair(
         root_path,
         "history-pairs.json",
@@ -132,6 +164,7 @@ def prepare_prospective(
         "python": platform.python_version(),
         "numpy": np.__version__,
         "history_pairs": history_pair_meta,
+        "delay_registration": delay_registration_meta,
         "protocol": registered_manifest_payload(artifact_digest),
     }
     manifest_sha = _write_pair(
@@ -148,6 +181,8 @@ def prepare_prospective(
         "numpy": manifest["numpy"],
         "history_pair_digest": history_pair_set.pair_digest,
         "history_pair_file_sha256": history_pair_sha,
+        "delay_registration_digest": delay_registration.digest,
+        "delay_registration_file_sha256": delay_registration_sha,
         "registered_measurement": False,
     }
     _write_pair(
@@ -162,6 +197,7 @@ def prepare_prospective(
         "history_pair_digest": history_pair_set.pair_digest,
         "history_pair_count": len(history_pair_set.pairs),
         "history_prefix_threshold": history_pair_set.prefix_threshold,
+        "delay_registration_digest": delay_registration.digest,
     }
 
 
@@ -217,6 +253,9 @@ def write_measurement(
         measurement,
         expected_artifact_digest=artifact_digest,
         expected_pair_set=sealed["history_pair_set"],
+        expected_delay_registration=sealed[
+            "delay_registration"
+        ],
     )
 
     result_payload = {
@@ -224,6 +263,9 @@ def write_measurement(
         "manifest_sha256": sealed["manifest_sha256"],
         "artifact_root_digest": artifact_digest,
         "history_pair_digest": sealed["history_pair_digest"],
+        "delay_registration_digest": sealed[
+            "delay_registration_digest"
+        ],
         "measurement": measurement,
     }
     result_sha = _write_pair(
@@ -236,6 +278,9 @@ def write_measurement(
         "scientific_head": head,
         "artifact_root_digest": artifact_digest,
         "history_pair_digest": sealed["history_pair_digest"],
+        "delay_registration_digest": sealed[
+            "delay_registration_digest"
+        ],
         "manifest_sha256": sealed["manifest_sha256"],
         "result_sha256": result_sha,
         "python": platform.python_version(),
@@ -243,6 +288,9 @@ def write_measurement(
         "registered_measurement": True,
         "registered_arm_count": validation["registered_arm_count"],
         "history_pair_count": sealed["history_pair_count"],
+        "delay_registration_digest": sealed[
+            "delay_registration_digest"
+        ],
         "outcome": validation["outcome"],
     }
     provenance_sha = _write_pair(
@@ -257,6 +305,9 @@ def write_measurement(
         "provenance_sha256": provenance_sha,
         "artifact_root_digest": artifact_digest,
         "history_pair_digest": sealed["history_pair_digest"],
+        "delay_registration_digest": sealed[
+            "delay_registration_digest"
+        ],
     }
     trace_sha = _write_pair(
         root_path,
@@ -295,6 +346,9 @@ def verify_evidence(
                 "history_pair_count": sealed["history_pair_count"],
                 "history_prefix_threshold": sealed[
                     "history_prefix_threshold"
+                ],
+                "delay_registration_digest": sealed[
+                    "delay_registration_digest"
                 ],
                 "registered_arm_count": ARM_COUNT,
                 "delays": list(DELAYS),
@@ -339,6 +393,13 @@ def verify_evidence(
         raise EvidenceInvalid(
             "result history pair digest mismatch"
         )
+    if (
+        result.get("delay_registration_digest")
+        != sealed["delay_registration_digest"]
+    ):
+        raise EvidenceInvalid(
+            "result delay registration digest mismatch"
+        )
 
     result_sha = _read_digest(
         root_path,
@@ -371,6 +432,13 @@ def verify_evidence(
     ):
         raise EvidenceInvalid(
             "provenance history pair digest mismatch"
+        )
+    if (
+        provenance.get("delay_registration_digest")
+        != sealed["delay_registration_digest"]
+    ):
+        raise EvidenceInvalid(
+            "provenance delay registration digest mismatch"
         )
     if (
         provenance.get("manifest_sha256")
@@ -424,6 +492,13 @@ def verify_evidence(
         raise EvidenceInvalid(
             "trace history pair digest mismatch"
         )
+    if (
+        trace.get("delay_registration_digest")
+        != sealed["delay_registration_digest"]
+    ):
+        raise EvidenceInvalid(
+            "trace delay registration digest mismatch"
+        )
 
     validation = _validate_registered_measurement(
         result.get("measurement"),
@@ -456,6 +531,9 @@ def verify_evidence(
         "history_pair_count": sealed["history_pair_count"],
         "history_prefix_threshold": sealed[
             "history_prefix_threshold"
+        ],
+        "delay_registration_digest": sealed[
+            "delay_registration_digest"
         ],
         "registered_arm_count": validation[
             "registered_arm_count"
@@ -495,6 +573,10 @@ def _load_prospective(
         root_path,
         "history-pairs.sha256",
     )
+    delay_registration_file_sha = _read_digest(
+        root_path,
+        "delay-registration.sha256",
+    )
     try:
         history_pair_set = history_pair_set_from_payload(
             _read_verified(root_path, "history-pairs.json")
@@ -502,6 +584,15 @@ def _load_prospective(
     except ValueError as exc:
         raise EvidenceInvalid(
             f"history pair seal invalid: {exc}"
+        ) from exc
+    try:
+        delay_registration = delay_registration_from_payload(
+            _read_verified(root_path, "delay-registration.json")
+        )
+        validate_delay_registration_gate(delay_registration)
+    except (DelayRegistrationInvalid, ValueError) as exc:
+        raise EvidenceInvalid(
+            f"delay registration seal invalid: {exc}"
         ) from exc
 
     if manifest.get("schema") != "r1-e3m-manifest-v1":
@@ -513,6 +604,22 @@ def _load_prospective(
         manifest.get("artifact_root_digest"),
         "artifact_root_digest",
     )
+    if delay_registration.artifact_root_digest != artifact_digest:
+        raise EvidenceInvalid(
+            "delay registration artifact root digest mismatch"
+        )
+    delay_meta = _mapping(
+        manifest.get("delay_registration"),
+        "manifest delay_registration",
+    )
+    expected_delay_meta = {
+        "digest": delay_registration.digest,
+        "file_sha256": delay_registration_file_sha,
+    }
+    if delay_meta != expected_delay_meta:
+        raise EvidenceInvalid(
+            "manifest delay registration seal mismatch"
+        )
     history_meta = _mapping(
         manifest.get("history_pairs"),
         "manifest history_pairs",
@@ -566,6 +673,15 @@ def _load_prospective(
         raise EvidenceInvalid(
             "prospective history pair seal mismatch"
         )
+    if (
+        prospective.get("delay_registration_digest")
+        != delay_registration.digest
+        or prospective.get("delay_registration_file_sha256")
+        != delay_registration_file_sha
+    ):
+        raise EvidenceInvalid(
+            "prospective delay registration seal mismatch"
+        )
     if prospective.get("registered_measurement") is not False:
         raise EvidenceInvalid(
             "prospective measurement flag mismatch"
@@ -586,6 +702,10 @@ def _load_prospective(
         "history_pair_count": len(history_pair_set.pairs),
         "history_prefix_threshold": history_pair_set.prefix_threshold,
         "history_pair_file_sha256": history_pair_file_sha,
+        "delay_registration": delay_registration,
+        "delay_registration_digest": delay_registration.digest,
+        "delay_registration_file_sha256":
+            delay_registration_file_sha,
     }
 
 
@@ -594,6 +714,7 @@ def _validate_registered_measurement(
     *,
     expected_artifact_digest: str,
     expected_pair_set: HistoryPairSet,
+    expected_delay_registration: DelayRegistration,
 ) -> dict[str, object]:
     measurement = _mapping(
         value,
@@ -613,6 +734,13 @@ def _validate_registered_measurement(
             "registered measurement manifest mismatch"
         )
 
+    if (
+        measurement.get("delay_registration_digest")
+        != expected_delay_registration.digest
+    ):
+        raise EvidenceInvalid(
+            "registered measurement delay registration digest mismatch"
+        )
     if (
         measurement.get("pair_set_digest")
         != expected_pair_set.pair_digest
@@ -673,6 +801,13 @@ def _validate_registered_measurement(
             arm_map.get("reservoir_parameter_digest"),
             "reservoir_parameter_digest",
         )
+        if (
+            arm_map.get("delay_registration_digest")
+            != expected_delay_registration.digest
+        ):
+            raise EvidenceInvalid(
+                "registered arm delay registration digest mismatch"
+            )
         if (
             arm_map.get("pair_set_digest")
             != expected_pair_set.pair_digest
@@ -752,6 +887,29 @@ def _validate_registered_measurement(
                 raise EvidenceInvalid(
                     "registered delay order/identity mismatch"
                 )
+            eligibility = expected_delay_registration.delays[
+                DELAYS.index(expected_delay)
+            ]
+            expected_train_count = len(
+                eligibility.training_window_ids
+            )
+            expected_eval_count = len(
+                eligibility.evaluation_window_ids
+            )
+            if (
+                delay_map.get("training_sample_count")
+                != expected_train_count
+            ):
+                raise EvidenceInvalid(
+                    "registered delay training sample count mismatch"
+                )
+            if (
+                delay_map.get("evaluation_sample_count")
+                != expected_eval_count
+            ):
+                raise EvidenceInvalid(
+                    "registered delay evaluation sample count mismatch"
+                )
 
             instantaneous = _validate_probe_result(
                 delay_map.get("instantaneous"),
@@ -778,6 +936,10 @@ def _validate_registered_measurement(
             if len(sample_counts) != 1:
                 raise EvidenceInvalid(
                     "delay result sample-count mismatch"
+                )
+            if sample_counts != {expected_eval_count}:
+                raise EvidenceInvalid(
+                    "delay result sample count does not match registration"
                 )
             if (
                 reset["coefficient_digest"]
@@ -897,6 +1059,8 @@ def _validate_registered_measurement(
         "outcome": expected_outcome,
         "history_pair_digest": expected_pair_set.pair_digest,
         "history_pair_count": len(expected_pair_set.pairs),
+        "delay_registration_digest":
+            expected_delay_registration.digest,
     }
 
 
