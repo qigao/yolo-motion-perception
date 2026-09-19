@@ -268,13 +268,25 @@ historical order without changing the current suffix.
 Before any reservoir scoring, create an immutable audit-pair list using only
 input-space distances.
 
-For each evaluation window:
+Distance is RMS over all six input channels.
 
-1. compute suffix vector from bins 16..19;
-2. find a deterministic nearest neighbor from a different track/window with
-   small suffix distance;
-3. retain a pair only when its prefix distance over bins 0..15 exceeds a frozen
-   minimum derived from the training distribution before reservoir scoring.
+Freeze the prefix-separation threshold from training inputs only:
+
+1. for each training window, compute its suffix vector from bins 16..19;
+2. find the nearest suffix neighbor with a different `(video_id, track_id)`;
+3. break equal-distance ties by lexical `window_id`;
+4. record that pair's prefix RMS distance over bins 0..15;
+5. set the frozen threshold to the median of those training prefix distances.
+
+Then construct evaluation audit pairs:
+
+1. for each evaluation window, find the deterministic nearest suffix neighbor
+   with a different `(video_id, track_id)`;
+2. canonicalize each pair by lexical window ID and remove duplicates;
+3. retain the pair only when its prefix RMS distance is strictly greater than
+   the frozen training-derived threshold.
+
+No reservoir state, ESN score, label, or control result may influence pairing.
 
 Report for each retained pair:
 
