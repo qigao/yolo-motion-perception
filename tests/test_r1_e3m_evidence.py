@@ -22,6 +22,42 @@ def _api():
     )
 
 
+def _pair_set():
+    import numpy as np
+
+    from neural_state_machine.r1_e3m_dataset import MechanismSample
+    from neural_state_machine.r1_e3m_pairs import build_history_pairs
+
+    def sample(name: str, split: str, track_id: int, prefix: float):
+        tensor = np.zeros((20, 6), dtype=np.float64)
+        tensor[:16, 0] = prefix
+        tensor[16:20, 0] = 0.1 + 0.001 * track_id
+        tensor[:, 2] = 0.1
+        tensor[:, 3] = 0.2
+        tensor[:, 4] = 0.9
+        tensor[:, 5] = 1.0
+        return MechanismSample(
+            window_id=(name.encode("utf-8").hex() + "0" * 64)[:64],
+            video_id=f"{split}-video-{track_id}",
+            split=split,
+            track_id=track_id,
+            source_start_seconds=0.0,
+            source_end_seconds=2.0,
+            tensor=tensor,
+        )
+
+    training = (
+        sample("t0", "train", 1, 0.0),
+        sample("t1", "train", 2, 1.0),
+        sample("t2", "train", 3, 2.0),
+    )
+    evaluation = (
+        sample("e0", "eval", 10, 0.0),
+        sample("e1", "eval", 11, 2.0),
+    )
+    return build_history_pairs(training, evaluation)
+
+
 def test_registered_manifest_freezes_mechanism_protocol() -> None:
     _, _, manifest_payload, _ = _api()
 
@@ -56,6 +92,7 @@ def test_prepare_and_verify_prospective_only_state(tmp_path: Path) -> None:
         root,
         scientific_head="1" * 40,
         artifact_root_digest="a" * 64,
+        history_pair_set=_pair_set(),
     )
     verified = verify(root, no_result_ok=True)
 
@@ -64,6 +101,8 @@ def test_prepare_and_verify_prospective_only_state(tmp_path: Path) -> None:
     assert verified["prospective_only"] is True
     assert verified["scientific_head"] == "1" * 40
     assert verified["artifact_root_digest"] == "a" * 64
+    assert verified["history_pair_digest"] == _pair_set().pair_digest
+    assert verified["history_pair_count"] == len(_pair_set().pairs)
     assert verified["registered_arm_count"] == 20
     assert not (root / "result.json").exists()
 
@@ -76,6 +115,7 @@ def test_prepare_is_write_once(tmp_path: Path) -> None:
         root,
         scientific_head="1" * 40,
         artifact_root_digest="a" * 64,
+        history_pair_set=_pair_set(),
     )
 
     with pytest.raises(FileExistsError):
@@ -93,6 +133,7 @@ def test_verify_rejects_protocol_mutation(tmp_path: Path) -> None:
         root,
         scientific_head="1" * 40,
         artifact_root_digest="a" * 64,
+        history_pair_set=_pair_set(),
     )
 
     manifest_path = root / "manifest.json"
@@ -120,6 +161,7 @@ def test_verify_without_result_fails_when_not_explicitly_allowed(
         root,
         scientific_head="1" * 40,
         artifact_root_digest="a" * 64,
+        history_pair_set=_pair_set(),
     )
 
     with pytest.raises(Invalid, match="result is missing"):
@@ -203,6 +245,7 @@ def test_write_and_verify_registered_measurement(tmp_path: Path) -> None:
         root,
         scientific_head="1" * 40,
         artifact_root_digest="a" * 64,
+        history_pair_set=_pair_set(),
     )
 
     written = write_measurement(
@@ -233,6 +276,7 @@ def test_measurement_rejects_control_refit(tmp_path: Path) -> None:
         root,
         scientific_head="1" * 40,
         artifact_root_digest="a" * 64,
+        history_pair_set=_pair_set(),
     )
     measurement = _measurement("a" * 64)
     measurement["arms"][0]["delays"][0]["reset_control"][
@@ -262,6 +306,7 @@ def test_measurement_rejects_long_delay_aggregate_mutation(
         root,
         scientific_head="1" * 40,
         artifact_root_digest="a" * 64,
+        history_pair_set=_pair_set(),
     )
     measurement = _measurement("a" * 64)
     measurement["arms"][0]["long_delay_delta"] = 0.99
@@ -287,6 +332,7 @@ def test_measurement_rejects_outcome_mutation(tmp_path: Path) -> None:
         root,
         scientific_head="1" * 40,
         artifact_root_digest="a" * 64,
+        history_pair_set=_pair_set(),
     )
     measurement = _measurement("a" * 64)
     measurement["outcome"] = "M-C"
@@ -299,3 +345,51 @@ def test_measurement_rejects_outcome_mutation(tmp_path: Path) -> None:
             artifact_root_digest="a" * 64,
             raw_result=measurement,
         )
+
+
+def test_prepare_freezes_history_pair_payload_and_digest(tmp_path: Path) -> None:
+    _, prepare, _, verify = _api()
+    root = tmp_path / "evidence"
+    pair_set = _pair_set()
+
+    prepared = prepare(
+        root,
+        scientific_head="1" * 40,
+        artifact_root_digest="a" * 64,
+        history_pair_set=pair_set,
+    )
+    payload = json.loads(
+        (root / "history-pairs.json").read_text(encoding="utf-8")
+    )
+    manifest = json.loads(
+        (root / "manifest.json").read_text(encoding="utf-8")
+    )
+    verified = verify(root, no_result_ok=True)
+
+    assert payload["pair_digest"] == pair_set.pair_digest
+    assert payload["pair_count"] == len(pair_set.pairs)
+    assert manifest["history_pairs"]["pair_digest"] == pair_set.pair_digest
+    assert len(manifest["history_pairs"]["file_sha256"]) == 64
+    assert prepared["history_pair_digest"] == pair_set.pair_digest
+    assert verified["history_pair_digest"] == pair_set.pair_digest
+
+
+def test_verify_rejects_history_pair_file_mutation(tmp_path: Path) -> None:
+    Invalid, prepare, _, verify = _api()
+    root = tmp_path / "evidence"
+    prepare(
+        root,
+        scientific_head="1" * 40,
+        artifact_root_digest="a" * 64,
+        history_pair_set=_pair_set(),
+    )
+    path = root / "history-pairs.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["prefix_threshold"] = float(payload["prefix_threshold"]) + 0.1
+    path.write_text(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(Invalid, match="sha256"):
+        verify(root, no_result_ok=True)
