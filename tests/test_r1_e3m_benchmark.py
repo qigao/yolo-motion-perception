@@ -105,6 +105,8 @@ def test_reservoir_recovers_longer_history_when_suffix_is_uninformative():
         tensor = np.zeros((20, 14), dtype=np.float64)
         tensor[:16, 0] = value
         tensor[:16, 5] = 1.0
+        nuisance = ((index * 37) % 101) / 101.0
+        tensor[16:20, 1] = nuisance
         tensor[:, 11] = 1.0
         tensor[:, 6] = 0.5
         window = _window(
