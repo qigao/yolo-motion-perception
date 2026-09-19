@@ -9,11 +9,22 @@ from neural_state_machine.r1_e3m_dataset import MechanismSample
 
 def _api():
     from neural_state_machine.r1_e3m_pairs import (
+        HistoryPair,
+        HistoryPairSet,
         build_history_pairs,
+        history_pair_set_from_payload,
+        history_pair_set_payload,
         score_history_pairs,
     )
 
-    return build_history_pairs, score_history_pairs
+    return (
+        HistoryPair,
+        HistoryPairSet,
+        build_history_pairs,
+        history_pair_set_from_payload,
+        history_pair_set_payload,
+        score_history_pairs,
+    )
 
 
 def _sample(
@@ -39,7 +50,7 @@ def _sample(
 
 
 def test_pair_builder_has_no_reservoir_state_parameter() -> None:
-    build, _ = _api()
+    _, _, build, _, _, _ = _api()
 
     names = set(signature(build).parameters)
 
@@ -49,7 +60,7 @@ def test_pair_builder_has_no_reservoir_state_parameter() -> None:
 
 
 def test_training_threshold_and_eval_pairs_are_deterministic() -> None:
-    build, _ = _api()
+    _, _, build, _, _, _ = _api()
     training = (
         _sample("t0", "train", 1, 0.0, 0.000),
         _sample("t1", "train", 2, 0.2, 0.001),
@@ -71,7 +82,7 @@ def test_training_threshold_and_eval_pairs_are_deterministic() -> None:
 
 
 def test_pairs_never_join_same_track_identity() -> None:
-    build, _ = _api()
+    _, _, build, _, _, _ = _api()
     training = (
         _sample("t0", "train", 1, 0.0, 0.000),
         _sample("t1", "train", 2, 0.2, 0.001),
@@ -95,7 +106,7 @@ def test_pairs_never_join_same_track_identity() -> None:
 
 
 def test_state_scoring_cannot_change_frozen_pair_selection() -> None:
-    build, score = _api()
+    _, _, build, _, _, score = _api()
     training = (
         _sample("t0", "train", 1, 0.0, 0.000),
         _sample("t1", "train", 2, 0.2, 0.001),
@@ -118,7 +129,7 @@ def test_state_scoring_cannot_change_frozen_pair_selection() -> None:
 
 
 def test_prefix_threshold_uses_all_unordered_training_pairs() -> None:
-    build, _ = _api()
+    _, _, build, _, _, _ = _api()
     training = (
         _sample("u0", "train", 1, 0.0, 0.0),
         _sample("u1", "train", 2, 0.2, 0.0),
@@ -147,7 +158,7 @@ def test_prefix_threshold_uses_all_unordered_training_pairs() -> None:
 
 
 def test_eval_filters_by_prefix_before_selecting_suffix_nearest_neighbor() -> None:
-    build, _ = _api()
+    _, _, build, _, _, _ = _api()
     training = (
         _sample("w0", "train", 1, 0.0, 0.0),
         _sample("w1", "train", 2, 0.1, 0.0),
@@ -174,3 +185,34 @@ def test_eval_filters_by_prefix_before_selecting_suffix_nearest_neighbor() -> No
     )
     assert anchor_valid in pair_ids
     assert anchor_too_similar not in pair_ids
+
+
+def test_pair_set_rejects_digest_that_does_not_match_content() -> None:
+    HistoryPair, HistoryPairSet, *_ = _api()
+    pair = HistoryPair(
+        left_window_id="1" * 64,
+        right_window_id="2" * 64,
+        suffix_distance=0.1,
+        prefix_distance=1.0,
+    )
+
+    import pytest
+
+    with pytest.raises(ValueError, match="pair_digest mismatch"):
+        HistoryPairSet(
+            prefix_threshold=0.5,
+            pairs=(pair,),
+            pair_digest="f" * 64,
+        )
+
+
+def test_pair_set_payload_roundtrip_preserves_digest() -> None:
+    _, _, build, from_payload, to_payload, _ = _api()
+    pair_set = build(_training(), _evaluation())
+
+    payload = to_payload(pair_set)
+    restored = from_payload(payload)
+
+    assert restored == pair_set
+    assert payload["pair_digest"] == pair_set.pair_digest
+    assert payload["pair_count"] == len(pair_set.pairs)
