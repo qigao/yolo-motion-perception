@@ -233,6 +233,33 @@ Targets are exactly:
 
 Confidence and presence are reservoir inputs but are not reconstruction targets.
 
+## Delay-specific target eligibility and registration-size gate
+
+A delayed geometry target is scientifically valid only when the target bin
+contains a real causal track observation:
+
+- for delay `d`, the target bin is `19-d`;
+- the window is eligible for that delay only when the target bin has
+  `presence=1`;
+- a missing target bin is **excluded**, never interpreted as zero geometry;
+- current bin 19 is not required to have `presence=1`; a missing current
+  observation is a legitimate condition under which reservoir memory may help;
+- for a given delay, M0, M1, H1 and H2 must use the exact same frozen
+  evaluation-window mask;
+- M0 and M1 fitting for a given delay must use the exact same frozen
+  training-window mask.
+
+Before prospective sealing, every registered delay must independently satisfy:
+
+- at least 20 target-valid training windows;
+- at least 10 target-valid evaluation windows;
+- target-valid training windows from at least 2 distinct source videos;
+- target-valid evaluation windows from at least 2 distinct source videos.
+
+The exact per-delay valid window IDs, counts and source-video counts are frozen
+in the prospective manifest before any registered ESN score is computed.
+Failure of any delay gate stops the experiment before measurement.
+
 ## M0 and M1 probes
 
 For each architecture/seed/delay, fit two Ridge probes on the same training
