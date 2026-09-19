@@ -1,12 +1,20 @@
+import importlib.util
+from pathlib import Path
+
 import pytest
 
-from tools.r1_e3a_source_pool import (
-    PLAN_SCHEMA,
-    available_rows,
-    build_guard_components,
-    build_plan,
-    validate_plan,
-)
+MODULE_PATH = Path(__file__).parents[1] / "tools" / "r1_e3a_source_pool.py"
+SPEC = importlib.util.spec_from_file_location("r1_e3a_source_pool", MODULE_PATH)
+assert SPEC is not None
+assert SPEC.loader is not None
+SOURCE_POOL = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(SOURCE_POOL)
+
+PLAN_SCHEMA = SOURCE_POOL.PLAN_SCHEMA
+available_rows = SOURCE_POOL.available_rows
+build_guard_components = SOURCE_POOL.build_guard_components
+build_plan = SOURCE_POOL.build_plan
+validate_plan = SOURCE_POOL.validate_plan
 
 
 def row(video_id: str, *, pickup: int = 1, size: int = 100):
