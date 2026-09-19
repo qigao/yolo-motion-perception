@@ -1,0 +1,79 @@
+name: R1-E3M mechanism tooling
+
+on:
+  push:
+    branches:
+      - research/r1-e3m-real-track-memory
+    paths:
+      - src/neural_state_machine/r1_e3m_*.py
+      - scripts/prepare_r1_e3m_artifact.py
+      - scripts/benchmark_r1_e3m_memory.py
+      - tests/test_r1_e3m_*.py
+      - docs/superpowers/specs/2026-09-19-r1-e3m-label-free-real-track-memory-design.md
+      - docs/superpowers/plans/2026-09-19-r1-e3m-label-free-real-track-memory.md
+      - .github/workflows/r1-e3m-mechanism.yml
+  pull_request:
+    paths:
+      - src/neural_state_machine/r1_e3m_*.py
+      - scripts/prepare_r1_e3m_artifact.py
+      - scripts/benchmark_r1_e3m_memory.py
+      - tests/test_r1_e3m_*.py
+      - docs/superpowers/specs/2026-09-19-r1-e3m-label-free-real-track-memory-design.md
+      - docs/superpowers/plans/2026-09-19-r1-e3m-label-free-real-track-memory.md
+      - .github/workflows/r1-e3m-mechanism.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: r1-e3m-mechanism-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  focused:
+    name: E3M focused tests and scope gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install project test dependencies
+        run: python -m pip install --disable-pip-version-check -e ".[dev]"
+
+      - name: R1-E3M focused tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          tests=(tests/test_r1_e3m_*.py)
+          pytest -q "${tests[@]}"
+
+      - name: R1-E3M Ruff
+        shell: bash
+        run: |
+          set -euo pipefail
+          ruff check src/neural_state_machine/r1_e3m_*.py tests/test_r1_e3m_*.py
+
+      - name: Fail closed on forbidden semantic coupling
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -R -n -E             'semantic-review|batch1-semantic-review|approach|touch|pick_up|pass_by'             src/neural_state_machine/r1_e3m_*.py; then
+            echo "R1-E3M production code must not depend on semantic labels/artifacts"
+            exit 1
+          fi
+
+      - name: Assert focused CI contains no extraction or measurement command
+        shell: bash
+        run: |
+          set -euo pipefail
+          workflow=".github/workflows/r1-e3m-mechanism.yml"
+          if grep -n -E             'benchmark_r1_e3m_memory.py[[:space:]]+measure|prepare_r1_e3m_artifact.py[[:space:]]+extract'             "$workflow"; then
+            echo "Focused E3M CI must not extract or run registered measurement"
+            exit 1
+          fi
