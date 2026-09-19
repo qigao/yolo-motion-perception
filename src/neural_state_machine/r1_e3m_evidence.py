@@ -506,6 +506,9 @@ def verify_evidence(
             "artifact_root_digest"
         ],
         expected_pair_set=sealed["history_pair_set"],
+        expected_delay_registration=sealed[
+            "delay_registration"
+        ],
     )
     if (
         provenance.get("registered_arm_count")
