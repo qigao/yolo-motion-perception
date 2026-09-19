@@ -12,6 +12,20 @@ SPEC.loader.exec_module(FREEZE)
 
 validate_review = FREEZE.validate_review
 
+SOURCE_MANIFEST_SHA256 = "1" * 64
+HANDBOOK_SHA256 = "2" * 64
+SAMPLING_PROTOCOL_SHA256 = "3" * 64
+
+
+def validate(payload, source_manifest):
+    return validate_review(
+        payload,
+        source_manifest,
+        source_manifest_sha256=SOURCE_MANIFEST_SHA256,
+        handbook_sha256=HANDBOOK_SHA256,
+        sampling_protocol_sha256=SAMPLING_PROTOCOL_SHA256,
+    )
+
 
 def manifest():
     return {
@@ -47,6 +61,9 @@ def review(records, *, train_count=0, train_b_count=0, eval_count=0):
         "schema": "r1-e3a-semantic-annotation-review-v1",
         "status": "reviewed",
         "science_head_sha": "9" * 40,
+        "source_manifest_sha256": SOURCE_MANIFEST_SHA256,
+        "handbook_sha256": HANDBOOK_SHA256,
+        "sampling_protocol_sha256": SAMPLING_PROTOCOL_SHA256,
         "video_reviews": [
             {
                 "video_id": "train-a",
@@ -94,7 +111,7 @@ def test_valid_review_reconciles_video_candidate_counts():
         accepted("evt-eval", "eval-a", "touch", 20, 60),
     ]
 
-    summary = validate_review(review(records, train_count=1, eval_count=1), manifest())
+    summary = validate(review(records, train_count=1, eval_count=1), manifest())
 
     assert summary["accepted"]["train"]["pick_up"] == 1
     assert summary["accepted"]["eval"]["touch"] == 1
@@ -108,14 +125,14 @@ def test_duplicate_physical_event_fails_closed():
     ]
 
     with pytest.raises(ValueError, match="duplicate physical_event_id"):
-        validate_review(review(records, train_count=2), manifest())
+        validate(review(records, train_count=2), manifest())
 
 
 def test_frame_bounds_must_fit_frozen_source():
     records = [accepted("evt", "train-a", "approach", 10, 301)]
 
     with pytest.raises(ValueError, match="frame bounds"):
-        validate_review(review(records, train_count=1), manifest())
+        validate(review(records, train_count=1), manifest())
 
 
 def test_candidate_count_includes_context_video_appearances():
@@ -130,7 +147,7 @@ def test_candidate_count_includes_context_video_appearances():
         )
     ]
 
-    summary = validate_review(
+    summary = validate(
         review(records, train_count=1, train_b_count=1),
         manifest(),
     )
@@ -143,7 +160,7 @@ def test_candidate_count_mismatch_fails_closed():
     records = [accepted("evt", "train-a", "pick_up", 10, 50)]
 
     with pytest.raises(ValueError, match="candidate_count mismatch"):
-        validate_review(review(records, train_count=0), manifest())
+        validate(review(records, train_count=0), manifest())
 
 
 def test_unresolved_status_is_rejected():
@@ -151,7 +168,7 @@ def test_unresolved_status_is_rejected():
     record["review_status"] = "needs_resolution"
 
     with pytest.raises(ValueError, match="needs_resolution"):
-        validate_review(review([record], train_count=1), manifest())
+        validate(review([record], train_count=1), manifest())
 
 
 def test_rejected_record_requires_frozen_reason_code():
@@ -159,4 +176,29 @@ def test_rejected_record_requires_frozen_reason_code():
     record["review_status"] = "rejected:not-a-frozen-reason"
 
     with pytest.raises(ValueError, match="rejection reason"):
-        validate_review(review([record], train_count=1), manifest())
+        validate(review([record], train_count=1), manifest())
+
+
+@pytest.mark.parametrize(
+    ("field", "expected"),
+    [
+        ("source_manifest_sha256", SOURCE_MANIFEST_SHA256),
+        ("handbook_sha256", HANDBOOK_SHA256),
+        ("sampling_protocol_sha256", SAMPLING_PROTOCOL_SHA256),
+    ],
+)
+def test_review_must_match_frozen_input_digests(field, expected):
+    payload = review([], train_count=0, train_b_count=0, eval_count=0)
+    payload[field] = "f" * 64
+    assert payload[field] != expected
+
+    with pytest.raises(ValueError, match=field):
+        validate(payload, manifest())
+
+
+def test_review_status_must_be_reviewed_before_freeze():
+    payload = review([], train_count=0, train_b_count=0, eval_count=0)
+    payload["status"] = "draft_full_video_review_pending"
+
+    with pytest.raises(ValueError, match="review status"):
+        validate(payload, manifest())
