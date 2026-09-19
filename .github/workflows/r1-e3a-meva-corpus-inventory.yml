@@ -33,21 +33,30 @@ jobs:
       - name: Fetch only public MEVA activity annotations
         timeout-minutes: 10
         run: |
-          repo="$RUNNER_TEMP/meva-data-repo"
-          git clone \
-            --depth 1 \
-            --filter=blob:none \
-            --sparse \
-            --no-checkout \
-            https://gitlab.kitware.com/meva/meva-data-repo.git \
-            "$repo"
-          git -C "$repo" sparse-checkout set annotation/DIVA-phase-2/MEVA
-          git -C "$repo" checkout HEAD
+          archive="$RUNNER_TEMP/meva-annotations.tar.gz"
+          unpack="$RUNNER_TEMP/meva-annotations"
+          archive_url='https://gitlab.kitware.com/api/v4/projects/meva%2Fmeva-data-repo/repository/archive.tar.gz?path=annotation%2FDIVA-phase-2%2FMEVA&include_lfs_blobs=false'
+
+          mkdir -p "$unpack"
+          curl \
+            --fail \
+            --location \
+            --retry 3 \
+            --retry-delay 2 \
+            --retry-all-errors \
+            "$archive_url" \
+            --output "$archive"
+          tar -xzf "$archive" -C "$unpack"
+
+          kpf_root="$(find "$unpack" -type d -path '*/annotation/DIVA-phase-2/MEVA' -print -quit)"
+          test -n "$kpf_root"
+          test -d "$kpf_root"
+          printf 'MEVA_KPF_ROOT=%s\n' "$kpf_root" >> "$GITHUB_ENV"
 
       - name: Enumerate pickup-containing public source videos
         run: |
           python tools/r1_e3a_meva_inventory.py \
-            --kpf-root "$RUNNER_TEMP/meva-data-repo/annotation/DIVA-phase-2/MEVA" \
+            --kpf-root "$MEVA_KPF_ROOT" \
             --out-dir "$RUNNER_TEMP/r1-e3a-meva-inventory"
 
       - name: Print inventory summary
