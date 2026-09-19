@@ -132,6 +132,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
 
     if args.command == "prepare":
+        current_head = _current_head()
+        if args.scientific_head != current_head:
+            raise SystemExit(
+                "scientific head mismatch: "
+                f"declared={args.scientific_head!r} "
+                f"current={current_head!r}"
+            )
         dataset = load_mechanism_dataset(args.artifact_root)
         pair_set = build_history_pairs(
             dataset.training,
