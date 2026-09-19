@@ -25,6 +25,13 @@ def manifest():
                 "source_window_component_id": "train-component",
             },
             {
+                "source_video_id": "train-b",
+                "split": "train",
+                "frame_count": 300,
+                "fps": 30.0,
+                "source_window_component_id": "train-component",
+            },
+            {
                 "source_video_id": "eval-a",
                 "split": "eval",
                 "frame_count": 240,
@@ -35,7 +42,7 @@ def manifest():
     }
 
 
-def review(records, *, train_count=0, eval_count=0):
+def review(records, *, train_count=0, train_b_count=0, eval_count=0):
     return {
         "schema": "r1-e3a-semantic-annotation-review-v1",
         "status": "reviewed",
@@ -46,6 +53,12 @@ def review(records, *, train_count=0, eval_count=0):
                 "full_range_reviewed": True,
                 "candidate_count": train_count,
                 "reviewer": "reviewer-a",
+            },
+            {
+                "video_id": "train-b",
+                "full_range_reviewed": True,
+                "candidate_count": train_b_count,
+                "reviewer": "reviewer-c",
             },
             {
                 "video_id": "eval-a",
@@ -81,7 +94,7 @@ def test_valid_review_reconciles_video_candidate_counts():
         accepted("evt-eval", "eval-a", "touch", 20, 60),
     ]
 
-    summary = validate_review(review(records, train_count=1, eval_count=1), manifest())
+    summary = validate_review(review(records, train_count=1, train_b_count=1), manifest())
 
     assert summary["accepted"]["train"]["pick_up"] == 1
     assert summary["accepted"]["eval"]["touch"] == 1
@@ -113,14 +126,14 @@ def test_candidate_count_includes_context_video_appearances():
             "pick_up",
             10,
             50,
-            context=["eval-a"],
+            context=["train-b"],
         )
     ]
 
     summary = validate_review(review(records, train_count=1, eval_count=1), manifest())
 
     assert summary["reviewed_candidate_appearances"]["train-a"] == 1
-    assert summary["reviewed_candidate_appearances"]["eval-a"] == 1
+    assert summary["reviewed_candidate_appearances"]["train-b"] == 1
 
 
 def test_candidate_count_mismatch_fails_closed():
