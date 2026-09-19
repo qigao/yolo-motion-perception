@@ -7,6 +7,8 @@ on:
     paths:
       - tools/r1_e3a_annotation_freeze.py
       - tests/test_r1_e3a_annotation_freeze.py
+      - tools/r1_e3a_review_csv_to_json.py
+      - tests/test_r1_e3a_review_csv_to_json.py
       - .github/workflows/r1-e3a-annotation-freeze-gate.yml
   workflow_dispatch:
 
@@ -35,13 +37,18 @@ jobs:
         run: python -m pip install --disable-pip-version-check pytest ruff
 
       - name: Focused annotation freeze tests
-        run: pytest -q tests/test_r1_e3a_annotation_freeze.py
+        run: >-
+          pytest -q
+          tests/test_r1_e3a_annotation_freeze.py
+          tests/test_r1_e3a_review_csv_to_json.py
 
       - name: Ruff
         run: >-
           ruff check
           tools/r1_e3a_annotation_freeze.py
           tests/test_r1_e3a_annotation_freeze.py
+          tools/r1_e3a_review_csv_to_json.py
+          tests/test_r1_e3a_review_csv_to_json.py
 
       - name: Report success to issue 11
         env:
