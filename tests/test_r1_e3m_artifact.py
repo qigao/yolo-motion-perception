@@ -50,7 +50,7 @@ def _window(video_id: str, split: str, track_id: int, start: float):
     tensor[:, 2] = 0.1
     tensor[:, 3] = 0.2
     tensor[:, 4] = 0.9
-    tensor[:16, 5] = 1.0
+    tensor[:, 5] = 1.0
     end = start + 2.0
     return TrackWindow(
         window_id=track_window_id(video_id, track_id, start, end),
@@ -258,3 +258,78 @@ def test_artifact_digest_is_deterministic_and_content_addressed() -> None:
     )
 
     assert mechanism_artifact_digest(changed) != first
+
+
+def test_window_requires_frozen_two_second_source_anchor() -> None:
+    _, Invalid, _, TrackWindow, _, track_window_id, _ = _api()
+    tensor = np.zeros((20, 6), dtype=np.float64)
+    tensor[:, :5] = (0.2, 0.3, 0.1, 0.2, 0.9)
+    tensor[:, 5] = 1.0
+
+    with pytest.raises(Invalid, match="2.0 seconds"):
+        TrackWindow(
+            window_id=track_window_id("video", 1, 0.0, 1.9),
+            video_id="video",
+            split="train",
+            track_id=1,
+            source_start_seconds=0.0,
+            source_end_seconds=1.9,
+            tensor=tensor,
+        )
+
+    with pytest.raises(Invalid, match="anchored"):
+        TrackWindow(
+            window_id=track_window_id("video", 1, 1.0, 3.0),
+            video_id="video",
+            split="train",
+            track_id=1,
+            source_start_seconds=1.0,
+            source_end_seconds=3.0,
+            tensor=tensor,
+        )
+
+
+def test_window_presence_and_missing_payload_fail_closed() -> None:
+    _, Invalid, _, TrackWindow, _, track_window_id, _ = _api()
+    base = np.zeros((20, 6), dtype=np.float64)
+    base[:, :5] = (0.2, 0.3, 0.1, 0.2, 0.9)
+    base[:, 5] = 1.0
+
+    nonbinary = base.copy()
+    nonbinary[0, 5] = 0.5
+    with pytest.raises(Invalid, match="presence"):
+        TrackWindow(
+            track_window_id("video", 1, 0.0, 2.0),
+            "video", "train", 1, 0.0, 2.0, nonbinary,
+        )
+
+    missing_payload = base.copy()
+    missing_payload[0, 5] = 0.0
+    with pytest.raises(Invalid, match="missing bins"):
+        TrackWindow(
+            track_window_id("video", 1, 0.0, 2.0),
+            "video", "train", 1, 0.0, 2.0, missing_payload,
+        )
+
+    too_sparse = base.copy()
+    too_sparse[:5, :5] = 0.0
+    too_sparse[:5, 5] = 0.0
+    with pytest.raises(Invalid, match="16"):
+        TrackWindow(
+            track_window_id("video", 1, 0.0, 2.0),
+            "video", "train", 1, 0.0, 2.0, too_sparse,
+        )
+
+
+def test_window_input_channels_must_stay_in_unit_interval() -> None:
+    _, Invalid, _, TrackWindow, _, track_window_id, _ = _api()
+    tensor = np.zeros((20, 6), dtype=np.float64)
+    tensor[:, :5] = (0.2, 0.3, 0.1, 0.2, 0.9)
+    tensor[:, 5] = 1.0
+    tensor[0, 0] = 1.1
+
+    with pytest.raises(Invalid, match=r"\[0, 1\]"):
+        TrackWindow(
+            track_window_id("video", 1, 0.0, 2.0),
+            "video", "train", 1, 0.0, 2.0, tensor,
+        )
