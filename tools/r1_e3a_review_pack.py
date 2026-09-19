@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Create an acquisition-only human review pack from frozen R1-E3A source videos.
 
 This tool never runs a detector, tracker, reservoir, or registered measurement.
