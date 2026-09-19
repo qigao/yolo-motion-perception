@@ -1,0 +1,44 @@
+{
+  "schema": "r1-e3-extraction-provenance-v1",
+  "extractor_commit": "0123456789abcdef0123456789abcdef01234567",
+  "source_manifest_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+  "raw_tracks_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+  "annotations_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+  "normalized_episodes_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+  "yolo": {
+    "implementation": "Ultralytics YOLO11",
+    "package_version": "8.x-pinned-example",
+    "model": "yolo11n.pt",
+    "weights_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+    "confidence_threshold": 0.25,
+    "iou_threshold": 0.7,
+    "class_filter": [
+      "person",
+      "object"
+    ]
+  },
+  "botsort": {
+    "implementation": "Ultralytics BoT-SORT",
+    "version": "pinned-example",
+    "config_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+    "config": {
+      "track_high_thresh": 0.25,
+      "track_low_thresh": 0.1,
+      "new_track_thresh": 0.25,
+      "track_buffer": 30,
+      "match_thresh": 0.8,
+      "fuse_score": true
+    }
+  },
+  "frame_sampling": {
+    "policy": "fixed accepted cadence",
+    "target_fps": 20,
+    "letterbox_policy": "pinned-by-extractor"
+  },
+  "runtime": {
+    "python": "3.12.14",
+    "lock_sha256": "7777777777777777777777777777777777777777777777777777777777777777",
+    "platform": "linux-x86_64-example",
+    "hardware_provenance": "record-only; not a registered model factor"
+  }
+}
