@@ -325,8 +325,14 @@ def test_measure_calls_registered_runner_only_after_all_preflight(
     calls: list[object] = []
     fake_measurement = {"registered_measurement": True}
 
-    def run_measurement(dataset):
-        calls.append(("measure", dataset.artifact_root_digest))
+    def run_measurement(dataset, pair_set):
+        calls.append(
+            (
+                "measure",
+                dataset.artifact_root_digest,
+                pair_set.pair_digest,
+            )
+        )
         return fake_measurement
 
     def write_measurement(
@@ -376,7 +382,11 @@ def test_measure_calls_registered_runner_only_after_all_preflight(
 
     output = json.loads(capsys.readouterr().out.splitlines()[-1])
     assert output["result_sha256"] == "c" * 64
-    assert calls[0] == ("measure", _ARTIFACT_DIGEST)
+    assert calls[0] == (
+        "measure",
+        _ARTIFACT_DIGEST,
+        _pair_set().pair_digest,
+    )
     assert calls[1][0] == "write"
     assert calls[1][3] == _HEAD
     assert calls[1][4] == _ARTIFACT_DIGEST
@@ -394,3 +404,35 @@ def test_focused_ci_never_invokes_registered_measurement() -> None:
     ).read_text(encoding="utf-8")
 
     assert "benchmark_r1_e3m_memory.py measure" not in workflow
+
+
+def test_measure_rejects_history_pair_mismatch_before_measurement(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cli = _cli()
+    root, manifest_sha = _prepare_root(cli, tmp_path, monkeypatch)
+    monkeypatch.setattr(cli, "_current_head", lambda: _HEAD)
+    monkeypatch.setattr(
+        cli,
+        "run_registered_memory_benchmark",
+        _forbidden_measurement,
+    )
+    monkeypatch.setattr(
+        cli,
+        "build_history_pairs",
+        lambda training, evaluation: _pair_set(prefix_shift=0.5),
+    )
+
+    with pytest.raises(SystemExit, match="history pair"):
+        cli.main(
+            [
+                "measure",
+                "--artifact-root",
+                str(tmp_path / "artifact"),
+                "--root",
+                str(root),
+                "--manifest-sha256",
+                manifest_sha,
+            ]
+        )
