@@ -222,7 +222,7 @@ def test_verify_without_result_fails_when_not_explicitly_allowed(
 
 def _metrics(mean_r2: float) -> dict[str, object]:
     return {
-        "sample_count": 8,
+        "sample_count": 10,
         "mean_r2": mean_r2,
         "r2_per_channel": [mean_r2] * 4,
         "mse": 0.01,
@@ -241,6 +241,7 @@ def _measurement(artifact_digest: str) -> dict[str, object]:
     from neural_state_machine.r1_e3m_evidence import registered_manifest_payload
 
     pair_set = _pair_set()
+    delay_registration = _delay_registration()
     pair_diagnostics = [
         {
             "left_window_id": pair.left_window_id,
@@ -265,6 +266,8 @@ def _measurement(artifact_digest: str) -> dict[str, object]:
                 delays.append(
                     {
                         "delay": delay,
+                        "training_sample_count": 20,
+                        "evaluation_sample_count": 10,
                         "instantaneous": _probe(0.10, "b" * 64),
                         "reservoir": _probe(0.20, reservoir_coefficient),
                         "reset_control": _probe(0.05, reservoir_coefficient),
@@ -284,6 +287,8 @@ def _measurement(artifact_digest: str) -> dict[str, object]:
                     "h2_long_delay_drop": 0.12,
                     "reservoir_parameter_digest": "e" * 64,
                     "artifact_root_digest": artifact_digest,
+                    "delay_registration_digest":
+                        delay_registration.digest,
                     "pair_set_digest": pair_set.pair_digest,
                     "pair_diagnostics": pair_diagnostics,
                 }
@@ -291,6 +296,7 @@ def _measurement(artifact_digest: str) -> dict[str, object]:
     return {
         "registered_measurement": True,
         "manifest": registered_manifest_payload(artifact_digest),
+        "delay_registration_digest": delay_registration.digest,
         "arms": arms,
         "median_long_delay_delta": 0.10,
         "positive_arm_count": 20,
