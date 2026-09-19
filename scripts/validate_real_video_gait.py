@@ -35,17 +35,17 @@ RTMW_MODEL = (
 SCENARIOS = {
     "standing": {
         "filename": "person15_handclapping_d1_uncomp.avi",
-        "end_frame": 65,
+        "end_frame": 312,
         "expected": "standing",
     },
     "walking": {
         "filename": "person15_walking_d1_uncomp.avi",
-        "end_frame": 105,
+        "end_frame": 741,
         "expected": "walking",
     },
     "jogging": {
         "filename": "person15_jogging_d1_uncomp.avi",
-        "end_frame": 75,
+        "end_frame": 420,
         "expected": "running",
     },
 }
