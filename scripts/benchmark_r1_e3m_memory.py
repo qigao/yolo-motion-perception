@@ -22,6 +22,7 @@ from neural_state_machine.r1_e3m_evidence import (
     verify_evidence,
     write_measurement,
 )
+from neural_state_machine.r1_e3m_pairs import build_history_pairs
 from neural_state_machine.r1_e3m_probe import DELAYS
 
 
@@ -107,6 +108,10 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "protocol":
         dataset = load_mechanism_dataset(args.artifact_root)
+        pair_set = build_history_pairs(
+            dataset.training,
+            dataset.evaluation,
+        )
         _print(
             {
                 "registered_measurement": False,
@@ -115,6 +120,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                     dataset.artifact_root_digest,
                 "arm_count": ARM_COUNT,
                 "delays": list(DELAYS),
+                "history_pair_digest": pair_set.pair_digest,
+                "history_pair_count": len(pair_set.pairs),
+                "history_prefix_threshold":
+                    pair_set.prefix_threshold,
                 "protocol": registered_manifest_payload(
                     dataset.artifact_root_digest
                 ),
@@ -124,10 +133,15 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "prepare":
         dataset = load_mechanism_dataset(args.artifact_root)
+        pair_set = build_history_pairs(
+            dataset.training,
+            dataset.evaluation,
+        )
         prepared = prepare_prospective(
             args.output,
             scientific_head=args.scientific_head,
             artifact_root_digest=dataset.artifact_root_digest,
+            history_pair_set=pair_set,
         )
         _print(prepared)
         return 0
@@ -162,6 +176,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
 
         dataset = load_mechanism_dataset(args.artifact_root)
+        pair_set = build_history_pairs(
+            dataset.training,
+            dataset.evaluation,
+        )
         sealed_artifact_digest = manifest.get(
             "artifact_root_digest"
         )
@@ -170,6 +188,21 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "artifact root digest mismatch: "
                 f"sealed={sealed_artifact_digest!r} "
                 f"current={dataset.artifact_root_digest!r}"
+            )
+
+        sealed_pair_meta = manifest.get("history_pairs")
+        if not isinstance(sealed_pair_meta, dict):
+            raise SystemExit("sealed manifest history_pairs is missing")
+        if pair_set.pair_digest != sealed_pair_meta.get("pair_digest"):
+            raise SystemExit("history pair digest mismatch before measurement")
+        if len(pair_set.pairs) != sealed_pair_meta.get("pair_count"):
+            raise SystemExit("history pair count mismatch before measurement")
+        if (
+            pair_set.prefix_threshold
+            != sealed_pair_meta.get("prefix_threshold")
+        ):
+            raise SystemExit(
+                "history pair threshold mismatch before measurement"
             )
 
         try:
@@ -202,6 +235,17 @@ def main(argv: Sequence[str] | None = None) -> int:
             raise SystemExit(
                 "prospective verifier artifact root digest mismatch"
             )
+        if (
+            preflight.get("history_pair_digest")
+            != pair_set.pair_digest
+            or preflight.get("history_pair_count")
+            != len(pair_set.pairs)
+            or preflight.get("history_prefix_threshold")
+            != pair_set.prefix_threshold
+        ):
+            raise SystemExit(
+                "prospective verifier history pair seal mismatch"
+            )
 
         if (
             manifest.get("python") != platform.python_version()
@@ -211,7 +255,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "measurement runtime does not match sealed manifest"
             )
 
-        result = run_registered_memory_benchmark(dataset)
+        result = run_registered_memory_benchmark(
+            dataset,
+            pair_set,
+        )
         measurement = _measurement_payload(
             result,
             dataset.artifact_root_digest,
