@@ -1,0 +1,135 @@
+name: R1-E3A batch 1 semantic review freeze
+
+on:
+  push:
+    branches:
+      - research/r1-e3a-annotation-freeze
+    paths:
+      - docs/r1-e3/reviews/batch1-semantic-review.json
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+  issues: write
+
+concurrency:
+  group: r1-e3a-batch1-semantic-review-freeze
+  cancel-in-progress: false
+
+jobs:
+  freeze:
+    name: Validate and freeze human semantic review
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout annotation branch
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Download frozen Batch-1 metadata only
+        uses: actions/download-artifact@v4
+        with:
+          name: r1-e3a-meva-source-batch1-metadata
+          path: _r1-e3a-freeze-input
+          github-token: ${{ github.token }}
+          repository: qigao/yolo-motion-perception
+          run-id: 35434084445
+
+      - name: Verify frozen source-manifest identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          manifest="_r1-e3a-freeze-input/r1_e3a_source_video_manifest.json"
+          expected="1db8cc200ba9eaab2c14ed260b06ed582ed75d54f57c3036e1312cd2f184f4cf"
+          actual="$(sha256sum "$manifest" | awk '{print $1}')"
+          test "$actual" = "$expected"
+
+      - name: Validate completed human review
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p _r1-e3a-freeze-output
+          python tools/r1_e3a_annotation_freeze.py \
+            --review docs/r1-e3/reviews/batch1-semantic-review.json \
+            --manifest _r1-e3a-freeze-input/r1_e3a_source_video_manifest.json \
+            --handbook docs/r1-e3/acquisition-annotation-handbook.md \
+            --sampling-protocol docs/r1-e3/annotation-sampling-protocol.md \
+            --output _r1-e3a-freeze-output/batch1-semantic-freeze-summary.json
+
+      - name: Freeze file identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          (
+            sha256sum docs/r1-e3/reviews/batch1-semantic-review.json
+            sha256sum docs/r1-e3/acquisition-annotation-handbook.md
+            sha256sum docs/r1-e3/annotation-sampling-protocol.md
+            sha256sum _r1-e3a-freeze-input/r1_e3a_source_video_manifest.json
+            sha256sum _r1-e3a-freeze-output/batch1-semantic-freeze-summary.json
+          ) | tee _r1-e3a-freeze-output/batch1-semantic-freeze.sha256
+
+      - name: Upload frozen semantic review evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: r1-e3a-batch1-semantic-review-freeze
+          path: _r1-e3a-freeze-output/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Report freeze result to issue 11
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY' > _r1-e3a-freeze-output/issue11-freeze-status.md
+          import json
+          import os
+          from pathlib import Path
+
+          summary = json.loads(
+              Path("_r1-e3a-freeze-output/batch1-semantic-freeze-summary.json")
+              .read_text(encoding="utf-8")
+          )
+          print("R1-E3A Batch-1 human semantic review freeze passed.")
+          print()
+          print(f"- workflow run: {os.environ['GITHUB_RUN_ID']}")
+          print(f"- annotation branch head: {os.environ['GITHUB_SHA']}")
+          print(f"- review SHA-256: {summary['review_sha256']}")
+          print(f"- source manifest SHA-256: {summary['source_manifest_sha256']}")
+          print(f"- handbook SHA-256: {summary['handbook_sha256']}")
+          print(f"- sampling protocol SHA-256: {summary['sampling_protocol_sha256']}")
+          print(f"- physical events reviewed: {summary['physical_event_count']}")
+          print(f"- registration minima met: {summary['registration_minima_met']}")
+          print(f"- next batch required: {summary['next_batch_required']}")
+          print()
+          print("| split | approach | touch | pick_up | pass_by |")
+          print("| --- | ---: | ---: | ---: | ---: |")
+          for split in ("train", "eval"):
+              counts = summary["accepted"][split]
+              print(
+                  f"| {split} | {counts['approach']} | {counts['touch']} | "
+                  f"{counts['pick_up']} | {counts['pass_by']} |"
+              )
+          print()
+          print(
+              "No YOLO11/BoT-SORT extraction, prospective sealing, or registered "
+              "R1-E3 measurement ran in this workflow."
+          )
+          PY
+          gh issue comment 11 --repo qigao/yolo-motion-perception \
+            --body-file _r1-e3a-freeze-output/issue11-freeze-status.md
+
+      - name: Report freeze failure to issue 11
+        if: ${{ failure() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue comment 11 --repo qigao/yolo-motion-perception \
+            --body "R1-E3A Batch-1 human semantic review freeze failed at head $GITHUB_SHA in workflow run $GITHUB_RUN_ID. No extraction, prospective sealing, or registered measurement is authorized from this run."
